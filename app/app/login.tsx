@@ -1,23 +1,24 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Image, Platform } from 'react-native';
+/**
+ * Login Screen - Premium Glassmorphism Design
+ * Authentication with glass card aesthetic
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, Image, Animated, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Screen,
+    GlassCard,
+    GradientButton,
     AppInput,
-    AppButton,
     AppHeading,
     AppText,
-    AppCard,
     Spacer,
     InlineLoading,
-    Divider,
 } from '@/components/ui';
-// OAuth temporarily disabled - uncomment when using development build
-// import { GoogleSignInButton, AppleSignInButton } from '@/components/auth';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, radius, glow } from '@/theme';
 
-const BG = require('@/assets/images/interface/background-starry.png');
 const LOGO = require('@/assets/images/interface/logo.png');
 
 export default function Login() {
@@ -26,16 +27,25 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [pwd, setPwd] = useState('');
     const [error, setError] = useState<string | undefined>();
-    const [oauthLoading, setOauthLoading] = useState(false);
 
-    function handleOAuthSuccess() {
-        router.replace('/(tabs)');
-    }
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(40)).current;
 
-    function handleOAuthError(errorMessage: string) {
-        setError(errorMessage);
-        setOauthLoading(false);
-    }
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.spring(slideAnim, {
+                toValue: 0,
+                friction: 8,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, []);
 
     async function handleLogin() {
         if (!email || !pwd) {
@@ -55,133 +65,193 @@ export default function Login() {
     }
 
     return (
-        <Screen variant="form" backgroundImage={BG}>
-            <Spacer size="2xl" />
+        <Screen variant="form" backgroundVariant="cosmic">
+            <KeyboardAvoidingView
+                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                {/* Decorative orb */}
+                <View style={styles.orbTop} />
 
-            {/* Header with Logo */}
-            <View style={styles.header}>
-                <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-                <Spacer size="lg" />
-                <AppHeading variant="h1" align="center">
-                    Connexion
-                </AppHeading>
-                <Spacer size="sm" />
-                <AppText variant="body" color="muted" align="center">
-                    Accédez à votre univers astrologique
-                </AppText>
-            </View>
+                <Spacer size="2xl" />
 
-            <Spacer size="2xl" />
+                {/* Header with Logo */}
+                <Animated.View
+                    style={[
+                        styles.header,
+                        {
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideAnim }],
+                        },
+                    ]}
+                >
+                    <View style={styles.logoGlow} />
+                    <View style={styles.logoContainer}>
+                        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+                    </View>
+                    <Spacer size="lg" />
+                    <AppHeading variant="h1" align="center">
+                        Connexion
+                    </AppHeading>
+                    <Spacer size="xs" />
+                    <AppText variant="body" color="muted" align="center">
+                        Accédez à votre univers astrologique
+                    </AppText>
+                </Animated.View>
 
-            {/* Form Card */}
-            <AppCard variant="elevated" style={styles.formCard}>
-                <AppInput
-                    label="Email"
-                    placeholder="vous@exemple.com"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    value={email}
-                    onChangeText={setEmail}
-                    disabled={isLoading}
-                />
+                <Spacer size="2xl" />
 
-                <Spacer size="lg" />
+                {/* Form Card */}
+                <Animated.View
+                    style={{
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideAnim }],
+                    }}
+                >
+                    <GlassCard variant="elevated" padding="xl" style={styles.formCard}>
+                        <AppInput
+                            label="Email"
+                            placeholder="vous@exemple.com"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            value={email}
+                            onChangeText={setEmail}
+                            disabled={isLoading}
+                        />
 
-                <AppInput
-                    label="Mot de passe"
-                    placeholder="••••••••"
-                    secureTextEntry
-                    value={pwd}
-                    onChangeText={setPwd}
-                    disabled={isLoading}
-                />
-
-                {!!error && (
-                    <>
                         <Spacer size="lg" />
-                        <View style={styles.errorContainer}>
-                            <AppText variant="body" color="error" align="center">
-                                {error}
+
+                        <AppInput
+                            label="Mot de passe"
+                            placeholder="••••••••"
+                            secureTextEntry
+                            value={pwd}
+                            onChangeText={setPwd}
+                            disabled={isLoading}
+                        />
+
+                        {!!error && (
+                            <>
+                                <Spacer size="lg" />
+                                <View style={styles.errorContainer}>
+                                    <AppText variant="body" color="error" align="center">
+                                        {error}
+                                    </AppText>
+                                </View>
+                            </>
+                        )}
+                    </GlassCard>
+                </Animated.View>
+
+                <Spacer size="2xl" />
+
+                {/* Actions */}
+                <Animated.View
+                    style={[
+                        styles.actions,
+                        {
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideAnim }],
+                        },
+                    ]}
+                >
+                    {isLoading ? (
+                        <View style={styles.loadingContainer}>
+                            <InlineLoading />
+                            <Spacer size="md" />
+                            <AppText variant="body" color="muted">
+                                Connexion en cours...
                             </AppText>
                         </View>
-                    </>
-                )}
-            </AppCard>
-
-            <Spacer size="2xl" />
-
-            {/* Actions */}
-            {isLoading || oauthLoading ? (
-                <View style={styles.loadingContainer}>
-                    <InlineLoading />
-                    <Spacer size="md" />
-                    <AppText variant="body" color="muted">
-                        Connexion en cours...
-                    </AppText>
-                </View>
-            ) : (
-                <>
-                    <AppButton
-                        title="Se connecter"
-                        onPress={handleLogin}
-                        variant="primary"
-                    />
-
-                    {/* OAuth temporarily disabled - requires development build
-                    <Spacer size="xl" />
-                    <Divider text="ou" spacing="none" />
-                    <Spacer size="xl" />
-                    <GoogleSignInButton
-                        onSuccess={handleOAuthSuccess}
-                        onError={handleOAuthError}
-                    />
-                    {Platform.OS === 'ios' && (
+                    ) : (
                         <>
-                            <Spacer size="md" />
-                            <AppleSignInButton
-                                onSuccess={handleOAuthSuccess}
-                                onError={handleOAuthError}
+                            <GradientButton
+                                title="Se connecter"
+                                onPress={handleLogin}
+                                variant="primary"
+                                size="large"
+                            />
+
+                            <Spacer size="xl" />
+
+                            <View style={styles.signupPrompt}>
+                                <AppText variant="body" color="muted">
+                                    Pas encore de compte ?
+                                </AppText>
+                            </View>
+                            <Spacer size="sm" />
+                            <GradientButton
+                                title="Créer un compte"
+                                onPress={() => router.push('/signup')}
+                                variant="outline"
                             />
                         </>
                     )}
-                    */}
+                </Animated.View>
 
-                    <Spacer size="xl" />
-                    <View style={styles.signupPrompt}>
-                        <AppText variant="body" color="muted">
-                            Pas encore de compte ?
-                        </AppText>
-                    </View>
-                    <Spacer size="sm" />
-                    <AppButton
-                        title="Créer un compte"
-                        onPress={() => router.push('/signup')}
-                        variant="outline"
-                    />
-                </>
-            )}
-
-            <Spacer size="3xl" />
+                <Spacer size="3xl" />
+            </KeyboardAvoidingView>
         </Screen>
     );
 }
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    orbTop: {
+        position: 'absolute',
+        top: -100,
+        right: -50,
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: glow.primary,
+        opacity: 0.3,
+    },
     header: {
         alignItems: 'center',
+        position: 'relative',
     },
-    logo: {
+    logoGlow: {
+        position: 'absolute',
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: glow.primary,
+        top: -5,
+    },
+    logoContainer: {
         width: 80,
         height: 80,
+        borderRadius: 40,
+        backgroundColor: colors.surface.glass,
+        borderWidth: 1,
+        borderColor: colors.surface.glassBorder,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.brand.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    logo: {
+        width: 50,
+        height: 50,
     },
     formCard: {
-        padding: spacing.xl,
+        borderWidth: 1,
+        borderColor: colors.surface.glassBorder,
     },
     errorContainer: {
         backgroundColor: colors.status.errorSoft,
-        borderRadius: 8,
+        borderRadius: radius.md,
         padding: spacing.md,
+    },
+    actions: {
+        paddingHorizontal: spacing.md,
     },
     loadingContainer: {
         alignItems: 'center',

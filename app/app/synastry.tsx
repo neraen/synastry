@@ -1,4 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+/**
+ * Synastry Screen - Premium Glassmorphism Design
+ * Compatibility analysis input form
+ */
+
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     View,
     StyleSheet,
@@ -6,37 +11,40 @@ import {
     FlatList,
     Modal,
     Platform,
-    ActivityIndicator,
+    Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Screen,
+    GlassCard,
+    GradientButton,
     AppInput,
-    AppButton,
     AppHeading,
     AppText,
-    AppCard,
     Spacer,
-    ScoreText,
     LoadingState,
+    InlineLoading,
     AppDatePicker,
     AppTimePicker,
+    ZodiacCircle,
+    ZodiacPair,
+    ProgressBar,
+    ScoreRow,
+    getZodiacSign,
     CopyableText,
     CompatibilityShareButton,
 } from '@/components/ui';
 import { calculateSynastry, SynastryResponse } from '@/services/astrology';
 import { searchCities, CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
-import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { colors, spacing, radius, glow, gradients } from '@/theme';
 
-const BG = require('@/assets/images/interface/background-starry.png');
-
-// Score color based on value
-function getScoreColor(score: number): string {
-    if (score >= 80) return colors.status.success;
-    if (score >= 60) return colors.brand.primary;
-    if (score >= 40) return colors.status.warning;
-    return colors.status.error;
+// Score gradient based on value
+function getScoreGradient(score: number): readonly string[] {
+    if (score >= 80) return gradients.primary;
+    if (score >= 60) return gradients.gold;
+    if (score >= 40) return gradients.fire;
+    return ['#EF4444', '#DC2626'];
 }
 
 export default function SynastryScreen() {
@@ -64,10 +72,28 @@ export default function SynastryScreen() {
     const [showCityModal, setShowCityModal] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
 
+    // Animation
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.spring(scaleAnim, {
+                toValue: 1,
+                friction: 8,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [result]);
+
     // Redirect if not authenticated or no birth profile
     useEffect(() => {
         if (isAuthLoading) return;
-
         if (!isAuthenticated) {
             router.replace('/login');
         } else if (user && !user.hasBirthProfile) {
@@ -99,7 +125,7 @@ export default function SynastryScreen() {
         setLatitude(city.latitude);
         setLongitude(city.longitude);
         setTimezone(city.timezone);
-        setTimezoneName(city.timezoneName); // Store for accurate calculation
+        setTimezoneName(city.timezoneName);
         setShowCityModal(false);
         setCityQuery('');
         setCityResults([]);
@@ -108,17 +134,14 @@ export default function SynastryScreen() {
     async function handleAnalyze() {
         setError(undefined);
 
-        // Validation
         if (!partnerName.trim()) {
             setError('Le prénom du partenaire est requis');
             return;
         }
-
         if (!birthDate) {
             setError('La date de naissance est requise');
             return;
         }
-
         if (!birthCity || latitude === null || longitude === null) {
             setError('Veuillez sélectionner une ville de naissance');
             return;
@@ -127,7 +150,6 @@ export default function SynastryScreen() {
         setIsLoading(true);
 
         try {
-            // Recalculate timezone for the partner's birth date (summer/winter time)
             let finalTimezone = timezone;
             if (timezoneName && birthDate) {
                 finalTimezone = calculateTimezoneForBirthDate(timezoneName, birthDate);
@@ -167,155 +189,163 @@ export default function SynastryScreen() {
         setTimezone(null);
         setTimezoneName(null);
         setQuestion('');
+        fadeAnim.setValue(0);
+        scaleAnim.setValue(0.9);
     }
 
-    // Show loading while auth is loading
-    if (isAuthLoading) {
+    // Loading states
+    if (isAuthLoading || !user?.hasBirthProfile) {
         return (
-            <Screen backgroundImage={BG}>
+            <Screen backgroundVariant="cosmic">
                 <LoadingState message="Chargement..." />
-            </Screen>
-        );
-    }
-
-    // Don't render if user doesn't have birth profile (will redirect)
-    if (!user?.hasBirthProfile) {
-        return (
-            <Screen backgroundImage={BG}>
-                <LoadingState message="Redirection..." />
             </Screen>
         );
     }
 
     // Results view
     if (result) {
-        const score = result.compatibilityScore;
+        const score = result.compatibilityScore ?? 0;
         const userName = result.user?.name || 'Vous';
         const partnerDisplayName = result.partner?.name || partnerName;
+        const userSign = getZodiacSign(result.user?.chart?.planetaryPositions?.Sun?.Sign || 'aries');
+        const partnerSign = getZodiacSign(result.partner?.positions?.Sun?.Sign || 'aries');
+        const dimensions = result.details?.dimensions || {};
 
         return (
-            <Screen variant="scroll" backgroundImage={BG}>
-                <Spacer size="xl" />
+            <Screen variant="scroll" backgroundVariant="cosmic">
+                <Animated.View
+                    style={{
+                        opacity: fadeAnim,
+                        transform: [{ scale: scaleAnim }],
+                    }}
+                >
+                    <Spacer size="lg" />
 
-                {/* Header */}
-                <View style={styles.resultsHeader}>
-                    <AppHeading variant="h2" align="center">
-                        Compatibilité Astrologique
+                    <AppHeading variant="h2" align="center" style={styles.title}>
+                        Compatibilité
                     </AppHeading>
-                </View>
 
-                <Spacer size="xl" />
+                    <Spacer size="xl" />
 
-                {/* Couple Names with Heart */}
-                <View style={styles.coupleContainer}>
-                    <View style={styles.personBadge}>
-                        <AppText variant="bodyMedium" color="primary">
-                            {userName}
-                        </AppText>
+                    {/* Zodiac Pair */}
+                    <View style={styles.zodiacSection}>
+                        <ZodiacCircle sign={userSign} size="large" showName showGlow />
+                        <View style={styles.heartContainer}>
+                            <View style={styles.heartGlow} />
+                            <AppText style={styles.heart}>❤️</AppText>
+                        </View>
+                        <ZodiacCircle sign={partnerSign} size="large" showName showGlow />
                     </View>
-                    <View style={styles.heartContainer}>
-                        <AppText style={styles.heartEmoji}>💕</AppText>
-                    </View>
-                    <View style={styles.personBadge}>
-                        <AppText variant="bodyMedium" color="primary">
-                            {partnerDisplayName}
-                        </AppText>
-                    </View>
-                </View>
 
-                {/* Score Display */}
-                {score !== undefined && score !== null && (
-                    <>
-                        <Spacer size="2xl" />
-                        <View style={styles.scoreContainer}>
-                            <View style={[styles.scoreCircle, { borderColor: getScoreColor(score) }]}>
-                                <ScoreText style={{ color: getScoreColor(score) }}>
-                                    {score}
-                                </ScoreText>
-                                <AppText variant="caption" color="muted">
-                                    sur 100
-                                </AppText>
+                    <Spacer size="sm" />
+
+                    <View style={styles.namesRow}>
+                        <AppText variant="bodyMedium" color="secondary">{userName}</AppText>
+                        <AppText variant="bodyMedium" color="muted">&</AppText>
+                        <AppText variant="bodyMedium" color="secondary">{partnerDisplayName}</AppText>
+                    </View>
+
+                    <Spacer size="2xl" />
+
+                    {/* Main Score Card */}
+                    <GlassCard variant="elevated" glowColor={glow.primary} padding="xl">
+                        <View style={styles.scoreSection}>
+                            <AppText variant="body" color="muted">Compatibilité</AppText>
+                            <View style={styles.scoreRow}>
+                                <AppHeading variant="display" style={styles.scoreValue}>
+                                    {Math.round(score)}
+                                </AppHeading>
+                                <AppText variant="h3" color="muted">%</AppText>
                             </View>
-                            <Spacer size="md" />
-                            <AppHeading variant="titleSmall" color="accent" align="center">
-                                {score >= 80 ? 'Excellente compatibilite !' :
-                                 score >= 60 ? 'Bonne compatibilite' :
-                                 score >= 40 ? 'Compatibilite moyenne' :
-                                 'Defis a relever'}
-                            </AppHeading>
+                            <ProgressBar
+                                value={score}
+                                height={8}
+                                gradientColors={getScoreGradient(score)}
+                                style={styles.mainProgressBar}
+                            />
                         </View>
 
-                        {/* Share Button */}
-                        {result.historyId && (
+                        {/* Dimensions */}
+                        {Object.keys(dimensions).length > 0 && (
                             <>
-                                <Spacer size="lg" />
-                                <View style={styles.shareButtonContainer}>
-                                    <CompatibilityShareButton
-                                        compatibilityId={result.historyId}
-                                        nameOne={userName}
-                                        nameTwo={partnerDisplayName}
-                                        score={score}
-                                        sunOne={result.user?.chart?.planetaryPositions?.Sun?.Sign}
-                                        sunTwo={result.partner?.positions?.Sun?.Sign}
-                                        moonOne={result.user?.chart?.planetaryPositions?.Moon?.Sign}
-                                        moonTwo={result.partner?.positions?.Moon?.Sign}
-                                        summary={result.analysis?.slice(0, 200)}
-                                    />
+                                <Spacer size="xl" />
+                                <View style={styles.dimensionsSection}>
+                                    {Object.entries(dimensions).map(([key, data]: [string, any]) => (
+                                        <ScoreRow
+                                            key={key}
+                                            label={key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}
+                                            value={data.score || 0}
+                                        />
+                                    ))}
                                 </View>
                             </>
                         )}
-                    </>
-                )}
 
-                <Spacer size="2xl" />
+                        <Spacer size="lg" />
 
-                {/* Section Divider */}
-                <View style={styles.sectionHeader}>
-                    <View style={styles.sectionLine} />
-                    <AppText variant="label" color="accent" style={styles.sectionTitle}>
-                        ANALYSE DÉTAILLÉE
-                    </AppText>
-                    <View style={styles.sectionLine} />
-                </View>
+                        <GradientButton
+                            title="Nouvelle analyse"
+                            onPress={handleNewAnalysis}
+                            variant="primary"
+                        />
+                    </GlassCard>
 
-                <Spacer size="lg" />
+                    <Spacer size="xl" />
 
-                {/* Analysis Card */}
-                <AppCard variant="elevated" style={styles.analysisCard}>
-                    <CopyableText text={result.analysis || ''} style={styles.analysisText}>
-                        <AppText variant="body" color="secondary" style={styles.analysisText}>
-                            {result.analysis}
-                        </AppText>
-                    </CopyableText>
-                </AppCard>
+                    {/* Share */}
+                    {result.historyId && (
+                        <View style={styles.shareSection}>
+                            <CompatibilityShareButton
+                                compatibilityId={result.historyId}
+                                nameOne={userName}
+                                nameTwo={partnerDisplayName}
+                                score={score}
+                                sunOne={result.user?.chart?.planetaryPositions?.Sun?.Sign}
+                                sunTwo={result.partner?.positions?.Sun?.Sign}
+                                summary={result.analysis?.slice(0, 200)}
+                            />
+                        </View>
+                    )}
 
-                <Spacer size="2xl" />
+                    <Spacer size="xl" />
 
-                {/* Actions */}
-                <AppButton
-                    title="Nouvelle analyse"
-                    onPress={handleNewAnalysis}
-                    variant="primary"
-                />
-                <Spacer size="md" />
-                <AppButton
-                    title="Retour à l'accueil"
-                    onPress={() => router.replace('/(tabs)')}
-                    variant="outline"
-                />
+                    {/* Analysis */}
+                    <GlassCard padding="lg">
+                        <View style={styles.cardHeader}>
+                            <AppText style={styles.cardIcon}>📖</AppText>
+                            <AppText variant="label" color="accent">ANALYSE</AppText>
+                        </View>
+                        <Spacer size="md" />
+                        <CopyableText text={result.analysis || ''}>
+                            <AppText variant="body" color="secondary" style={styles.analysisText}>
+                                {result.analysis}
+                            </AppText>
+                        </CopyableText>
+                    </GlassCard>
 
-                <Spacer size="3xl" />
+                    <Spacer size="xl" />
+
+                    <GradientButton
+                        title="Voir les détails"
+                        onPress={() => router.push(`/synastry-detail?id=${result.historyId}`)}
+                        variant="outline"
+                    />
+
+                    <Spacer size="3xl" />
+                </Animated.View>
             </Screen>
         );
     }
 
     // Form view
     return (
-        <Screen variant="form" backgroundImage={BG}>
-            <Spacer size="xl" />
+        <Screen variant="form" backgroundVariant="cosmic">
+            <Spacer size="lg" />
 
             {/* Header */}
             <View style={styles.formHeader}>
+                <AppText style={styles.headerIcon}>💫</AppText>
+                <Spacer size="md" />
                 <AppHeading variant="h1" align="center">
                     Analyse de compatibilité
                 </AppHeading>
@@ -328,7 +358,7 @@ export default function SynastryScreen() {
             <Spacer size="2xl" />
 
             {/* Form Card */}
-            <AppCard variant="elevated" style={styles.formCard}>
+            <GlassCard variant="elevated" padding="xl">
                 <AppInput
                     label="Prénom du partenaire"
                     placeholder="Ex: Marie"
@@ -366,28 +396,22 @@ export default function SynastryScreen() {
                         Lieu de naissance
                     </AppText>
                     <TouchableOpacity
-                        style={[
-                            styles.citySelector,
-                            birthCity && styles.citySelectorFilled,
-                        ]}
+                        style={[styles.citySelector, birthCity && styles.citySelectorFilled]}
                         onPress={() => setShowCityModal(true)}
                         disabled={isLoading}
                     >
-                        <AppText
-                            variant="input"
-                            color={birthCity ? 'primary' : 'muted'}
-                        >
+                        <AppText variant="input" color={birthCity ? 'primary' : 'muted'}>
                             {birthCity || 'Rechercher une ville...'}
                         </AppText>
                         <AppText style={styles.searchIcon}>🔍</AppText>
                     </TouchableOpacity>
                 </View>
-            </AppCard>
+            </GlassCard>
 
-            <Spacer size="xl" />
+            <Spacer size="lg" />
 
             {/* Optional Question */}
-            <AppCard variant="outline" style={styles.optionalCard}>
+            <GlassCard padding="lg">
                 <AppText variant="label" color="accent">
                     Question spécifique (optionnel)
                 </AppText>
@@ -399,16 +423,16 @@ export default function SynastryScreen() {
                     disabled={isLoading}
                     multiline
                 />
-            </AppCard>
+            </GlassCard>
 
             {!!error && (
                 <>
                     <Spacer size="lg" />
-                    <AppCard variant="outline" style={styles.errorCard}>
+                    <GlassCard padding="md" style={styles.errorCard}>
                         <AppText variant="body" color="error" align="center">
                             {error}
                         </AppText>
-                    </AppCard>
+                    </GlassCard>
                 </>
             )}
 
@@ -417,25 +441,26 @@ export default function SynastryScreen() {
             {/* Actions */}
             {isLoading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.brand.primary} />
+                    <InlineLoading />
                     <Spacer size="lg" />
                     <AppText variant="body" color="muted" align="center">
                         Analyse en cours...
                     </AppText>
-                    <Spacer size="xs" />
                     <AppText variant="caption" color="muted" align="center">
                         Cela peut prendre quelques secondes
                     </AppText>
                 </View>
             ) : (
                 <>
-                    <AppButton
+                    <GradientButton
                         title="Analyser la compatibilité"
                         onPress={handleAnalyze}
                         variant="primary"
+                        size="large"
+                        icon={<AppText style={styles.buttonIcon}>✨</AppText>}
                     />
                     <Spacer size="md" />
-                    <AppButton
+                    <GradientButton
                         title="Retour"
                         onPress={() => router.back()}
                         variant="ghost"
@@ -474,7 +499,7 @@ export default function SynastryScreen() {
 
                     {isSearching && (
                         <View style={styles.searchingIndicator}>
-                            <ActivityIndicator color={colors.brand.primary} />
+                            <InlineLoading />
                         </View>
                     )}
 
@@ -502,10 +527,6 @@ export default function SynastryScreen() {
                                     <AppText variant="body" color="muted" align="center">
                                         Aucun résultat
                                     </AppText>
-                                    <Spacer size="sm" />
-                                    <AppText variant="caption" color="muted" align="center">
-                                        Essayez un autre nom de ville
-                                    </AppText>
                                 </View>
                             ) : null
                         }
@@ -521,11 +542,8 @@ const styles = StyleSheet.create({
     formHeader: {
         alignItems: 'center',
     },
-    formCard: {
-        padding: spacing.xl,
-    },
-    optionalCard: {
-        padding: spacing.lg,
+    headerIcon: {
+        fontSize: 48,
     },
     label: {
         marginBottom: spacing.sm,
@@ -534,90 +552,97 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: colors.input.background,
+        backgroundColor: colors.surface.glass,
         borderWidth: 1,
-        borderColor: colors.input.border,
-        borderRadius: borderRadius.input,
-        paddingHorizontal: spacing.inputPadding,
-        paddingVertical: spacing.inputPadding,
+        borderColor: colors.surface.glassBorder,
+        borderRadius: radius.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
         minHeight: 52,
     },
     citySelectorFilled: {
-        borderColor: colors.border.focus,
+        borderColor: colors.brand.primary,
     },
     searchIcon: {
         fontSize: 16,
     },
     errorCard: {
         borderColor: colors.status.error,
-        padding: spacing.lg,
+        borderWidth: 1,
     },
     loadingContainer: {
         alignItems: 'center',
         paddingVertical: spacing.xl,
     },
+    buttonIcon: {
+        fontSize: 18,
+    },
 
     // Results styles
-    resultsHeader: {
-        alignItems: 'center',
+    title: {
+        letterSpacing: 1,
     },
-    coupleContainer: {
+    zodiacSection: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: spacing.md,
-    },
-    personBadge: {
-        backgroundColor: colors.surface.elevated,
-        borderRadius: borderRadius.badge,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.border.subtle,
-        ...shadows.sm,
     },
     heartContainer: {
-        alignItems: 'center',
+        marginHorizontal: spacing.lg,
+        position: 'relative',
+    },
+    heartGlow: {
+        position: 'absolute',
+        top: -10,
+        left: -10,
+        right: -10,
+        bottom: -10,
+        borderRadius: 20,
+        backgroundColor: glow.pink,
+    },
+    heart: {
+        fontSize: 32,
+    },
+    namesRow: {
+        flexDirection: 'row',
         justifyContent: 'center',
+        alignItems: 'center',
+        gap: spacing.sm,
     },
-    heartEmoji: {
-        fontSize: 28,
-    },
-    scoreContainer: {
+    scoreSection: {
         alignItems: 'center',
     },
-    scoreCircle: {
-        width: 140,
-        height: 140,
-        borderRadius: 70,
-        borderWidth: 4,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surface.default,
-        ...shadows.md,
+    scoreRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
     },
-    shareButtonContainer: {
-        paddingHorizontal: spacing.xl,
+    scoreValue: {
+        fontSize: 64,
+        fontWeight: '700',
+        color: colors.text.primary,
     },
-    sectionHeader: {
+    mainProgressBar: {
+        width: '100%',
+        marginTop: spacing.md,
+    },
+    dimensionsSection: {
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.border.subtle,
+    },
+    shareSection: {
+        paddingHorizontal: spacing.md,
+    },
+    cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        gap: spacing.sm,
     },
-    sectionLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: colors.border.subtle,
-    },
-    sectionTitle: {
-        paddingHorizontal: spacing.lg,
-        letterSpacing: 1.5,
-    },
-    analysisCard: {
-        padding: spacing.xl,
+    cardIcon: {
+        fontSize: 18,
     },
     analysisText: {
-        lineHeight: 26,
+        lineHeight: 24,
     },
 
     // Modal styles

@@ -1,110 +1,185 @@
-import React from 'react';
-import { Image, View, StyleSheet } from 'react-native';
+/**
+ * Home Screen - Premium Glassmorphism Design
+ * Main landing page with cosmic aesthetic
+ */
+
+import React, { useEffect, useRef } from 'react';
+import { Image, View, StyleSheet, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Screen,
-    AppButton,
+    GlassCard,
+    GradientButton,
     AppHeading,
     AppText,
-    AppCard,
     Spacer,
 } from '@/components/ui';
-import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { colors, spacing, radius, gradients, glow } from '@/theme';
 
-const BG = require('@/assets/images/interface/background.png');
 const LOGO = require('@/assets/images/interface/logo.png');
-const MOON = require('@/assets/images/interface/moon-part.png');
-const HEARTS = require('@/assets/images/interface/double-heart.png');
 
 export default function Home() {
     const router = useRouter();
     const { user, isAuthenticated, logout, isLoading } = useAuth();
+
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
+    const logoScale = useRef(new Animated.Value(0.8)).current;
+    const glowAnim = useRef(new Animated.Value(0.3)).current;
+
+    useEffect(() => {
+        // Entry animations
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.spring(logoScale, {
+                toValue: 1,
+                friction: 8,
+                useNativeDriver: true,
+            }),
+        ]).start();
+
+        // Pulsing glow animation
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(glowAnim, {
+                    toValue: 0.6,
+                    duration: 2000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(glowAnim, {
+                    toValue: 0.3,
+                    duration: 2000,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    }, []);
 
     async function handleLogout() {
         await logout();
     }
 
     return (
-        <Screen variant="static" backgroundImage={BG}>
+        <Screen variant="static" backgroundVariant="cosmic">
+            {/* Decorative orbs */}
+            <Animated.View style={[styles.orbTopRight, { opacity: glowAnim }]} />
+            <Animated.View style={[styles.orbBottomLeft, { opacity: glowAnim }]} />
+
             {/* Header with Logo */}
-            <View style={styles.header}>
+            <Animated.View
+                style={[
+                    styles.header,
+                    {
+                        transform: [{ scale: logoScale }],
+                    },
+                ]}
+            >
+                <View style={styles.logoGlow} />
                 <View style={styles.logoContainer}>
                     <Image source={LOGO} style={styles.logo} resizeMode="contain" />
                 </View>
-            </View>
+            </Animated.View>
 
             {/* Center content */}
-            <View style={styles.centerBlock}>
-                <AppHeading variant="display" align="center">
-                    Astro Match
+            <Animated.View
+                style={[
+                    styles.centerBlock,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideAnim }],
+                    },
+                ]}
+            >
+                <AppHeading variant="display" align="center" style={styles.title}>
+                    AstroMatch
                 </AppHeading>
-                <Spacer size="md" />
-                <AppText variant="body" color="muted" align="center">
+                <Spacer size="sm" />
+                <AppText variant="body" color="muted" align="center" style={styles.subtitle}>
                     Découvrez votre compatibilité cosmique
                 </AppText>
 
                 {isAuthenticated && user && (
                     <>
                         <Spacer size="xl" />
-                        <View style={styles.userBadge}>
-                            <AppText variant="caption" color="muted">
+                        <GlassCard padding="md" style={styles.userBadge}>
+                            <AppText variant="caption" color="muted" align="center">
                                 Connecté en tant que
                             </AppText>
                             <Spacer size="xxs" />
-                            <AppText variant="bodyMedium" color="accent">
+                            <AppText variant="bodyMedium" color="primary" align="center">
                                 {user.email}
                             </AppText>
-                        </View>
+                        </GlassCard>
                     </>
                 )}
-            </View>
-
-            {/* Decorative elements */}
-            <Image source={MOON} style={styles.moon} resizeMode="contain" />
-            <Image source={HEARTS} style={styles.hearts} resizeMode="contain" />
+            </Animated.View>
 
             {/* Actions */}
-            <View style={styles.actions}>
+            <Animated.View
+                style={[
+                    styles.actions,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideAnim }],
+                    },
+                ]}
+            >
                 {isAuthenticated ? (
                     <>
                         {user?.hasBirthProfile ? (
                             <>
-                                <AppButton
-                                    title="Mon thème natal"
-                                    onPress={() => router.push('/natal-chart')}
-                                    variant="primary"
-                                />
-                                <Spacer size="md" />
-                                <AppButton
+                                <GradientButton
                                     title="Analyse de compatibilité"
                                     onPress={() => router.push('/synastry')}
-                                    variant="outline"
+                                    variant="primary"
+                                    size="large"
+                                    icon={<AppText style={styles.buttonIcon}>💫</AppText>}
                                 />
                                 <Spacer size="md" />
-                                <AppButton
-                                    title="Historique des analyses"
+                                <GradientButton
+                                    title="Mon thème natal"
+                                    onPress={() => router.push('/natal-chart')}
+                                    variant="secondary"
+                                />
+                                <Spacer size="md" />
+                                <GradientButton
+                                    title="Historique"
                                     onPress={() => router.push('/synastry-history')}
-                                    variant="ghost"
+                                    variant="outline"
                                 />
                             </>
                         ) : (
                             <>
-                                <AppCard variant="outline" style={styles.profilePrompt}>
-                                    <AppText variant="body" color="muted" align="center">
-                                        Complétez votre profil pour accéder à votre thème natal
+                                <GlassCard padding="lg" style={styles.profilePrompt}>
+                                    <AppText style={styles.promptIcon}>✨</AppText>
+                                    <Spacer size="sm" />
+                                    <AppText variant="body" color="secondary" align="center">
+                                        Complétez votre profil pour découvrir votre thème natal
                                     </AppText>
-                                </AppCard>
+                                </GlassCard>
                                 <Spacer size="lg" />
-                                <AppButton
+                                <GradientButton
                                     title="Compléter mon profil"
                                     onPress={() => router.push('/birth-profile')}
                                     variant="primary"
+                                    size="large"
                                 />
                             </>
                         )}
                         <Spacer size="lg" />
-                        <AppButton
+                        <GradientButton
                             title="Se déconnecter"
                             onPress={handleLogout}
                             variant="ghost"
@@ -113,74 +188,114 @@ export default function Home() {
                     </>
                 ) : (
                     <>
-                        <AppButton
-                            title="Créer un profil"
+                        <GradientButton
+                            title="Commencer"
                             onPress={() => router.push('/signup')}
                             variant="primary"
+                            size="large"
+                            icon={<AppText style={styles.buttonIcon}>🚀</AppText>}
                         />
                         <Spacer size="md" />
-                        <AppButton
-                            title="Se connecter"
+                        <GradientButton
+                            title="J'ai déjà un compte"
                             onPress={() => router.push('/login')}
                             variant="outline"
                         />
                     </>
                 )}
+            </Animated.View>
+
+            {/* Bottom tagline */}
+            <View style={styles.tagline}>
+                <AppText variant="caption" color="muted" align="center">
+                    Propulsé par l'intelligence artificielle
+                </AppText>
             </View>
         </Screen>
     );
 }
 
 const styles = StyleSheet.create({
+    // Decorative elements
+    orbTopRight: {
+        position: 'absolute',
+        top: -80,
+        right: -80,
+        width: 250,
+        height: 250,
+        borderRadius: 125,
+        backgroundColor: colors.brand.primary,
+    },
+    orbBottomLeft: {
+        position: 'absolute',
+        bottom: -60,
+        left: -100,
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: colors.accent.pink,
+    },
     header: {
         alignItems: 'center',
-        marginTop: spacing.xl,
+        marginTop: spacing['2xl'],
+        position: 'relative',
+    },
+    logoGlow: {
+        position: 'absolute',
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        backgroundColor: glow.primary,
+        top: -10,
     },
     logoContainer: {
-        padding: spacing.md,
-        borderRadius: borderRadius.badge,
-        backgroundColor: colors.surface.default,
-        ...shadows.glow.gold,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: colors.surface.glass,
+        borderWidth: 1,
+        borderColor: colors.surface.glassBorder,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.brand.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 24,
+        elevation: 12,
     },
     logo: {
-        width: 96,
-        height: 96,
+        width: 80,
+        height: 80,
     },
     centerBlock: {
         alignItems: 'center',
-        marginTop: spacing.xl,
+        marginTop: spacing['2xl'],
+        paddingHorizontal: spacing.xl,
+    },
+    title: {
+        letterSpacing: 2,
+    },
+    subtitle: {
+        maxWidth: 280,
     },
     userBadge: {
-        alignItems: 'center',
-        paddingHorizontal: spacing.xl,
-        paddingVertical: spacing.md,
-        backgroundColor: colors.surface.elevated,
-        borderRadius: borderRadius.card,
-        borderWidth: 1,
-        borderColor: colors.border.subtle,
-        ...shadows.sm,
+        minWidth: 200,
     },
     profilePrompt: {
-        padding: spacing.lg,
+        alignItems: 'center',
+    },
+    promptIcon: {
+        fontSize: 32,
     },
     actions: {
         marginTop: 'auto',
-        marginBottom: spacing['3xl'],
+        paddingHorizontal: spacing.screenPadding,
+        marginBottom: spacing.xl,
     },
-    moon: {
-        position: 'absolute',
-        right: 18,
-        top: 140,
-        width: 56,
-        height: 56,
-        opacity: 0.95,
+    buttonIcon: {
+        fontSize: 18,
     },
-    hearts: {
-        position: 'absolute',
-        left: 24,
-        bottom: 160,
-        width: 72,
-        height: 72,
-        opacity: 0.95,
+    tagline: {
+        paddingBottom: spacing.lg,
     },
 });

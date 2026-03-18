@@ -1,5 +1,6 @@
 /**
  * UI Components - Central export
+ * Premium Glassmorphism Design System
  */
 
 // Layout
@@ -17,12 +18,21 @@ export { CopyableText } from './CopyableText';
 
 // Buttons
 export { AppButton, IconButton } from './Button';
+export { GradientButton, LinkButton, IconButton as GlassIconButton } from './GradientButton';
 
 // Cards
 export { AppCard, ScoreCard, SectionCard } from './Card';
+export { GlassCard, GradientGlassCard } from './GlassCard';
 export { HoroscopeCard } from './HoroscopeCard';
 export { CompatibilityShareCard } from './CompatibilityShareCard';
 export { CompatibilityShareButton } from './CompatibilityShareButton';
+
+// Zodiac
+export { ZodiacCircle, ZodiacPair, getZodiacSign, ZODIAC_DATA } from './ZodiacCircle';
+export type { ZodiacSign } from './ZodiacCircle';
+
+// Progress
+export { ProgressBar, ScoreRow, CircularProgress } from './ProgressBar';
 
 // Spacing
 export {
@@ -52,7 +62,6 @@ export {
 } from './States';
 
 // Legacy exports (for backward compatibility during migration)
-// These will be removed after all screens are migrated
 export { default as TextField } from './TextField';
 export { default as ButtonPrimary } from './ButtonPrimary';
 export { default as ButtonOutline } from './ButtonOutline';

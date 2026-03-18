@@ -4,8 +4,8 @@
  * Central export for all design tokens
  */
 
-export { default as colors, colors as c } from './colors';
-export type { Colors } from './colors';
+export { default as colors, colors as c, gradients, accent, brand, status, zodiac, glow, glass, getColors } from './colors';
+export type { Colors, ThemeMode } from './colors';
 
 export { default as spacing, spacing as s, getSpacing, verticalGap } from './spacing';
 export type { Spacing } from './spacing';

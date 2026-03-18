@@ -1,36 +1,45 @@
+/**
+ * Synastry Detail Screen - Premium Glassmorphism Design
+ * Compatibility result display with zodiac circles and score bars
+ */
+
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Screen,
-    AppButton,
+    GlassCard,
+    GradientButton,
     AppHeading,
     AppText,
-    AppCard,
     Spacer,
     LoadingState,
     CopyableText,
+    ZodiacCircle,
+    ZodiacPair,
+    ProgressBar,
+    ScoreRow,
+    getZodiacSign,
     CompatibilityShareButton,
 } from '@/components/ui';
+import type { ZodiacSign } from '@/components/ui';
 import {
     getSynastryHistoryDetail,
     SynastryHistoryDetail,
     formatDegree,
     getPlanetNameFr,
 } from '@/services/astrology';
-import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { colors, spacing, radius, gradients, glow } from '@/theme';
 import { aiDisclaimerText } from '@/constants/legalTexts';
 
-const BG = require('@/assets/images/interface/background-starry.png');
-
-// Score color based on value
-function getScoreColor(score: number | null): string {
-    if (score === null) return colors.text.muted;
-    if (score >= 80) return colors.status.success;
-    if (score >= 60) return colors.brand.primary;
-    if (score >= 40) return colors.status.warning;
-    return colors.status.error;
+// Score color gradient based on value
+function getScoreGradient(score: number): readonly string[] {
+    if (score >= 80) return gradients.primary;
+    if (score >= 60) return gradients.gold;
+    if (score >= 40) return gradients.fire;
+    return ['#EF4444', '#DC2626'];
 }
 
 // Format date for display
@@ -40,24 +49,20 @@ function formatDate(dateString: string): string {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
     });
 }
 
-// Planet emoji mapping
-const planetEmojis: Record<string, string> = {
-    Sun: '☀️',
-    Moon: '🌙',
-    Mercury: '☿️',
-    Venus: '♀️',
-    Mars: '♂️',
-    Jupiter: '♃',
-    Saturn: '♄',
-    Uranus: '♅',
-    Neptune: '♆',
-    Ascendant: '⬆️',
-    MC: '🎯',
+// Dimension icons
+const dimensionIcons: Record<string, string> = {
+    amour: '💕',
+    love: '💕',
+    communication: '🗣️',
+    conflits: '⚡',
+    conflicts: '⚡',
+    long_terme: '💍',
+    long_term: '💍',
+    attirance: '🔥',
+    attraction: '🔥',
 };
 
 export default function SynastryDetailScreen() {
@@ -68,6 +73,10 @@ export default function SynastryDetailScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string>();
     const [history, setHistory] = useState<SynastryHistoryDetail | null>(null);
+
+    // Animation
+    const fadeAnim = useState(new Animated.Value(0))[0];
+    const scaleAnim = useState(new Animated.Value(0.9))[0];
 
     // Redirect if not authenticated
     useEffect(() => {
@@ -89,6 +98,19 @@ export default function SynastryDetailScreen() {
                 const response = await getSynastryHistoryDetail(parseInt(id, 10));
                 if (response.success && response.history) {
                     setHistory(response.history);
+                    // Animate in
+                    Animated.parallel([
+                        Animated.timing(fadeAnim, {
+                            toValue: 1,
+                            duration: 600,
+                            useNativeDriver: true,
+                        }),
+                        Animated.spring(scaleAnim, {
+                            toValue: 1,
+                            friction: 8,
+                            useNativeDriver: true,
+                        }),
+                    ]).start();
                 } else {
                     setError(response.error || 'Erreur lors du chargement');
                 }
@@ -106,7 +128,7 @@ export default function SynastryDetailScreen() {
 
     if (isAuthLoading || isLoading) {
         return (
-            <Screen backgroundImage={BG}>
+            <Screen backgroundVariant="cosmic">
                 <LoadingState message="Chargement de l'analyse..." />
             </Screen>
         );
@@ -114,288 +136,372 @@ export default function SynastryDetailScreen() {
 
     if (error || !history) {
         return (
-            <Screen variant="scroll" backgroundImage={BG}>
+            <Screen variant="scroll" backgroundVariant="cosmic">
                 <Spacer size="xl" />
-                <AppCard variant="outline" style={styles.errorCard}>
+                <GlassCard style={styles.errorCard}>
                     <AppText variant="body" color="error" align="center">
                         {error || 'Analyse introuvable'}
                     </AppText>
-                </AppCard>
+                </GlassCard>
                 <Spacer size="lg" />
-                <AppButton
+                <GradientButton
                     title="Retour"
                     onPress={() => router.back()}
-                    variant="ghost"
+                    variant="outline"
                 />
             </Screen>
         );
     }
 
-    const score = history.compatibilityScore;
+    const score = history.compatibilityScore ?? 0;
+    const userSign = getZodiacSign(history.userPositions?.Sun?.Sign || 'aries');
+    const partnerSign = getZodiacSign(history.partnerPositions?.Sun?.Sign || 'aries');
+
+    // Parse dimensions from compatibility details if available
+    const dimensions = history.compatibilityDetails?.dimensions || {};
 
     return (
-        <Screen variant="scroll" backgroundImage={BG}>
-            <Spacer size="xl" />
+        <Screen variant="scroll" backgroundVariant="cosmic">
+            <Animated.View
+                style={{
+                    opacity: fadeAnim,
+                    transform: [{ scale: scaleAnim }],
+                }}
+            >
+                <Spacer size="lg" />
 
-            {/* Header with Score */}
-            <View style={styles.header}>
-                <View style={styles.coupleEmoji}>
-                    <AppText style={styles.emoji}>👤</AppText>
-                    <AppText style={styles.heartEmoji}>💕</AppText>
-                    <AppText style={styles.emoji}>👤</AppText>
-                </View>
-                <Spacer size="md" />
-                <AppHeading variant="h1" align="center">
-                    {history.partnerName}
+                {/* Title */}
+                <AppHeading variant="h2" align="center" style={styles.title}>
+                    Compatibilité
                 </AppHeading>
-                <Spacer size="xs" />
-                <AppText variant="caption" color="muted" align="center">
-                    {formatDate(history.createdAt)}
-                </AppText>
-            </View>
 
-            <Spacer size="xl" />
+                <Spacer size="xl" />
 
-            {/* Score Circle */}
-            {score !== null && (
-                <>
+                {/* Zodiac Pair */}
+                <View style={styles.zodiacSection}>
+                    <ZodiacCircle sign={userSign} size="large" showName showGlow />
+
+                    <View style={styles.heartContainer}>
+                        <View style={styles.heartGlow} />
+                        <AppText style={styles.heart}>❤️</AppText>
+                    </View>
+
+                    <ZodiacCircle sign={partnerSign} size="large" showName showGlow />
+                </View>
+
+                <Spacer size="sm" />
+
+                {/* Names */}
+                <View style={styles.namesRow}>
+                    <AppText variant="bodyMedium" color="secondary">
+                        {user?.birthProfile?.firstName || 'Vous'}
+                    </AppText>
+                    <AppText variant="bodyMedium" color="muted">&</AppText>
+                    <AppText variant="bodyMedium" color="secondary">
+                        {history.partnerName}
+                    </AppText>
+                </View>
+
+                <Spacer size="2xl" />
+
+                {/* Main Score Card */}
+                <GlassCard
+                    variant="elevated"
+                    glowColor={glow.primary}
+                    padding="xl"
+                    style={styles.mainCard}
+                >
+                    {/* Score */}
                     <View style={styles.scoreSection}>
-                        <View
-                            style={[
-                                styles.scoreCircle,
-                                { borderColor: getScoreColor(score) },
-                            ]}
-                        >
-                            <AppHeading
-                                variant="display"
-                                style={{ color: getScoreColor(score) }}
-                            >
+                        <AppText variant="body" color="muted">
+                            Compatibilité
+                        </AppText>
+                        <View style={styles.scoreRow}>
+                            <AppHeading variant="display" style={styles.scoreValue}>
                                 {Math.round(score)}
                             </AppHeading>
-                            <AppText variant="caption" color="muted">
-                                / 100
-                            </AppText>
+                            <AppText variant="h3" color="muted">%</AppText>
                         </View>
-                        <Spacer size="sm" />
-                        <AppText variant="bodyMedium" color="accent" align="center">
-                            Score de compatibilite
-                        </AppText>
-                    </View>
-                    <Spacer size="lg" />
-
-                    {/* Share Button */}
-                    <View style={styles.shareButtonContainer}>
-                        <CompatibilityShareButton
-                            compatibilityId={history.id}
-                            nameOne={user?.birthProfile?.firstName || 'Vous'}
-                            nameTwo={history.partnerName}
-                            score={score}
-                            sunOne={history.userPositions?.Sun?.Sign}
-                            sunTwo={history.partnerPositions?.Sun?.Sign}
-                            moonOne={history.userPositions?.Moon?.Sign}
-                            moonTwo={history.partnerPositions?.Moon?.Sign}
-                            summary={history.analysis.slice(0, 200)}
+                        <ProgressBar
+                            value={score}
+                            height={8}
+                            gradientColors={getScoreGradient(score)}
+                            style={styles.mainProgressBar}
                         />
                     </View>
-                    <Spacer size="2xl" />
-                </>
-            )}
 
-            {/* Analysis Section */}
-            <View style={styles.sectionHeader}>
-                <View style={styles.sectionLine} />
-                <AppText variant="label" color="accent" style={styles.sectionTitle}>
-                    ANALYSE
-                </AppText>
-                <View style={styles.sectionLine} />
-            </View>
+                    <Spacer size="xl" />
 
-            <Spacer size="lg" />
-
-            <AppCard variant="elevated" style={styles.analysisCard}>
-                <CopyableText text={history.analysis} style={styles.analysisText}>
-                    <AppText variant="body" color="secondary" style={styles.analysisText}>
-                        {history.analysis}
-                    </AppText>
-                </CopyableText>
-            </AppCard>
-
-            <Spacer size="2xl" />
-
-            {/* Positions Section */}
-            {history.partnerPositions && (
-                <>
-                    <View style={styles.sectionHeader}>
-                        <View style={styles.sectionLine} />
-                        <AppText variant="label" color="accent" style={styles.sectionTitle}>
-                            POSITIONS DE {history.partnerName.toUpperCase()}
-                        </AppText>
-                        <View style={styles.sectionLine} />
-                    </View>
-
-                    <Spacer size="lg" />
-
-                    <View style={styles.planetsGrid}>
-                        {Object.entries(history.partnerPositions)
-                            .filter(([planet]) => ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Ascendant'].includes(planet))
-                            .map(([planet, data]) => (
-                                <View key={planet} style={styles.planetCard}>
-                                    <AppText style={styles.planetEmoji}>
-                                        {planetEmojis[planet] || '✨'}
-                                    </AppText>
-                                    <Spacer size="xs" />
-                                    <AppText variant="bodyMedium" color="primary">
-                                        {getPlanetNameFr(planet)}
-                                    </AppText>
-                                    <Spacer size="xxs" />
-                                    <AppText variant="caption" color="accent">
-                                        {formatDegree(data.Position, data.Sign)}
-                                    </AppText>
-                                </View>
+                    {/* Dimension Scores */}
+                    {Object.keys(dimensions).length > 0 && (
+                        <View style={styles.dimensionsSection}>
+                            {Object.entries(dimensions).map(([key, data]: [string, any]) => (
+                                <ScoreRow
+                                    key={key}
+                                    label={key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}
+                                    value={data.score || 0}
+                                    icon={dimensionIcons[key]}
+                                />
                             ))}
-                    </View>
+                        </View>
+                    )}
 
-                    <Spacer size="2xl" />
-                </>
-            )}
-
-            {/* Question if any */}
-            {history.question && (
-                <>
-                    <View style={styles.sectionHeader}>
-                        <View style={styles.sectionLine} />
-                        <AppText variant="label" color="accent" style={styles.sectionTitle}>
-                            QUESTION POSÉE
-                        </AppText>
-                        <View style={styles.sectionLine} />
-                    </View>
+                    {/* Headline if available */}
+                    {history.compatibilityDetails?.headline && (
+                        <>
+                            <Spacer size="lg" />
+                            <AppText
+                                variant="bodyMedium"
+                                color="primary"
+                                align="center"
+                                style={styles.headline}
+                            >
+                                "{history.compatibilityDetails.headline}"
+                            </AppText>
+                        </>
+                    )}
 
                     <Spacer size="lg" />
 
-                    <AppCard variant="outline" style={styles.questionCard}>
-                        <AppText variant="body" color="muted" style={styles.questionText}>
-                            "{history.question}"
+                    {/* CTA */}
+                    <GradientButton
+                        title="Nouvelle analyse"
+                        onPress={() => router.push('/synastry')}
+                        variant="primary"
+                        size="medium"
+                    />
+                </GlassCard>
+
+                <Spacer size="xl" />
+
+                {/* Share Button */}
+                <View style={styles.shareSection}>
+                    <CompatibilityShareButton
+                        compatibilityId={history.id}
+                        nameOne={user?.birthProfile?.firstName || 'Vous'}
+                        nameTwo={history.partnerName}
+                        score={score}
+                        sunOne={history.userPositions?.Sun?.Sign}
+                        sunTwo={history.partnerPositions?.Sun?.Sign}
+                        moonOne={history.userPositions?.Moon?.Sign}
+                        moonTwo={history.partnerPositions?.Moon?.Sign}
+                        summary={history.analysis.slice(0, 200)}
+                    />
+                </View>
+
+                <Spacer size="2xl" />
+
+                {/* Analysis Detail Card */}
+                <GlassCard padding="lg">
+                    <View style={styles.cardHeader}>
+                        <AppText style={styles.cardIcon}>📖</AppText>
+                        <AppText variant="label" color="accent">
+                            ANALYSE DÉTAILLÉE
                         </AppText>
-                    </AppCard>
+                    </View>
 
-                    <Spacer size="2xl" />
-                </>
-            )}
+                    <Spacer size="md" />
 
-            {/* AI Disclaimer */}
-            <View style={styles.disclaimerContainer}>
-                <AppText variant="caption" color="muted" align="center" style={styles.disclaimerText}>
-                    {aiDisclaimerText}
+                    <CopyableText text={history.analysis}>
+                        <AppText variant="body" color="secondary" style={styles.analysisText}>
+                            {history.analysis}
+                        </AppText>
+                    </CopyableText>
+                </GlassCard>
+
+                <Spacer size="xl" />
+
+                {/* Strengths & Challenges */}
+                {(history.compatibilityDetails?.forces || history.compatibilityDetails?.tensions) && (
+                    <>
+                        <View style={styles.twoColumns}>
+                            {/* Strengths */}
+                            {history.compatibilityDetails?.forces && (
+                                <GlassCard padding="md" style={styles.halfCard}>
+                                    <AppText style={styles.cardIcon}>💪</AppText>
+                                    <AppText variant="label" color="primary" align="center">
+                                        Forces
+                                    </AppText>
+                                    <Spacer size="sm" />
+                                    {history.compatibilityDetails.forces.map((force: string, i: number) => (
+                                        <AppText
+                                            key={i}
+                                            variant="caption"
+                                            color="secondary"
+                                            style={styles.listItem}
+                                        >
+                                            • {force}
+                                        </AppText>
+                                    ))}
+                                </GlassCard>
+                            )}
+
+                            {/* Challenges */}
+                            {history.compatibilityDetails?.tensions && (
+                                <GlassCard padding="md" style={styles.halfCard}>
+                                    <AppText style={styles.cardIcon}>⚠️</AppText>
+                                    <AppText variant="label" color="primary" align="center">
+                                        Défis
+                                    </AppText>
+                                    <Spacer size="sm" />
+                                    {history.compatibilityDetails.tensions.map((tension: string, i: number) => (
+                                        <AppText
+                                            key={i}
+                                            variant="caption"
+                                            color="secondary"
+                                            style={styles.listItem}
+                                        >
+                                            • {tension}
+                                        </AppText>
+                                    ))}
+                                </GlassCard>
+                            )}
+                        </View>
+
+                        <Spacer size="xl" />
+                    </>
+                )}
+
+                {/* Advice */}
+                {history.compatibilityDetails?.conseil && (
+                    <>
+                        <GlassCard padding="lg" variant="strong">
+                            <View style={styles.cardHeader}>
+                                <AppText style={styles.cardIcon}>💡</AppText>
+                                <AppText variant="label" color="accent">
+                                    CONSEIL
+                                </AppText>
+                            </View>
+                            <Spacer size="sm" />
+                            <AppText variant="body" color="secondary">
+                                {history.compatibilityDetails.conseil}
+                            </AppText>
+                        </GlassCard>
+                        <Spacer size="xl" />
+                    </>
+                )}
+
+                {/* AI Disclaimer */}
+                <View style={styles.disclaimer}>
+                    <AppText variant="caption" color="muted" align="center">
+                        {aiDisclaimerText}
+                    </AppText>
+                </View>
+
+                <Spacer size="lg" />
+
+                {/* Date */}
+                <AppText variant="caption" color="muted" align="center">
+                    Analyse du {formatDate(history.createdAt)}
                 </AppText>
-            </View>
 
-            <Spacer size="xl" />
+                <Spacer size="xl" />
 
-            {/* Actions */}
-            <AppButton
-                title="Nouvelle analyse"
-                onPress={() => router.push('/synastry')}
-                variant="primary"
-            />
-            <Spacer size="md" />
-            <AppButton
-                title="Retour à l'historique"
-                onPress={() => router.back()}
-                variant="outline"
-            />
+                {/* Back Button */}
+                <GradientButton
+                    title="Retour à l'historique"
+                    onPress={() => router.back()}
+                    variant="outline"
+                />
 
-            <Spacer size="3xl" />
+                <Spacer size="3xl" />
+            </Animated.View>
         </Screen>
     );
 }
 
 const styles = StyleSheet.create({
-    header: {
-        alignItems: 'center',
+    title: {
+        letterSpacing: 1,
     },
-    coupleEmoji: {
+    zodiacSection: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    emoji: {
-        fontSize: 40,
+    heartContainer: {
+        marginHorizontal: spacing.lg,
+        position: 'relative',
     },
-    heartEmoji: {
-        fontSize: 24,
-        marginHorizontal: spacing.sm,
+    heartGlow: {
+        position: 'absolute',
+        top: -10,
+        left: -10,
+        right: -10,
+        bottom: -10,
+        borderRadius: 20,
+        backgroundColor: glow.pink,
     },
-    errorCard: {
-        borderColor: colors.status.error,
-        padding: spacing.lg,
+    heart: {
+        fontSize: 32,
+    },
+    namesRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    mainCard: {
+        borderWidth: 1,
+        borderColor: colors.surface.glassBorder,
     },
     scoreSection: {
         alignItems: 'center',
     },
-    scoreCircle: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        borderWidth: 4,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surface.elevated,
-    },
-    shareButtonContainer: {
-        paddingHorizontal: spacing.xl,
-    },
-    sectionHeader: {
+    scoreRow: {
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+        alignItems: 'baseline',
     },
-    sectionLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: colors.border.subtle,
+    scoreValue: {
+        fontSize: 64,
+        fontWeight: '700',
+        color: colors.text.primary,
     },
-    sectionTitle: {
-        paddingHorizontal: spacing.lg,
-        letterSpacing: 1.5,
+    mainProgressBar: {
+        width: '100%',
+        marginTop: spacing.md,
     },
-    analysisCard: {
-        padding: spacing.xl,
+    dimensionsSection: {
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.border.subtle,
     },
-    analysisText: {
-        lineHeight: 26,
-    },
-    planetsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.md,
-        justifyContent: 'space-between',
-    },
-    planetCard: {
-        backgroundColor: colors.surface.elevated,
-        borderRadius: borderRadius.card,
-        padding: spacing.lg,
-        width: '47%',
-        borderWidth: 1,
-        borderColor: colors.border.subtle,
-        alignItems: 'center',
-        ...shadows.sm,
-    },
-    planetEmoji: {
-        fontSize: 28,
-    },
-    questionCard: {
-        padding: spacing.lg,
-    },
-    questionText: {
+    headline: {
         fontStyle: 'italic',
     },
-    disclaimerContainer: {
+    shareSection: {
+        paddingHorizontal: spacing.md,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    cardIcon: {
+        fontSize: 18,
+    },
+    analysisText: {
+        lineHeight: 24,
+    },
+    twoColumns: {
+        flexDirection: 'row',
+        gap: spacing.md,
+    },
+    halfCard: {
+        flex: 1,
+    },
+    listItem: {
+        marginBottom: spacing.xs,
+        lineHeight: 18,
+    },
+    disclaimer: {
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md,
         backgroundColor: colors.surface.default,
-        borderRadius: borderRadius.card,
+        borderRadius: radius.md,
     },
-    disclaimerText: {
-        fontStyle: 'italic',
-        lineHeight: 18,
+    errorCard: {
+        borderColor: colors.status.error,
+        borderWidth: 1,
     },
 });
