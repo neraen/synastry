@@ -1,0 +1,222 @@
+# =============================================================================
+# AstroMatch - Fastlane Configuration
+# =============================================================================
+# This Fastfile is designed to work with Expo/EAS Build
+# For native builds without EAS, you'll need to run `npx expo prebuild` first
+# =============================================================================
+
+default_platform(:ios)
+
+# =============================================================================
+# iOS Lanes
+# =============================================================================
+platform :ios do
+  desc "Build iOS app for TestFlight (using EAS)"
+  lane :beta do
+    # Ensure we have the latest code
+    ensure_git_status_clean
+
+    # Build with EAS
+    sh("cd .. && npx eas-cli build --platform ios --profile preview --non-interactive")
+
+    # Notify
+    slack_notification(message: "iOS Beta build submitted to EAS Build!")
+  end
+
+  desc "Build and submit iOS app to App Store (using EAS)"
+  lane :release do
+    ensure_git_status_clean
+
+    # Build with EAS
+    sh("cd .. && npx eas-cli build --platform ios --profile production --non-interactive")
+
+    # Submit to App Store
+    sh("cd .. && npx eas-cli submit --platform ios --profile production --non-interactive")
+
+    slack_notification(message: "iOS Release submitted to App Store!")
+  end
+
+  desc "Build iOS app locally (requires prebuild)"
+  lane :build_local do
+    # Run expo prebuild
+    sh("cd .. && npx expo prebuild --platform ios --clean")
+
+    # Install pods
+    cocoapods(
+      podfile: "../ios/Podfile",
+      use_bundle_exec: false
+    )
+
+    # Build
+    build_app(
+      workspace: "../ios/AstroMatch.xcworkspace",
+      scheme: "AstroMatch",
+      export_method: "app-store",
+      output_directory: "../builds",
+      output_name: "AstroMatch.ipa"
+    )
+  end
+
+  desc "Upload to TestFlight"
+  lane :upload_testflight do
+    upload_to_testflight(
+      ipa: "../builds/AstroMatch.ipa",
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Setup iOS certificates using match"
+  lane :setup_certificates do
+    match(
+      type: "appstore",
+      app_identifier: "com.astromatch.app",
+      readonly: false
+    )
+    match(
+      type: "development",
+      app_identifier: "com.astromatch.app",
+      readonly: false
+    )
+  end
+
+  desc "Sync iOS certificates (readonly)"
+  lane :sync_certificates do
+    match(
+      type: "appstore",
+      app_identifier: "com.astromatch.app",
+      readonly: true
+    )
+  end
+end
+
+# =============================================================================
+# Android Lanes
+# =============================================================================
+platform :android do
+  desc "Build Android app for internal testing (using EAS)"
+  lane :beta do
+    ensure_git_status_clean
+
+    # Build APK with EAS
+    sh("cd .. && npx eas-cli build --platform android --profile preview --non-interactive")
+
+    slack_notification(message: "Android Beta build submitted to EAS Build!")
+  end
+
+  desc "Build and submit Android app to Play Store (using EAS)"
+  lane :release do
+    ensure_git_status_clean
+
+    # Build AAB with EAS
+    sh("cd .. && npx eas-cli build --platform android --profile production --non-interactive")
+
+    # Submit to Play Store
+    sh("cd .. && npx eas-cli submit --platform android --profile production --non-interactive")
+
+    slack_notification(message: "Android Release submitted to Play Store!")
+  end
+
+  desc "Build Android app locally (requires prebuild)"
+  lane :build_local do
+    # Run expo prebuild
+    sh("cd .. && npx expo prebuild --platform android --clean")
+
+    # Build
+    gradle(
+      project_dir: "../android",
+      task: "clean bundleRelease",
+      properties: {
+        "android.injected.signing.store.file" => ENV["ANDROID_KEYSTORE_PATH"],
+        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["ANDROID_KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
+      }
+    )
+
+    # Copy AAB to builds folder
+    sh("mkdir -p ../builds && cp ../android/app/build/outputs/bundle/release/app-release.aab ../builds/AstroMatch.aab")
+  end
+
+  desc "Upload to Play Store (internal track)"
+  lane :upload_playstore do
+    upload_to_play_store(
+      track: "internal",
+      aab: "../builds/AstroMatch.aab",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end
+
+# =============================================================================
+# Cross-Platform Lanes
+# =============================================================================
+desc "Build both platforms for beta testing"
+lane :beta_all do
+  Fastlane::LaneManager.cruise_lane("ios", "beta")
+  Fastlane::LaneManager.cruise_lane("android", "beta")
+end
+
+desc "Build and submit both platforms for release"
+lane :release_all do
+  Fastlane::LaneManager.cruise_lane("ios", "release")
+  Fastlane::LaneManager.cruise_lane("android", "release")
+end
+
+desc "Increment version number"
+lane :bump_version do |options|
+  type = options[:type] || "patch" # major, minor, patch
+
+  # Read current version from app.config.js
+  config_path = "../app.config.js"
+  config_content = File.read(config_path)
+
+  # Extract current version
+  current_version = config_content.match(/version: ['"](.+?)['"]/)[1]
+  parts = current_version.split('.').map(&:to_i)
+
+  case type
+  when "major"
+    parts[0] += 1
+    parts[1] = 0
+    parts[2] = 0
+  when "minor"
+    parts[1] += 1
+    parts[2] = 0
+  when "patch"
+    parts[2] += 1
+  end
+
+  new_version = parts.join('.')
+
+  # Update version in config
+  new_content = config_content.gsub(/version: ['"].+?['"]/, "version: '#{new_version}'")
+  File.write(config_path, new_content)
+
+  UI.success("Version bumped from #{current_version} to #{new_version}")
+
+  # Commit the change
+  git_commit(
+    path: config_path,
+    message: "Bump version to #{new_version}"
+  )
+
+  # Create git tag
+  add_git_tag(tag: "v#{new_version}")
+end
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+def slack_notification(message:)
+  if ENV["SLACK_WEBHOOK_URL"]
+    slack(
+      message: message,
+      slack_url: ENV["SLACK_WEBHOOK_URL"],
+      success: true
+    )
+  else
+    UI.message(message)
+  end
+end

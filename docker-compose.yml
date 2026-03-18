@@ -1,0 +1,73 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: astromatch_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: astromatch
+      MYSQL_USER: astromatch
+      MYSQL_PASSWORD: astromatch
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - astromatch
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  php:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: astromatch_php
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+    networks:
+      - astromatch
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://astromatch:astromatch@db:3306/astromatch?serverVersion=8.0
+      APP_ENV: dev
+      APP_DEBUG: 1
+
+  nginx:
+    image: nginx:alpine
+    container_name: astromatch_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www
+      - ./backend/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - astromatch
+
+  # Adminer disabled - uncomment and change port if needed
+  # adminer:
+  #   image: adminer
+  #   container_name: astromatch_adminer
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8082:8080"
+  #   networks:
+  #     - astromatch
+  #   depends_on:
+  #     - db
+
+volumes:
+  db_data:
+
+networks:
+  astromatch:
+    driver: bridge

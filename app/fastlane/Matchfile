@@ -1,0 +1,37 @@
+# =============================================================================
+# AstroMatch - Fastlane Match Configuration
+# =============================================================================
+# iOS code signing management
+# Run: fastlane match init (to setup your Git repo for certificates)
+# =============================================================================
+
+# Git repository containing certificates and profiles
+git_url(ENV["MATCH_GIT_URL"] || "git@github.com:your-org/certificates.git")
+
+# Storage mode: git, google_cloud, or s3
+storage_mode("git")
+
+# Type of profiles to sync
+type("appstore")
+
+# App identifiers
+app_identifier([
+  "com.astromatch.app",
+  "com.astromatch.app.preview",
+  "com.astromatch.app.dev"
+])
+
+# Team ID
+team_id(ENV["APPLE_TEAM_ID"] || "YOUR_TEAM_ID")
+
+# Username (Apple ID)
+username(ENV["APPLE_ID"] || "your-apple-id@example.com")
+
+# Clone with readonly
+readonly(true)
+
+# Force update
+force(false)
+
+# Verbose output
+verbose(true)

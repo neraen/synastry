@@ -1,0 +1,15 @@
+# =============================================================================
+# AstroMatch - Ruby Dependencies for Fastlane
+# =============================================================================
+# Run: bundle install
+# =============================================================================
+
+source "https://rubygems.org"
+
+# Fastlane and plugins
+gem "fastlane", "~> 2.220"
+gem "cocoapods", "~> 1.15"
+
+# Plugins
+plugins_path = File.join(File.dirname(__FILE__), 'fastlane', 'Pluginfile')
+eval_gemfile(plugins_path) if File.exist?(plugins_path)

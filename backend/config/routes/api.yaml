@@ -1,0 +1,6 @@
+# API Routes
+
+# JWT Login route
+api_login:
+    path: /api/login
+    methods: [POST]

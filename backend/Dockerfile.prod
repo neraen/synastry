@@ -1,0 +1,101 @@
+# =============================================================================
+# AstroMatch Backend - Production Dockerfile
+# Multi-stage build for optimized production image
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1: Composer dependencies
+# -----------------------------------------------------------------------------
+FROM composer:2 AS composer
+
+WORKDIR /app
+
+# Copy only composer files first for better caching
+COPY composer.json composer.lock ./
+
+# Install dependencies without dev packages
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist \
+    --no-progress
+
+# Copy source code
+COPY . .
+
+# Generate optimized autoloader
+RUN composer dump-autoload --optimize --classmap-authoritative
+
+# -----------------------------------------------------------------------------
+# Stage 2: Production image
+# -----------------------------------------------------------------------------
+FROM php:8.2-fpm-alpine AS production
+
+# Install system dependencies
+RUN apk add --no-cache \
+    bash \
+    curl \
+    git \
+    icu-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libwebp-dev \
+    libzip-dev \
+    oniguruma-dev \
+    postgresql-dev \
+    freetype-dev \
+    && docker-php-ext-configure gd \
+        --with-freetype \
+        --with-jpeg \
+        --with-webp \
+    && docker-php-ext-install -j$(nproc) \
+        bcmath \
+        gd \
+        intl \
+        mbstring \
+        opcache \
+        pdo \
+        pdo_mysql \
+        zip
+
+# Install Redis extension
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
+
+# Configure PHP for production
+COPY docker/php/php-prod.ini /usr/local/etc/php/conf.d/99-production.ini
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
+
+# Create app user
+RUN addgroup -g 1000 appgroup \
+    && adduser -u 1000 -G appgroup -s /bin/sh -D appuser
+
+# Set working directory
+WORKDIR /var/www
+
+# Copy application from composer stage
+COPY --from=composer /app /var/www
+
+# Copy JWT keys (will be overridden by volumes in production)
+COPY config/jwt /var/www/config/jwt
+
+# Set permissions
+RUN chown -R appuser:appgroup /var/www \
+    && chmod -R 755 /var/www \
+    && chmod -R 777 /var/www/var
+
+# Switch to non-root user
+USER appuser
+
+# Expose PHP-FPM port
+EXPOSE 9000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD php-fpm -t || exit 1
+
+CMD ["php-fpm"]

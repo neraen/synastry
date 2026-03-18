@@ -1,0 +1,6 @@
+gesdinet_jwt_refresh_token:
+    refresh_token_class: App\Entity\RefreshToken
+    # Refresh token valid for 1 year (mobile app - stay logged in)
+    ttl: 31536000
+    # Update refresh token on use to extend session indefinitely
+    ttl_update: true

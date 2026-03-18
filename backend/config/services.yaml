@@ -1,0 +1,41 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+    astroapi.api_url: '%env(ASTROAPI_API_URL)%'
+    astroapi.api_key: '%env(ASTROAPI_API_KEY)%'
+    openai.api_url: '%env(OPENAI_API_URL)%'
+    openai.api_key: '%env(OPENAI_API_KEY)%'
+    google.client_id: '%env(GOOGLE_CLIENT_ID)%'
+    apple.client_id: '%env(APPLE_CLIENT_ID)%'
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # Service-specific configuration (must be after App\ to override)
+    App\Service\Webservice\OpenAiService:
+        arguments:
+            $apiUrl: '%openai.api_url%'
+            $apiKey: '%openai.api_key%'
+
+    App\Service\GoogleAuthService:
+        arguments:
+            $googleClientId: '%google.client_id%'
+
+    App\Service\AppleAuthService:
+        arguments:
+            $appleClientId: '%apple.client_id%'

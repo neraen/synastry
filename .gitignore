@@ -1,0 +1,42 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backend (Symfony)
+backend/var/
+backend/vendor/
+backend/.env.local
+backend/.env.*.local
+backend/config/secrets/prod/
+
+# Frontend (React)
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+
+# Mobile App (Expo)
+app/node_modules/
+app/.expo/
+app/dist/
+app/ios/
+app/android/
+mobileApp/node_modules/
+mobileApp/.expo/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local

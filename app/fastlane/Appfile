@@ -1,0 +1,35 @@
+# =============================================================================
+# AstroMatch - Fastlane Appfile
+# =============================================================================
+# App identifiers and credentials configuration
+# =============================================================================
+
+# iOS
+app_identifier("com.astromatch.app")
+apple_id(ENV["APPLE_ID"] || "your-apple-id@example.com")
+team_id(ENV["APPLE_TEAM_ID"] || "YOUR_TEAM_ID")
+itc_team_id(ENV["ITC_TEAM_ID"] || "YOUR_ITC_TEAM_ID")
+
+# Android
+json_key_file(ENV["GOOGLE_SERVICE_ACCOUNT_PATH"] || "./google-service-account.json")
+
+# For multiple app identifiers
+for_platform :ios do
+  for_lane :beta do
+    app_identifier("com.astromatch.app.preview")
+  end
+
+  for_lane :release do
+    app_identifier("com.astromatch.app")
+  end
+end
+
+for_platform :android do
+  for_lane :beta do
+    # Use same package for internal testing
+  end
+
+  for_lane :release do
+    # Production package
+  end
+end
