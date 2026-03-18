@@ -37,7 +37,7 @@ const variantStyles: Record<CardVariant, ViewStyle> = {
         borderColor: colors.border.default,
     },
     highlight: {
-        backgroundColor: colors.decorative.goldGlow,
+        backgroundColor: colors.glow.gold,
         borderWidth: 1,
         borderColor: colors.brand.primary,
     },
