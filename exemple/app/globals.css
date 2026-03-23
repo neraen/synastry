@@ -1,0 +1,109 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Celestial Design System - Deep Space Palette */
+  --surface: #180d2c;
+  --surface-container-lowest: #130827;
+  --surface-container-low: #1e1233;
+  --surface-container: #251839;
+  --surface-container-high: #2f2444;
+  --surface-container-highest: #3a2f50;
+  --surface-variant: #2a1d42;
+  --surface-bright: #3d2d55;
+  
+  --on-surface: #ebdcff;
+  --on-surface-variant: #c8bfff;
+  
+  --primary: #e9c349;
+  --primary-container: #866a00;
+  --on-primary: #180d2c;
+  
+  --secondary: #c8bfff;
+  --secondary-container: #440fdb;
+  --on-secondary: #180d2c;
+  
+  --outline: #474556;
+  --outline-variant: #474556;
+  
+  /* Map to standard tokens */
+  --background: var(--surface);
+  --foreground: var(--on-surface);
+  --card: var(--surface-container-low);
+  --card-foreground: var(--on-surface);
+  --popover: var(--surface-container-high);
+  --popover-foreground: var(--on-surface);
+  --primary-foreground: var(--on-primary);
+  --secondary-foreground: var(--on-secondary);
+  --muted: var(--surface-container);
+  --muted-foreground: var(--on-surface-variant);
+  --accent: var(--secondary-container);
+  --accent-foreground: var(--on-surface);
+  --destructive: #ff6b6b;
+  --destructive-foreground: #180d2c;
+  --border: rgba(71, 69, 86, 0.15);
+  --input: var(--surface-container-high);
+  --ring: var(--secondary);
+  
+  --radius: 1.5rem;
+}
+
+@theme inline {
+  --font-sans: 'Manrope', 'Manrope Fallback', sans-serif;
+  --font-serif: 'Noto Serif', 'Noto Serif Fallback', serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  
+  /* Surface colors */
+  --color-surface: var(--surface);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-variant: var(--surface-variant);
+  --color-surface-bright: var(--surface-bright);
+  
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-container: var(--primary-container);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-container: var(--secondary-container);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 0.5rem);
+  --radius-xl: 3rem;
+  --radius-full: 9999px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
