@@ -85,7 +85,8 @@ COPY --from=composer /app /var/www
 COPY config/jwt /var/www/config/jwt
 
 # Set permissions
-RUN chown -R appuser:appgroup /var/www \
+RUN mkdir -p /var/www/var \
+    && chown -R appuser:appgroup /var/www \
     && chmod -R 755 /var/www \
     && chmod -R 777 /var/www/var
 
