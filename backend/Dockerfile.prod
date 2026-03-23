@@ -19,7 +19,8 @@ RUN composer install \
     --no-scripts \
     --no-autoloader \
     --prefer-dist \
-    --no-progress
+    --no-progress \
+    --ignore-platform-reqs
 
 # Copy source code
 COPY . .
