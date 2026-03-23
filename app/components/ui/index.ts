@@ -3,6 +3,22 @@
  * Premium Glassmorphism Design System
  */
 
+// === NEW DESIGN SYSTEM COMPONENTS ===
+export { CelestialText } from './CelestialText';
+export { GlassCard } from './GlassCard';
+export { GoldButton } from './GoldButton';
+export { GhostButton } from './GhostButton';
+export { CelestialChip } from './CelestialChip';
+export { SectionHeader } from './SectionHeader';
+export { CosmicProgressRing } from './CosmicProgressRing';
+export { TransitCard } from './TransitCard';
+export { NavBar } from './NavBar';
+export { AppHeader } from './AppHeader';
+export { TabHeader } from './TabHeader';
+export { FormattedText } from './FormattedText';
+
+// === LEGACY COMPONENTS (to be migrated) ===
+
 // Layout
 export { Screen } from './Screen';
 
@@ -22,7 +38,8 @@ export { GradientButton, LinkButton, IconButton as GlassIconButton } from './Gra
 
 // Cards
 export { AppCard, ScoreCard, SectionCard } from './Card';
-export { GlassCard, GradientGlassCard } from './GlassCard';
+// GlassCard exported from new design system above
+// GradientGlassCard removed - use GlassCard with gradient prop or wrap with LinearGradient
 export { HoroscopeCard } from './HoroscopeCard';
 export { CompatibilityShareCard } from './CompatibilityShareCard';
 export { CompatibilityShareButton } from './CompatibilityShareButton';

@@ -433,6 +433,36 @@ IMPORTANT : Sois encourageant et bienveillant. Présente les défis comme des op
     }
 
     /**
+     * Get upcoming transits prediction using natal chart and current transits
+     */
+    public function getUpcomingTransits(string $prompt): array
+    {
+        $isEnglish = $this->localeService->getLocale() === 'en';
+        $baseInstructions = $this->localeService->getBaseInstructions();
+
+        $instructions = $isEnglish
+            ? "You are a precise astrologer. Identify the 3 most significant upcoming transits based on the natal chart and current planetary positions.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- Respond ONLY with a valid JSON array, no text before or after\n- Each transit must be personally significant based on the natal chart positions\n- Write descriptions in clear, non-technical language"
+            : "Tu es un astrologue précis. Identifie les 3 prochains transits les plus significatifs basés sur le thème natal et les positions planétaires actuelles.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Réponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ou après\n- Chaque transit doit être personnellement significatif d'après les positions natales\n- Rédige les descriptions dans un langage clair et non technique";
+
+        $result = $this->callResponsesApi($prompt, $instructions);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $jsonData = $this->parseJsonResponse($result['content']);
+
+        if (!$jsonData || !is_array($jsonData)) {
+            return ['success' => false, 'error' => 'Invalid JSON response from AI'];
+        }
+
+        return [
+            'success' => true,
+            'transits' => array_slice($jsonData, 0, 3),
+        ];
+    }
+
+    /**
      * Extract compatibility score from AI response
      */
     private function extractCompatibilityScore(string $content): ?int

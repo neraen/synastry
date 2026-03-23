@@ -1,28 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, ScrollView, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, CosmicProgressRing, TabHeader } from '@/components/ui';
-import { colors, spacing, radius, fonts } from '@/theme';
-import { getUpcomingTransits } from '@/services/astrology';
+import { colors, spacing, radius, typography, fonts } from '@/theme';
+import { GlassCard, GoldButton, GhostButton, CelestialText, CosmicProgressRing } from '@/components/ui';
+
+// ─── Header ────────────────────────────────────────────────────────────────────
+function DemoHeader() {
+    const router = useRouter();
+    return (
+        <View style={styles.header}>
+            <View style={styles.headerLeft}>
+                <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+                    <Feather name="arrow-left" size={18} color={colors.onSurfaceMuted} />
+                </Pressable>
+                <Feather name="star" size={16} color={colors.primary} />
+                <Text style={styles.logoText}>AstroMatch</Text>
+            </View>
+            <View style={styles.userRow}>
+                <Text style={styles.hiText}>Hi, Selena</Text>
+                <View style={styles.avatarBubble}>
+                    <Text style={styles.avatarLetter}>S</Text>
+                </View>
+            </View>
+        </View>
+    );
+}
 
 // ─── CompatibilityCard ─────────────────────────────────────────────────────────
-function CompatibilityCard({ onAnalyze }: { onAnalyze: () => void }) {
+function CompatibilityCard() {
+    const router = useRouter();
     return (
-        <GlassCard opacity="medium" radius="xxl" ambient>
+        <GlassCard opacity="medium" radius="xxl">
+            {/* Badge */}
             <View style={styles.badge}>
                 <View style={styles.badgeDot} />
                 <Text style={styles.badgeText}>DAILY ALIGNMENT</Text>
             </View>
+            {/* Title */}
             <Text style={styles.cardTitle}>Your compatibility{'\n'}today</Text>
+            {/* Description */}
             <Text style={styles.cardDesc}>
                 Celestial energy is 88% synchronized for new romantic ventures. The moon's position in Taurus stabilizes your emotional core.
             </Text>
+            {/* CTA */}
             <View style={styles.cardBtnSpacing}>
-                <GoldButton label="ANALYZE A NEW MATCH" onPress={onAnalyze} rightIcon />
+                <GoldButton label="ANALYZE A NEW MATCH" onPress={() => {}} rightIcon />
             </View>
+            {/* Progress ring */}
             <View style={styles.ringContainer}>
                 <CosmicProgressRing percentage={88} size={160} />
             </View>
@@ -37,19 +63,15 @@ interface InsightCardProps {
     description: string;
     symbols?: string[];
     highlightText?: string;
-    onPress?: () => void;
 }
-
-function InsightCard({ iconName, title, description, symbols, highlightText, onPress }: InsightCardProps) {
+function InsightCard({ iconName, title, description, symbols, highlightText }: InsightCardProps) {
     return (
         <GlassCard opacity="low" radius="xl">
             <View style={styles.insightTopRow}>
                 <View style={styles.insightIconBubble}>
                     <Feather name={iconName} size={20} color={colors.secondary} />
                 </View>
-                <Pressable onPress={onPress} hitSlop={8}>
-                    <Feather name="arrow-up-right" size={20} color={colors.onSurfaceMuted} />
-                </Pressable>
+                <Feather name="arrow-up-right" size={18} color={colors.onSurfaceMuted} />
             </View>
             <Text style={styles.insightTitle}>{title}</Text>
             <Text style={styles.insightDesc}>{description}</Text>
@@ -72,75 +94,50 @@ function InsightCard({ iconName, title, description, symbols, highlightText, onP
 }
 
 // ─── TransitTimeline ───────────────────────────────────────────────────────────
-interface Transit {
-    date: string;
-    title: string;
-    desc: string;
-    highlighted: boolean;
-}
+const transits = [
+    {
+        id: '1',
+        date: 'OCT 12 — OCT 15',
+        title: 'Mars Opposite Saturn',
+        desc: 'Expect some friction in professional partnerships. Patience is your greatest cosmic ally during this transit.',
+        highlighted: true,
+    },
+    {
+        id: '2',
+        date: 'OCT 18',
+        title: 'New Moon in Libra',
+        desc: 'A perfect window for setting intentions around balance and aesthetic harmony in your home.',
+        highlighted: false,
+    },
+];
 
-function TransitTimeline({ onViewAll }: { onViewAll: () => void }) {
-    const [transits, setTransits] = useState<Transit[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        getUpcomingTransits()
-            .then((res) => {
-                if (res.success && res.transits) {
-                    setTransits(
-                        res.transits.slice(0, 2).map((t, i) => ({
-                            date: t.date,
-                            title: t.title,
-                            desc: t.description,
-                            highlighted: i === 0,
-                        }))
-                    );
-                }
-            })
-            .catch(() => {})
-            .finally(() => setLoading(false));
-    }, []);
-
+function TransitTimeline() {
     return (
         <View style={styles.transitsSection}>
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Upcoming Transits</Text>
-                <Pressable onPress={onViewAll} hitSlop={8}>
-                    <Text style={styles.sectionAction}>VIEW ALL</Text>
-                </Pressable>
+                <Text style={styles.sectionAction}>VIEW CALENDAR</Text>
             </View>
-            {loading ? (
-                <View style={{ gap: spacing.xxl }}>
-                    {[0, 1].map((i) => (
-                        <View key={i} style={{ flexDirection: 'row', paddingLeft: spacing.xl }}>
-                            <View style={{ width: 10, height: 80, backgroundColor: colors.surfaceContainerHigh, borderRadius: 5, opacity: 0.4, flex: 1 }} />
+            <View style={styles.timeline}>
+                {/* Vertical line */}
+                <View style={styles.timelineLine} />
+                {transits.map((t) => (
+                    <View key={t.id} style={styles.transitItem}>
+                        <View style={[styles.transitDot, t.highlighted && styles.transitDotActive]} />
+                        <View style={styles.transitContent}>
+                            <Text style={styles.transitDate}>{t.date}</Text>
+                            <Text style={styles.transitTitle}>{t.title}</Text>
+                            <Text style={styles.transitDesc}>{t.desc}</Text>
                         </View>
-                    ))}
-                </View>
-            ) : (
-                <View style={styles.timeline}>
-                    <View style={styles.timelineLine} />
-                    {transits.map((t, i) => (
-                        <View key={i} style={styles.transitItem}>
-                            <View style={[styles.transitDot, t.highlighted && styles.transitDotActive]} />
-                            <View style={styles.transitContent}>
-                                <Text style={styles.transitDate}>{t.date}</Text>
-                                <Text style={styles.transitTitle}>{t.title}</Text>
-                                <Text style={styles.transitDesc}>{t.desc}</Text>
-                            </View>
-                        </View>
-                    ))}
-                </View>
-            )}
+                    </View>
+                ))}
+            </View>
         </View>
     );
 }
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
-export default function Home() {
-    const router = useRouter();
-    const { user } = useAuth();
-
+export default function DemoHome() {
     return (
         <View style={styles.screen}>
             <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -149,7 +146,7 @@ export default function Home() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    <TabHeader />
+                    <DemoHeader />
 
                     {/* Hero */}
                     <View style={styles.hero}>
@@ -159,7 +156,7 @@ export default function Home() {
 
                     {/* Compatibility card */}
                     <View style={styles.sectionPad}>
-                        <CompatibilityCard onAnalyze={() => router.push('/compatibility')} />
+                        <CompatibilityCard />
                     </View>
 
                     {/* Insight cards */}
@@ -169,7 +166,6 @@ export default function Home() {
                             title="Your birth chart"
                             description="Deep dive into your sun, moon, and rising signs to unlock your cosmic DNA."
                             symbols={['☀', '☽', '↑']}
-                            onPress={() => router.push('/(tabs)/horoscope')}
                         />
                         <View style={{ height: spacing.lg }} />
                         <InsightCard
@@ -177,11 +173,10 @@ export default function Home() {
                             title="Daily insights"
                             description="Personalized horoscopes based on your current transits and house placements."
                             highlightText="Communication will be key as Mercury enters your 5th house."
-                            onPress={() => router.push('/daily-horoscope')}
                         />
                     </View>
 
-                    <TransitTimeline onViewAll={() => router.push('/transits')} />
+                    <TransitTimeline />
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
@@ -192,11 +187,15 @@ export default function Home() {
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.surfaceLowest },
+    screen: {
+        flex: 1,
+        backgroundColor: colors.surfaceLowest,
+    },
     safeArea: { flex: 1 },
     scroll: { flex: 1 },
     scrollContent: { flexGrow: 1 },
 
+    // Header
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -205,11 +204,7 @@ const styles = StyleSheet.create({
         paddingVertical: spacing.lg,
     },
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    logoIcon: {
-        fontSize: 14,
-        color: colors.primary,
-        lineHeight: 18,
-    },
+    backBtn: { marginRight: spacing.xs },
     logoText: {
         fontFamily: fonts.display.regular,
         fontSize: 18,
@@ -236,6 +231,7 @@ const styles = StyleSheet.create({
         color: colors.onSurface,
     },
 
+    // Hero
     hero: {
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.xl,
@@ -256,12 +252,14 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
 
+    // Section
     sectionPad: { paddingHorizontal: spacing.xl },
     insightSection: {
         paddingHorizontal: spacing.xl,
         marginTop: spacing.xxxl,
     },
 
+    // Badge
     badge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -273,7 +271,12 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         marginBottom: spacing.xl,
     },
-    badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+    badgeDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: colors.primary,
+    },
     badgeText: {
         fontFamily: fonts.body.semiBold,
         fontSize: 10,
@@ -299,6 +302,7 @@ const styles = StyleSheet.create({
     cardBtnSpacing: { marginBottom: spacing.xl },
     ringContainer: { alignItems: 'center' },
 
+    // InsightCard
     insightTopRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -326,7 +330,11 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         color: colors.onSurfaceMuted,
     },
-    symbolsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+    symbolsRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginTop: spacing.lg,
+    },
     symbolBubble: {
         width: 28,
         height: 28,
@@ -351,6 +359,7 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
 
+    // Transits
     transitsSection: {
         paddingHorizontal: spacing.xl,
         paddingVertical: spacing.xxxl,

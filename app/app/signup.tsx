@@ -15,7 +15,6 @@ import {
 import { colors, spacing, borderRadius } from '@/theme';
 import { consentText } from '@/constants/legalTexts';
 
-const BG = require('@/assets/images/interface/background-starry.png');
 const LOGO = require('@/assets/images/interface/logo.png');
 
 export default function Signup() {
@@ -59,7 +58,7 @@ export default function Signup() {
     }
 
     return (
-        <Screen variant="form" backgroundImage={BG}>
+        <Screen variant="form" backgroundColor={colors.surfaceLowest}>
             <Spacer size="2xl" />
 
             {/* Header with Logo */}

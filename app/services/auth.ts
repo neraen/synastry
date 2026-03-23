@@ -29,6 +29,8 @@ export interface User {
     roles: string[];
     hasBirthProfile: boolean;
     birthProfile?: BirthProfileData | null;
+    isPremium?: boolean;
+    premiumUntil?: string | null; // ISO date string
 }
 
 export interface AuthTokens {

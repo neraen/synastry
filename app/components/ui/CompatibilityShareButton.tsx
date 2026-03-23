@@ -2,23 +2,27 @@
  * CompatibilityShareButton
  *
  * Button component for sharing compatibility results
- * Gracefully handles missing native modules in Expo Go.
+ * Uses the new glassmorphism design system
  */
 
 import React, { useState, useRef, useCallback } from 'react';
 import {
     View,
+    Text,
     StyleSheet,
     Modal,
     Alert,
-    Platform,
     Share as RNShare,
+    Pressable,
+    ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, borderRadius, radius } from '@/theme';
-import { AppButton } from './Button';
-import { AppText, AppHeading } from './Text';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { colors, spacing, radius, fonts } from '@/theme';
+import { GhostButton } from './GhostButton';
+import { GoldButton } from './GoldButton';
+import { GlassCard } from './GlassCard';
 import { CompatibilityShareCard } from './CompatibilityShareCard';
-import { SpacerMD, SpacerLG } from './Spacer';
 import { createCompatibilityShare, CompatibilityShare } from '@/services/astrology';
 
 // Dynamically import modules that require native code
@@ -60,24 +64,25 @@ export function CompatibilityShareButton({
 }: CompatibilityShareButtonProps) {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isSharing, setIsSharing] = useState(false);
     const [shareData, setShareData] = useState<CompatibilityShare | null>(null);
     const cardRef = useRef<View>(null);
 
     const handleOpenShare = useCallback(async () => {
         setIsModalVisible(true);
         setIsGenerating(true);
+        setShareData(null);
 
         try {
             const response = await createCompatibilityShare(compatibilityId);
             if (response.success && response.share) {
                 setShareData(response.share);
             } else {
-                Alert.alert('Erreur', response.error || 'Impossible de creer le lien de partage');
+                Alert.alert('Erreur', response.error || 'Impossible de créer le lien de partage');
                 setIsModalVisible(false);
             }
         } catch (error) {
-            console.error('Share error:', error);
-            Alert.alert('Erreur', 'Une erreur est survenue lors de la creation du partage');
+            Alert.alert('Erreur', 'Une erreur est survenue lors de la création du partage');
             setIsModalVisible(false);
         } finally {
             setIsGenerating(false);
@@ -86,55 +91,49 @@ export function CompatibilityShareButton({
 
     const handleShareImage = useCallback(async () => {
         if (!cardRef.current || !captureRef || !Sharing) {
-            Alert.alert('Erreur', 'Le partage d\'image n\'est pas disponible');
+            Alert.alert('Non disponible', 'Le partage d\'image n\'est pas disponible sur cet appareil');
             return;
         }
 
         try {
-            setIsGenerating(true);
+            setIsSharing(true);
 
-            // Capture the card as an image
             const uri = await captureRef(cardRef, {
                 format: 'png',
                 quality: 1,
                 result: 'tmpfile',
             });
 
-            // Check if sharing is available
             const isAvailable = await Sharing.isAvailableAsync();
             if (!isAvailable) {
-                Alert.alert('Erreur', 'Le partage n\'est pas disponible sur cet appareil');
+                Alert.alert('Non disponible', 'Le partage n\'est pas disponible sur cet appareil');
                 return;
             }
 
-            // Share the image using expo-sharing
             await Sharing.shareAsync(uri, {
                 mimeType: 'image/png',
-                dialogTitle: 'Compatibilite Cosmique',
+                dialogTitle: 'Compatibilité Cosmique',
             });
-        } catch (error: unknown) {
-            // User cancelled share - this is normal
-            console.error('Share error:', error);
+        } catch (error) {
+            console.error('Share image error:', error);
         } finally {
-            setIsGenerating(false);
+            setIsSharing(false);
         }
-    }, [nameOne, nameTwo, score, shareData]);
+    }, []);
 
     const handleShareLink = useCallback(async () => {
         if (!shareData) return;
 
         try {
-            const message = `Decouvre notre compatibilite cosmique: ${nameOne} & ${nameTwo} - ${Math.round(score)}%\n\n${shareData.shareUrl}`;
-
-            // Use React Native's built-in Share for text sharing
+            const message = `✦ Compatibilité cosmique ✦\n${nameOne} & ${nameTwo} — ${Math.round(score)}%\n\n${shareData.shareUrl}`;
             await RNShare.share({
-                title: 'Compatibilite Cosmique',
-                message: message,
+                title: 'Compatibilité Cosmique',
+                message,
             });
         } catch (error: unknown) {
             const errorObj = error as { message?: string };
             if (errorObj.message !== 'Share dismissed') {
-                console.error('Share error:', error);
+                console.error('Share link error:', error);
             }
         }
     }, [nameOne, nameTwo, score, shareData]);
@@ -146,12 +145,7 @@ export function CompatibilityShareButton({
 
     return (
         <>
-            <AppButton
-                title="Partager"
-                variant="secondary"
-                onPress={handleOpenShare}
-                icon={<AppText style={styles.shareIcon}>{'\u{1F4E4}'}</AppText>}
-            />
+            <GhostButton label="PARTAGER" onPress={handleOpenShare} />
 
             <Modal
                 visible={isModalVisible}
@@ -160,64 +154,75 @@ export function CompatibilityShareButton({
                 onRequestClose={handleClose}
             >
                 <View style={styles.modalContainer}>
+                    {/* Handle */}
+                    <View style={styles.handleContainer}>
+                        <View style={styles.handle} />
+                    </View>
+
+                    {/* Header */}
                     <View style={styles.modalHeader}>
-                        <AppHeading variant="h2">Partager</AppHeading>
-                        <AppButton
-                            title="Fermer"
-                            variant="ghost"
-                            size="small"
-                            onPress={handleClose}
-                            fullWidth={false}
-                        />
-                    </View>
-
-                    <SpacerLG />
-
-                    {/* Preview card */}
-                    <View ref={cardRef} collapsable={false} style={styles.cardWrapper}>
-                        <CompatibilityShareCard
-                            nameOne={nameOne}
-                            nameTwo={nameTwo}
-                            score={score}
-                            sunOne={sunOne}
-                            sunTwo={sunTwo}
-                            moonOne={moonOne}
-                            moonTwo={moonTwo}
-                            summary={summary}
-                        />
-                    </View>
-
-                    <SpacerLG />
-
-                    {/* Share buttons */}
-                    <View style={styles.buttonsContainer}>
-                        {modulesAvailable && (
-                            <>
-                                <AppButton
-                                    title="Partager avec image"
-                                    variant="primary"
-                                    onPress={handleShareImage}
-                                    loading={isGenerating}
-                                    disabled={!shareData}
-                                />
-                                <SpacerMD />
-                            </>
-                        )}
-
-                        <AppButton
-                            title="Partager le lien"
-                            variant={modulesAvailable ? "secondary" : "primary"}
-                            onPress={handleShareLink}
-                            disabled={!shareData}
-                        />
-                    </View>
-
-                    {shareData && (
-                        <View style={styles.linkInfo}>
-                            <AppText style={styles.linkText}>
-                                {shareData.shareUrl}
-                            </AppText>
+                        <View style={styles.headerLeft}>
+                            <Text style={styles.logoIcon}>✦</Text>
+                            <Text style={styles.headerTitle}>Partager</Text>
                         </View>
+                        <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
+                            <Feather name="x" size={20} color={colors.onSurfaceMuted} />
+                        </Pressable>
+                    </View>
+
+                    {/* Loading state */}
+                    {isGenerating ? (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator color={colors.primary} size="large" />
+                            <Text style={styles.loadingText}>Génération du lien…</Text>
+                        </View>
+                    ) : (
+                        <>
+                            {/* Card preview */}
+                            <View ref={cardRef} collapsable={false} style={styles.cardWrapper}>
+                                <CompatibilityShareCard
+                                    nameOne={nameOne}
+                                    nameTwo={nameTwo}
+                                    score={score}
+                                    sunOne={sunOne}
+                                    sunTwo={sunTwo}
+                                    moonOne={moonOne}
+                                    moonTwo={moonTwo}
+                                    summary={summary}
+                                />
+                            </View>
+
+                            <View style={styles.divider} />
+
+                            {/* Share options */}
+                            <View style={styles.actionsContainer}>
+                                {modulesAvailable && (
+                                    <View style={styles.actionRow}>
+                                        <GoldButton
+                                            label={isSharing ? "PARTAGE EN COURS…" : "PARTAGER L'IMAGE"}
+                                            onPress={handleShareImage}
+                                            rightIcon
+                                        />
+                                    </View>
+                                )}
+
+                                <View style={styles.actionRow}>
+                                    <GhostButton
+                                        label="PARTAGER LE LIEN"
+                                        onPress={handleShareLink}
+                                    />
+                                </View>
+
+                                {shareData && (
+                                    <View style={styles.linkBox}>
+                                        <Feather name="link" size={12} color={colors.onSurfaceMuted} />
+                                        <Text style={styles.linkText} numberOfLines={1}>
+                                            {shareData.shareUrl}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        </>
                     )}
                 </View>
             </Modal>
@@ -226,42 +231,103 @@ export function CompatibilityShareButton({
 }
 
 const styles = StyleSheet.create({
-    shareIcon: {
-        fontSize: 16,
-    },
     modalContainer: {
         flex: 1,
-        backgroundColor: colors.background.primary,
-        padding: spacing.screenPadding,
+        backgroundColor: colors.surfaceLow,
+        paddingHorizontal: spacing.xl,
+    },
+    handleContainer: {
+        alignItems: 'center',
+        paddingTop: spacing.md,
+        paddingBottom: spacing.lg,
+    },
+    handle: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: colors.outline,
     },
     modalHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingTop: spacing.xl,
+        justifyContent: 'space-between',
+        marginBottom: spacing.xxl,
     },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    logoIcon: {
+        fontSize: 14,
+        color: colors.primary,
+        lineHeight: 18,
+    },
+    headerTitle: {
+        fontFamily: fonts.display.regular,
+        fontSize: 22,
+        color: colors.onSurface,
+        letterSpacing: 0.3,
+    },
+    closeBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.surfaceContainerHigh,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    loadingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.lg,
+    },
+    loadingText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
+    },
+
     cardWrapper: {
         alignSelf: 'center',
         width: 280,
-        shadowColor: colors.brand.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
+        marginBottom: spacing.xxl,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
         elevation: 8,
     },
-    buttonsContainer: {
-        paddingHorizontal: spacing.lg,
+    divider: {
+        height: 1,
+        backgroundColor: colors.surfaceContainerHigh,
+        marginBottom: spacing.xxl,
     },
-    linkInfo: {
-        marginTop: spacing.lg,
-        padding: spacing.md,
-        backgroundColor: colors.surface.default,
-        borderRadius: radius.sm,
+
+    actionsContainer: {
+        gap: spacing.md,
+    },
+    actionRow: {
+        // full-width buttons
+    },
+
+    linkBox: {
+        flexDirection: 'row',
         alignItems: 'center',
+        gap: spacing.sm,
+        backgroundColor: colors.surfaceContainer,
+        borderRadius: radius.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        marginTop: spacing.sm,
     },
     linkText: {
-        fontSize: 12,
-        color: colors.text.muted,
+        flex: 1,
+        fontFamily: fonts.body.regular,
+        fontSize: 11,
+        color: colors.onSurfaceMuted,
     },
 });
 

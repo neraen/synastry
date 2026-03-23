@@ -7,20 +7,20 @@
 
 import React, { ReactNode } from 'react';
 import { Text, TextStyle, StyleSheet } from 'react-native';
-import { colors, typography, TypographyVariant } from '@/theme';
+import { colors, typography } from '@/theme';
 
-// Text color variants
+// Text color variants (mapped to new flat color tokens)
 type TextColor = 'primary' | 'secondary' | 'muted' | 'disabled' | 'inverse' | 'accent' | 'error' | 'success';
 
 const colorMap: Record<TextColor, string> = {
-    primary: colors.text.primary,
-    secondary: colors.text.secondary,
-    muted: colors.text.muted,
-    disabled: colors.text.disabled,
-    inverse: colors.text.inverse,
-    accent: colors.brand.primary,
-    error: colors.status.error,
-    success: colors.status.success,
+    primary: colors.onSurface,
+    secondary: colors.onSurfaceMuted,
+    muted: colors.onSurfaceMuted,
+    disabled: colors.outline,
+    inverse: colors.surface,
+    accent: colors.primary,
+    error: colors.error,
+    success: colors.secondary, // Using secondary as success fallback
 };
 
 // AppText Component

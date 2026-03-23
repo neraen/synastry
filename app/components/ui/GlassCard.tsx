@@ -1,167 +1,106 @@
 /**
- * GlassCard Component
- * Premium glassmorphism card with optional blur effect, border, and glow
- * Falls back gracefully when expo-blur is not available (Expo Go)
+ * GlassCard
+ * The ONLY card/container component to use across the entire app.
+ * Implements glassmorphism with platform-specific rendering.
  */
 
-import React from 'react';
-import {
-    View,
-    StyleSheet,
-    ViewStyle,
-    StyleProp,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius, spacing } from '@/theme';
+import React, { memo, ReactNode } from 'react';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { colors, radius, shadows, spacing } from '@/theme';
 
-// Dynamically import BlurView (may not be available in Expo Go)
-let BlurView: any = null;
-try {
-    BlurView = require('expo-blur').BlurView;
-} catch {
-    // expo-blur not available
-}
+type Opacity = 'low' | 'medium' | 'high';
+type Radius = 'md' | 'xl' | 'xxl';
+type Padding = 'sm' | 'md' | 'lg' | 'xl' | 'none';
+// Legacy variant prop - maps to opacity
+type Variant = 'default' | 'elevated' | 'strong';
 
 interface GlassCardProps {
-    children: React.ReactNode;
+    children: ReactNode;
+    opacity?: Opacity;
+    radius?: Radius;
     style?: StyleProp<ViewStyle>;
-    variant?: 'default' | 'elevated' | 'strong' | 'gradient';
-    intensity?: number;
-    glowColor?: string;
-    showHighlight?: boolean;
-    padding?: keyof typeof spacing | number;
-    borderRadius?: number;
+    ambient?: boolean;
+    // Legacy props for backwards compatibility
+    variant?: Variant;
+    padding?: Padding;
+    glowColor?: string; // Legacy - not used in new implementation
 }
 
-export function GlassCard({
+// Glassmorphism backgrounds — surfaceLow (#1e1338) semi-transparent over page bg (#130827)
+const overlayColors: Record<Opacity, string> = {
+    low:    'rgba(30, 19, 56, 0.40)',
+    medium: 'rgba(30, 19, 56, 0.60)',
+    high:   'rgba(30, 19, 56, 0.80)',
+};
+
+// Padding values
+const paddingValues: Record<Padding, number> = {
+    none: 0,
+    sm: spacing.sm,
+    md: spacing.md,
+    lg: spacing.lg,
+    xl: spacing.xl,
+};
+
+// Map legacy variant to opacity
+const variantToOpacity: Record<Variant, Opacity> = {
+    default: 'low',
+    elevated: 'medium',
+    strong: 'high',
+};
+
+// Border color for glass effect
+const GLASS_BORDER_COLOR = 'rgba(255, 255, 255, 0.10)';
+
+const styles = StyleSheet.create({
+    topHighlight: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    },
+});
+
+export const GlassCard = memo(function GlassCard({
     children,
+    opacity,
+    radius: radiusProp = 'xl',
     style,
-    variant = 'default',
-    intensity = 20,
-    glowColor,
-    showHighlight = true,
-    padding = 'lg',
-    borderRadius = radius.xl,
+    ambient = false,
+    // Legacy props
+    variant,
+    padding,
+    glowColor: _glowColor, // Ignored in new implementation
 }: GlassCardProps) {
-    const paddingValue = typeof padding === 'number' ? padding : spacing[padding];
+    // Resolve opacity: explicit opacity prop takes precedence, then variant mapping, then default
+    const resolvedOpacity = opacity ?? (variant ? variantToOpacity[variant] : 'low');
+    const resolvedPadding = padding ? paddingValues[padding] : spacing.xl;
+    const borderRadiusValue = radius[radiusProp];
 
-    const getBackgroundColor = () => {
-        switch (variant) {
-            case 'elevated':
-                return colors.surface.elevated;
-            case 'strong':
-                return colors.surface.glassStrong;
-            case 'gradient':
-                return 'transparent';
-            default:
-                return colors.surface.glass;
-        }
-    };
-
-    const renderContent = () => (
-        <View style={[styles.content, { padding: paddingValue }]}>
-            {/* Top-left highlight for depth */}
-            {showHighlight && (
-                <View style={[styles.highlight, { borderRadius }]} />
-            )}
-            {children}
-        </View>
-    );
-
-    const cardStyle: ViewStyle = {
-        backgroundColor: getBackgroundColor(),
-        borderRadius,
-        borderWidth: 1,
-        borderColor: colors.surface.glassBorder,
+    const containerStyle: ViewStyle = {
+        borderRadius: borderRadiusValue,
         overflow: 'hidden',
+        backgroundColor: overlayColors[resolvedOpacity],
+        borderWidth: 1,
+        borderColor: GLASS_BORDER_COLOR,
+        ...(ambient && shadows.ambientGlow),
     };
 
-    const shadowStyle = glowColor
-        ? {
-              shadowColor: glowColor,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 16,
-              elevation: 8,
-          }
-        : styles.shadow;
-
-    // Use BlurView if available, otherwise fallback
-    if (BlurView) {
-        return (
-            <View style={[cardStyle, shadowStyle, style]}>
-                <BlurView intensity={intensity} style={StyleSheet.absoluteFill} tint="dark" />
-                {renderContent()}
-            </View>
-        );
-    }
-
-    // Fallback without blur - use semi-transparent background
-    return (
-        <View style={[cardStyle, shadowStyle, style]}>
-            {renderContent()}
-        </View>
-    );
-}
-
-// Gradient variant of GlassCard
-export function GradientGlassCard({
-    children,
-    style,
-    gradientColors = colors.gradients.primary,
-    intensity = 15,
-    padding = 'lg',
-    borderRadius = radius.xl,
-}: GlassCardProps & { gradientColors?: readonly string[] }) {
-    const paddingValue = typeof padding === 'number' ? padding : spacing[padding];
+    const contentStyle: ViewStyle = {
+        padding: resolvedPadding,
+    };
 
     return (
-        <View style={[styles.gradientContainer, { borderRadius }, style]}>
-            <LinearGradient
-                colors={gradientColors as [string, string, ...string[]]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[StyleSheet.absoluteFill, { borderRadius }]}
-            />
-            <View style={[styles.gradientOverlay, { borderRadius }]} />
-            <View style={[styles.content, { padding: paddingValue }]}>
-                <View style={[styles.highlight, { borderRadius }]} />
+        <View style={[containerStyle, style]}>
+            {/* Top highlight to simulate glass sheen */}
+            <View style={styles.topHighlight} />
+            <View style={contentStyle}>
                 {children}
             </View>
         </View>
     );
-}
-
-const styles = StyleSheet.create({
-    content: {
-        position: 'relative',
-        zIndex: 1,
-    },
-    highlight: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: '50%',
-        height: 1,
-        backgroundColor: colors.surface.glassHighlight,
-        opacity: 0.5,
-    },
-    shadow: {
-        shadowColor: colors.brand.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 24,
-        elevation: 8,
-    },
-    gradientContainer: {
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: colors.surface.glassBorder,
-    },
-    gradientOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    },
 });
 
 export default GlassCard;

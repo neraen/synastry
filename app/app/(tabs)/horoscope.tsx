@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import {
+    View,
+    Text,
+    ScrollView,
+    Pressable,
+    StyleSheet,
+    ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-    Screen,
-    AppButton,
-    AppHeading,
-    AppText,
-    AppCard,
-    Spacer,
-    LoadingState,
-    InlineLoading,
-    CopyableText,
-} from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, CopyableText, TabHeader, FormattedText } from '@/components/ui';
 import {
     getNatalChart,
     getNatalChartInterpretation,
@@ -21,52 +19,85 @@ import {
     getPlanetNameFr,
     formatDegree,
 } from '@/services/astrology';
-import { colors, spacing, borderRadius, shadows } from '@/theme';
-import { aiDisclaimerText } from '@/constants/legalTexts';
+import { colors, spacing, radius, fonts } from '@/theme';
 
-const BG = require('@/assets/images/interface/background-starry.png');
-
-const planetEmojis: Record<string, string> = {
-    Sun: '☀️',
-    Moon: '🌙',
-    Mercury: '☿️',
-    Venus: '♀️',
-    Mars: '♂️',
-    Jupiter: '♃',
-    Saturn: '♄',
-    Ascendant: '⬆️',
-    MC: '🎯',
+// ─── Planet display data ────────────────────────────────────────────────────────
+const PLANET_SYMBOLS: Record<string, string> = {
+    Sun:        '☀',
+    Moon:       '☽',
+    Mercury:    '☿',
+    Venus:      '♀',
+    Mars:       '♂',
+    Jupiter:    '♃',
+    Saturn:     '♄',
+    Uranus:     '♅',
+    Neptune:    '♆',
+    Pluto:      '♇',
+    Ascendant:  '↑',
+    Midheaven:  'MC',
 };
 
+const PLANET_TINTS = [
+    colors.primary,
+    `${colors.primary}CC`,
+    `${colors.primary}99`,
+    colors.secondary,
+    `${colors.secondary}CC`,
+];
+
+// ─── Planet Card ───────────────────────────────────────────────────────────────
+function PlanetCard({ planet, data, tint }: { planet: string; data: any; tint: string }) {
+    const symbol = PLANET_SYMBOLS[planet] || '✦';
+    const isRetrograde = data.Retrograde === 'Yes';
+
+    return (
+        <GlassCard opacity="low" radius="xl" style={styles.planetCard}>
+            <View style={[styles.symbolBubble, { backgroundColor: `${tint}1A` }]}>
+                <Text style={[styles.planetSymbol, { color: tint }]}>{symbol}</Text>
+            </View>
+            <View style={styles.planetContent}>
+                <View style={styles.planetNameRow}>
+                    <Text style={styles.planetName}>{getPlanetNameFr(planet)}</Text>
+                    {isRetrograde && (
+                        <View style={styles.retroBadge}>
+                            <Text style={styles.retroText}>℞</Text>
+                        </View>
+                    )}
+                </View>
+                <Text style={styles.planetPosition} numberOfLines={1}>
+                    {formatDegree(data.Position, data.Sign)}
+                </Text>
+            </View>
+        </GlassCard>
+    );
+}
+
+// ─── Screen ────────────────────────────────────────────────────────────────────
 export default function HoroscopeTab() {
     const router = useRouter();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
-    const [isLoadingInterpretation, setIsLoadingInterpretation] = useState(false);
+    const [isLoadingInterp, setIsLoadingInterp] = useState(false);
     const [error, setError] = useState<string>();
     const [chart, setChart] = useState<NatalChart | null>(null);
     const [interpretation, setInterpretation] = useState<string | null>(null);
 
     useEffect(() => {
-        if (isAuthenticated && user?.hasBirthProfile) {
-            loadChart();
-        } else {
-            setIsLoading(false);
-        }
-    }, [isAuthenticated, user]);
+        if (isAuthLoading) return;
+        if (isAuthenticated && user?.hasBirthProfile) loadChart();
+        else setIsLoading(false);
+    }, [isAuthenticated, user, isAuthLoading]);
 
-    async function loadChart() {
+    async function loadChart(refresh = false) {
         try {
             setError(undefined);
-            const response = await getNatalChart();
+            const response = await getNatalChart(refresh);
             if (response.success && response.chart) {
                 setChart(response.chart);
-                if (response.chart.interpretation) {
-                    setInterpretation(response.chart.interpretation);
-                }
+                if (response.chart.interpretation) setInterpretation(response.chart.interpretation);
             } else {
-                setError(response.error || 'Erreur lors du chargement');
+                setError(response.error || 'Erreur lors du chargement du thème');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erreur inconnue');
@@ -76,260 +107,364 @@ export default function HoroscopeTab() {
     }
 
     async function loadInterpretation() {
-        setIsLoadingInterpretation(true);
+        setIsLoadingInterp(true);
+        setError(undefined);
         try {
             const response = await getNatalChartInterpretation();
             if (response.success && response.interpretation) {
                 setInterpretation(response.interpretation);
+            } else {
+                setError(response.error || "Erreur lors de l'interprétation");
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erreur inconnue');
         } finally {
-            setIsLoadingInterpretation(false);
+            setIsLoadingInterp(false);
         }
     }
 
+    // ── Loading ──
     if (isAuthLoading || isLoading) {
         return (
-            <Screen backgroundImage={BG}>
-                <LoadingState message="Chargement..." />
-            </Screen>
+            <View style={styles.screen}>
+                <SafeAreaView style={styles.safeArea} edges={['top']}>
+                    <View style={styles.centered}>
+                        <ActivityIndicator color={colors.primary} size="large" />
+                        <Text style={styles.loadingText}>Calcul de votre thème natal…</Text>
+                    </View>
+                </SafeAreaView>
+            </View>
         );
     }
 
+    // ── Not authenticated ──
     if (!isAuthenticated) {
         return (
-            <Screen backgroundImage={BG}>
-                <View style={styles.centerContent}>
-                    <AppText style={styles.bigEmoji}>🔮</AppText>
-                    <Spacer size="lg" />
-                    <AppText variant="body" color="muted" align="center">
-                        Connectez-vous pour voir votre thème natal
-                    </AppText>
-                    <Spacer size="lg" />
-                    <AppButton
-                        title="Se connecter"
-                        onPress={() => router.push('/login')}
-                        variant="primary"
-                    />
-                </View>
-            </Screen>
+            <View style={styles.screen}>
+                <SafeAreaView style={styles.safeArea} edges={['top']}>
+                    <View style={styles.centered}>
+                        <Text style={styles.emptyIcon}>🔮</Text>
+                        <Text style={styles.emptyText}>Connectez-vous pour voir votre thème natal</Text>
+                        <GoldButton label="SE CONNECTER" onPress={() => router.push('/login')} />
+                    </View>
+                </SafeAreaView>
+            </View>
         );
     }
 
+    // ── No birth profile ──
     if (!user?.hasBirthProfile) {
         return (
-            <Screen backgroundImage={BG}>
-                <View style={styles.centerContent}>
-                    <AppText style={styles.bigEmoji}>✨</AppText>
-                    <Spacer size="lg" />
-                    <AppText variant="body" color="muted" align="center">
-                        Complétez votre profil pour voir votre thème natal
-                    </AppText>
-                    <Spacer size="lg" />
-                    <AppButton
-                        title="Compléter mon profil"
-                        onPress={() => router.push('/birth-profile')}
-                        variant="primary"
-                    />
-                </View>
-            </Screen>
+            <View style={styles.screen}>
+                <SafeAreaView style={styles.safeArea} edges={['top']}>
+                    <View style={styles.centered}>
+                        <Text style={styles.emptyIcon}>✨</Text>
+                        <Text style={styles.emptyText}>Complétez votre profil pour voir votre thème natal</Text>
+                        <GoldButton label="MON PROFIL" onPress={() => router.push('/birth-profile')} />
+                    </View>
+                </SafeAreaView>
+            </View>
         );
     }
 
     const mainPlanets = chart ? getMainPlanets(chart.planetaryPositions) : {};
+    const planetEntries = Object.entries(mainPlanets);
 
     return (
-        <Screen variant="scroll" backgroundImage={BG}>
-            <Spacer size="xl" />
+        <View style={styles.screen}>
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <TabHeader />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <AppText style={styles.headerIcon}>🔮</AppText>
-                <AppHeading variant="h1" align="center">
-                    Mon Thème
-                </AppHeading>
-            </View>
-
-            {error && (
-                <>
-                    <Spacer size="lg" />
-                    <AppCard variant="outline" style={styles.errorCard}>
-                        <AppText variant="body" color="error" align="center">
-                            {error}
-                        </AppText>
-                    </AppCard>
-                </>
-            )}
-
-            {chart && (
-                <>
-                    <Spacer size="xl" />
-
-                    {/* Planets Grid */}
-                    <View style={styles.planetsGrid}>
-                        {Object.entries(mainPlanets).map(([planet, data]) => (
-                            <View key={planet} style={styles.planetCard}>
-                                <View style={styles.planetHeader}>
-                                    <AppText style={styles.planetEmoji}>
-                                        {planetEmojis[planet] || '✨'}
-                                    </AppText>
-                                    {data.Retrograde === 'Yes' && (
-                                        <View style={styles.retrogradeTag}>
-                                            <AppText variant="caption" style={styles.retrogradeText}>
-                                                R
-                                            </AppText>
-                                        </View>
-                                    )}
-                                </View>
-                                <Spacer size="xs" />
-                                <AppText variant="bodyMedium" color="primary">
-                                    {getPlanetNameFr(planet)}
-                                </AppText>
-                                <AppText variant="caption" color="accent">
-                                    {formatDegree(data.Position, data.Sign)}
-                                </AppText>
-                            </View>
-                        ))}
+                    {/* ── Hero ────────────────────────────────────────────────── */}
+                    <View style={styles.hero}>
+                        <View style={styles.badge}>
+                            <View style={styles.badgeDot} />
+                            <Text style={styles.badgeText}>THÈME NATAL</Text>
+                        </View>
+                        <Text style={styles.heroTitle}>Votre ADN{'\n'}cosmique</Text>
+                        <Text style={styles.heroSubtitle}>
+                            Vos positions planétaires au moment exact de votre naissance.
+                        </Text>
                     </View>
 
-                    <Spacer size="2xl" />
-
-                    {/* Interpretation */}
-                    {interpretation ? (
-                        <>
-                            <AppCard variant="elevated" style={styles.interpretationCard}>
-                                <CopyableText text={interpretation}>
-                                    <AppText variant="body" color="secondary" style={styles.interpretationText}>
-                                        {interpretation}
-                                    </AppText>
-                                </CopyableText>
-                            </AppCard>
-                            <Spacer size="xl" />
-                            {/* AI Disclaimer */}
-                            <View style={styles.disclaimerContainer}>
-                                <AppText variant="caption" color="muted" align="center" style={styles.disclaimerText}>
-                                    {aiDisclaimerText}
-                                </AppText>
-                            </View>
-                        </>
-                    ) : (
-                        <AppCard variant="outline" style={styles.ctaCard}>
-                            {isLoadingInterpretation ? (
-                                <View style={styles.loadingContainer}>
-                                    <InlineLoading />
-                                    <Spacer size="md" />
-                                    <AppText variant="body" color="muted" align="center">
-                                        Analyse en cours...
-                                    </AppText>
+                    {/* ── Error ───────────────────────────────────────────────── */}
+                    {error && (
+                        <View style={styles.sectionPad}>
+                            <GlassCard opacity="low" radius="xl">
+                                <Text style={styles.errorText}>{error}</Text>
+                                <View style={{ marginTop: spacing.lg }}>
+                                    <GhostButton label="RÉESSAYER" onPress={() => loadChart()} />
                                 </View>
-                            ) : (
-                                <>
-                                    <AppText variant="body" color="muted" align="center">
-                                        Obtenez une interprétation personnalisée
-                                    </AppText>
-                                    <Spacer size="lg" />
-                                    <AppButton
-                                        title="Obtenir l'interprétation"
-                                        onPress={loadInterpretation}
-                                        variant="primary"
-                                    />
-                                </>
-                            )}
-                        </AppCard>
+                            </GlassCard>
+                        </View>
                     )}
-                </>
-            )}
 
-            <Spacer size="3xl" />
-        </Screen>
+                    {/* ── Planets grid ─────────────────────────────────────────── */}
+                    {planetEntries.length > 0 && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionLabel}>POSITIONS PLANÉTAIRES</Text>
+                            <View style={styles.grid}>
+                                {planetEntries.map(([planet, data], index) => (
+                                    <PlanetCard
+                                        key={planet}
+                                        planet={planet}
+                                        data={data}
+                                        tint={PLANET_TINTS[index % PLANET_TINTS.length]}
+                                    />
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* ── Interpretation ───────────────────────────────────────── */}
+                    {chart && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionLabel}>INTERPRÉTATION</Text>
+
+                            {interpretation ? (
+                                <GlassCard opacity="low" radius="xl">
+                                    <CopyableText text={interpretation}>
+                                        <FormattedText text={interpretation} style={styles.interpText} />
+                                    </CopyableText>
+                                </GlassCard>
+                            ) : isLoadingInterp ? (
+                                <GlassCard opacity="low" radius="xl">
+                                    <View style={styles.interpLoading}>
+                                        <ActivityIndicator color={colors.primary} size="small" />
+                                        <Text style={styles.interpLoadingText}>Analyse en cours…</Text>
+                                        <Text style={styles.interpLoadingHint}>
+                                            Cela peut prendre quelques secondes
+                                        </Text>
+                                    </View>
+                                </GlassCard>
+                            ) : (
+                                <GlassCard opacity="low" radius="xl">
+                                    <Text style={styles.interpCta}>
+                                        Obtenez une interprétation personnalisée de votre thème natal par l'IA.
+                                    </Text>
+                                    <View style={{ marginTop: spacing.xl }}>
+                                        <GoldButton
+                                            label="OBTENIR L'INTERPRÉTATION"
+                                            onPress={loadInterpretation}
+                                            rightIcon
+                                        />
+                                    </View>
+                                </GlassCard>
+                            )}
+                        </View>
+                    )}
+
+                    {/* ── Actions ──────────────────────────────────────────────── */}
+                    {chart && (
+                        <View style={styles.actions}>
+                            <GhostButton
+                                label="ANALYSE DE COMPATIBILITÉ"
+                                onPress={() => router.push('/synastry')}
+                            />
+                        </View>
+                    )}
+
+                    <View style={{ height: 100 }} />
+                </ScrollView>
+            </SafeAreaView>
+        </View>
     );
 }
 
+// ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    header: {
-        alignItems: 'center',
-    },
-    headerIcon: {
-        fontSize: 44,
-        lineHeight: 56,
-        marginBottom: spacing.sm,
-        textAlign: 'center',
-    },
-    centerContent: {
+    screen: { flex: 1, backgroundColor: colors.surfaceLowest },
+    safeArea: { flex: 1 },
+    scroll: { flex: 1 },
+    scrollContent: { flexGrow: 1 },
+    centered: {
         flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.lg,
         paddingHorizontal: spacing.xl,
     },
-    bigEmoji: {
-        fontSize: 64,
-        lineHeight: 80,
+    loadingText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
+    },
+    emptyIcon: {
+        fontSize: 56,
         textAlign: 'center',
     },
-    errorCard: {
-        borderColor: colors.status.error,
-        padding: spacing.lg,
+    emptyText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        lineHeight: 22,
     },
-    planetsGrid: {
+
+    // Hero
+    hero: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.xxxl,
+    },
+    badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: spacing.sm,
+        backgroundColor: colors.surfaceContainerHigh,
+        borderRadius: radius.full,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        marginBottom: spacing.xl,
+    },
+    badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+    badgeText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 10,
+        letterSpacing: 1.5,
+        color: colors.onSurfaceMuted,
+        textTransform: 'uppercase',
+    },
+    heroTitle: {
+        fontFamily: fonts.display.bold,
+        fontSize: 42,
+        lineHeight: 50,
+        color: colors.onSurface,
+        letterSpacing: -0.5,
+        marginBottom: spacing.md,
+    },
+    heroSubtitle: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        lineHeight: 22,
+        color: colors.onSurfaceMuted,
+        maxWidth: 300,
+    },
+
+    // Sections
+    section: {
+        paddingHorizontal: spacing.xl,
+        marginBottom: spacing.xxl,
+    },
+    sectionPad: {
+        paddingHorizontal: spacing.xl,
+        marginBottom: spacing.xl,
+    },
+    sectionLabel: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 10,
+        letterSpacing: 1.5,
+        color: colors.onSurfaceMuted,
+        textTransform: 'uppercase',
+        marginBottom: spacing.md,
+    },
+
+    // Planet grid
+    grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: spacing.md,
-        justifyContent: 'space-between',
     },
     planetCard: {
-        backgroundColor: colors.surface.elevated,
-        borderRadius: borderRadius.card,
-        padding: spacing.lg,
-        width: '47%',
-        borderWidth: 1,
-        borderColor: colors.border.subtle,
+        width: '47.5%',
+        flexDirection: 'column',
         alignItems: 'center',
-        ...shadows.sm,
+        justifyContent: 'center',
+        gap: spacing.sm,
     },
-    planetHeader: {
+    symbolBubble: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        alignSelf: 'center',
+    },
+    planetSymbol: {
+        fontFamily: fonts.display.bold,
+        fontSize: 18,
+        lineHeight: 22,
+    },
+    planetContent: { alignItems: 'center' },
+    planetNameRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        marginBottom: 2,
     },
-    planetEmoji: {
-        fontSize: 28,
-        lineHeight: 36,
+    planetName: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 13,
+        color: colors.onSurface,
+    },
+    retroBadge: {
+        backgroundColor: `${colors.error}20`,
+        borderRadius: radius.full,
+        paddingHorizontal: 5,
+        paddingVertical: 1,
+    },
+    retroText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 10,
+        color: colors.error,
+    },
+    planetPosition: {
+        fontFamily: fonts.body.regular,
+        fontSize: 11,
+        color: colors.onSurfaceMuted,
         textAlign: 'center',
     },
-    retrogradeTag: {
-        backgroundColor: colors.status.errorSoft,
-        borderRadius: borderRadius.badge,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 2,
-        marginLeft: spacing.xs,
-    },
-    retrogradeText: {
-        color: colors.status.error,
-        fontWeight: '600',
-        fontSize: 10,
-    },
-    interpretationCard: {
-        padding: spacing.xl,
-    },
-    interpretationText: {
+
+    // Interpretation
+    interpText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
         lineHeight: 26,
+        color: colors.onSurface,
     },
-    ctaCard: {
-        padding: spacing.xl,
+    interpLoading: {
         alignItems: 'center',
+        paddingVertical: spacing.lg,
+        gap: spacing.md,
     },
-    loadingContainer: {
+    interpLoadingText: {
+        fontFamily: fonts.body.medium,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
+    },
+    interpLoadingHint: {
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: `${colors.onSurfaceMuted}80`,
+    },
+    interpCta: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        lineHeight: 22,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+    },
+
+    // Actions
+    actions: {
+        paddingHorizontal: spacing.xl,
         alignItems: 'center',
-        paddingVertical: spacing.md,
+        marginBottom: spacing.xxl,
     },
-    disclaimerContainer: {
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
-        backgroundColor: colors.surface.default,
-        borderRadius: borderRadius.card,
-    },
-    disclaimerText: {
-        fontStyle: 'italic',
-        lineHeight: 18,
+
+    // Error
+    errorText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.error,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });

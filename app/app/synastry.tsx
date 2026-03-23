@@ -196,7 +196,7 @@ export default function SynastryScreen() {
     // Loading states
     if (isAuthLoading || !user?.hasBirthProfile) {
         return (
-            <Screen backgroundVariant="cosmic">
+            <Screen backgroundColor={colors.surfaceLowest}>
                 <LoadingState message="Chargement..." />
             </Screen>
         );
@@ -212,7 +212,7 @@ export default function SynastryScreen() {
         const dimensions = result.details?.dimensions || {};
 
         return (
-            <Screen variant="scroll" backgroundVariant="cosmic">
+            <Screen variant="scroll" backgroundColor={colors.surfaceLowest}>
                 <Animated.View
                     style={{
                         opacity: fadeAnim,
@@ -339,7 +339,7 @@ export default function SynastryScreen() {
 
     // Form view
     return (
-        <Screen variant="form" backgroundVariant="cosmic">
+        <Screen variant="form" backgroundColor={colors.surfaceLowest}>
             <Spacer size="lg" />
 
             {/* Header */}

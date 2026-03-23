@@ -309,3 +309,24 @@ export async function createCompatibilityShare(compatibilityId: number): Promise
 export async function getPublicShare(shareId: string): Promise<PublicShareResponse> {
     return authApi.get<PublicShareResponse>(`/api/share/${shareId}`);
 }
+
+// Upcoming Transits types
+export interface UpcomingTransit {
+    date: string;
+    title: string;
+    description: string;
+    intensity: 'high' | 'medium' | 'low';
+}
+
+export interface UpcomingTransitsResponse {
+    success: boolean;
+    transits?: UpcomingTransit[];
+    error?: string;
+}
+
+/**
+ * Get 3 most significant upcoming transits (AI-generated)
+ */
+export async function getUpcomingTransits(): Promise<UpcomingTransitsResponse> {
+    return authApi.get<UpcomingTransitsResponse>('/api/horoscope/transits');
+}

@@ -39,6 +39,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true, unique: true)]
     private ?string $appleId = null;
 
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $isPremium = false;
+
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $premiumUntil = null;
+
     #[ORM\OneToOne(mappedBy: 'user', targetEntity: BirthProfile::class, cascade: ['persist', 'remove'])]
     private ?BirthProfile $birthProfile = null;
 
@@ -171,6 +177,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function hasBirthProfile(): bool
     {
         return $this->birthProfile !== null;
+    }
+
+    public function isPremium(): bool
+    {
+        // Also check that the subscription hasn't expired
+        if (!$this->isPremium) {
+            return false;
+        }
+        if ($this->premiumUntil !== null && $this->premiumUntil < new \DateTime()) {
+            return false;
+        }
+        return true;
+    }
+
+    public function setIsPremium(bool $isPremium): static
+    {
+        $this->isPremium = $isPremium;
+        return $this;
+    }
+
+    public function getPremiumUntil(): ?\DateTimeInterface
+    {
+        return $this->premiumUntil;
+    }
+
+    public function setPremiumUntil(?\DateTimeInterface $premiumUntil): static
+    {
+        $this->premiumUntil = $premiumUntil;
+        return $this;
     }
 
     /**

@@ -102,6 +102,112 @@ class HoroscopeGeneratorService
     }
 
     /**
+     * Get 3 most significant upcoming transits for the user
+     */
+    public function getUpcomingTransits(User $user): array
+    {
+        $isEnglish = $this->localeService->getLocale() === 'en';
+
+        if (!$user->getBirthProfile()) {
+            return [
+                'success' => false,
+                'error' => $isEnglish
+                    ? 'Please complete your birth profile first'
+                    : 'Veuillez compléter votre profil de naissance',
+            ];
+        }
+
+        try {
+            $data = $this->astrologyAnalysisService->prepareHoroscopeData($user);
+            $prompt = $this->buildTransitsPrompt($data);
+            $result = $this->openAiService->getUpcomingTransits($prompt);
+            return $result;
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $isEnglish
+                    ? 'Error generating transits: ' . $e->getMessage()
+                    : 'Erreur lors de la génération des transits : ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Build the GPT prompt for upcoming transits
+     */
+    private function buildTransitsPrompt(array $data): string
+    {
+        $isEnglish = $this->localeService->getLocale() === 'en';
+        $today = (new \DateTime())->format('F j, Y');
+
+        $natalJson = json_encode($data['natal_planets'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $transitsJson = json_encode($data['current_transits'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $aspectsJson = json_encode($data['major_aspects'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        $sunSign = $data['sun_sign'];
+        $moonSign = $data['moon_sign'];
+        $ascendant = $data['ascendant'];
+
+        $exampleJson = json_encode([
+            ['date' => 'Apr 2 – Apr 5', 'title' => 'Jupiter Trine Sun', 'description' => 'A window of expansion and optimism opens. Ideal for initiating ambitious projects.', 'intensity' => 'high'],
+            ['date' => 'Apr 8', 'title' => 'New Moon in Aries', 'description' => 'Powerful new beginning energy. Set intentions around personal identity and courage.', 'intensity' => 'medium'],
+            ['date' => 'Apr 12 – Apr 16', 'title' => 'Mercury Square Saturn', 'description' => 'Communications may feel restricted. Take extra care in important conversations.', 'intensity' => 'low'],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        if ($isEnglish) {
+            return <<<PROMPT
+Today is {$today}. Sun in {$sunSign}, Moon in {$moonSign}, Ascendant {$ascendant}.
+
+Based on this natal chart and the current planetary positions, identify the 3 most significant transits that will be active or approaching in the next 30 days.
+
+Return ONLY a JSON array with exactly 3 objects (no text before or after):
+{$exampleJson}
+
+Rules:
+- "date" = date range formatted as "Mon D – Mon D" or "Mon D" for single-day events
+- "title" = "Planet Aspect Planet" (e.g. "Venus Trine Jupiter")
+- "description" = 1-2 sentences, personal impact based on the natal chart, no jargon
+- "intensity" = "high", "medium", or "low"
+- Focus on transits that personally activate this chart
+
+═══ NATAL CHART ═══
+{$natalJson}
+
+═══ CURRENT TRANSITS ═══
+{$transitsJson}
+
+═══ ACTIVE ASPECTS (natal vs transits) ═══
+{$aspectsJson}
+PROMPT;
+        }
+
+        return <<<PROMPT
+Aujourd'hui, le {$today}. Soleil en {$sunSign}, Lune en {$moonSign}, Ascendant {$ascendant}.
+
+En te basant sur ce thème natal et les positions planétaires actuelles, identifie les 3 prochains transits les plus significatifs actifs ou à venir dans les 30 prochains jours.
+
+Renvoie UNIQUEMENT un tableau JSON avec exactement 3 objets (pas de texte avant ou après) :
+{$exampleJson}
+
+Règles :
+- "date" = plage de dates formatée comme "D Mois – D Mois" ou "D Mois" pour les événements d'un seul jour
+- "title" = "Planète Aspect Planète" (ex. "Vénus Trigone Jupiter")
+- "description" = 1-2 phrases, impact personnel basé sur le thème natal, sans jargon technique
+- "intensity" = "high", "medium" ou "low"
+- Concentre-toi sur les transits qui activent personnellement ce thème
+
+═══ THÈME NATAL ═══
+{$natalJson}
+
+═══ TRANSITS ACTUELS ═══
+{$transitsJson}
+
+═══ ASPECTS ACTIFS (natal vs transits) ═══
+{$aspectsJson}
+PROMPT;
+    }
+
+    /**
      * Generate a new horoscope using OpenAI
      */
     private function generateHoroscope(User $user, ?DailyHoroscope $existing): DailyHoroscope

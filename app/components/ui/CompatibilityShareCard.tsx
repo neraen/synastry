@@ -1,14 +1,13 @@
 /**
  * CompatibilityShareCard
  *
- * A visual preview card for compatibility sharing
+ * Visual preview card for compatibility sharing — matches the premium design system
  */
 
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius } from '@/theme';
-import { AppText, AppHeading } from './Text';
+import { colors, spacing, radius, fonts } from '@/theme';
 import { getZodiacSignFr } from '@/services/astrology';
 
 interface CompatibilityShareCardProps {
@@ -23,31 +22,11 @@ interface CompatibilityShareCardProps {
     style?: ViewStyle;
 }
 
-function getZodiacEmoji(sign: string | null | undefined): string {
-    if (!sign) return '';
-    const emojis: Record<string, string> = {
-        'Aries': '\u2648',
-        'Taurus': '\u2649',
-        'Gemini': '\u264A',
-        'Cancer': '\u264B',
-        'Leo': '\u264C',
-        'Virgo': '\u264D',
-        'Libra': '\u264E',
-        'Scorpio': '\u264F',
-        'Sagittarius': '\u2650',
-        'Capricorn': '\u2651',
-        'Aquarius': '\u2652',
-        'Pisces': '\u2653',
-    };
-    return emojis[sign] || '';
-}
-
-function getScoreColor(score: number): string {
-    if (score >= 80) return '#4CC38A';
-    if (score >= 60) return '#C99A64';
-    if (score >= 40) return '#F5A623';
-    return '#E5484D';
-}
+const ZODIAC_SYMBOLS: Record<string, string> = {
+    Aries: '♈', Taurus: '♉', Gemini: '♊', Cancer: '♋',
+    Leo: '♌', Virgo: '♍', Libra: '♎', Scorpio: '♏',
+    Sagittarius: '♐', Capricorn: '♑', Aquarius: '♒', Pisces: '♓',
+};
 
 export function CompatibilityShareCard({
     nameOne,
@@ -60,78 +39,58 @@ export function CompatibilityShareCard({
     summary,
     style,
 }: CompatibilityShareCardProps) {
-    const scoreColor = getScoreColor(score);
+    const roundedScore = Math.round(score);
 
     return (
         <View style={[styles.container, style]}>
             <LinearGradient
-                colors={['#0A0A1A', '#1A0A2E', '#0F0F24']}
+                colors={[colors.surfaceLowest, colors.surfaceLow, colors.surfaceContainer]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gradient}
             >
-                {/* Stars decoration */}
-                <View style={styles.starsContainer}>
-                    {[...Array(8)].map((_, i) => (
-                        <View
-                            key={i}
-                            style={[
-                                styles.star,
-                                {
-                                    left: `${10 + (i * 12)}%`,
-                                    top: `${5 + (i % 3) * 8}%`,
-                                    width: 2 + (i % 3),
-                                    height: 2 + (i % 3),
-                                }
-                            ]}
-                        />
-                    ))}
-                </View>
+                {/* Ambient glow */}
+                <View style={styles.glowTop} />
+                <View style={styles.glowBottom} />
 
-                {/* Title */}
-                <AppText style={styles.title}>COMPATIBILITE COSMIQUE</AppText>
+                {/* Badge */}
+                <View style={styles.badge}>
+                    <Text style={styles.badgeText}>COMPATIBILITÉ COSMIQUE</Text>
+                </View>
 
                 {/* Names */}
-                <AppHeading variant="h2" style={styles.names}>
-                    {nameOne} {'\u2726'} {nameTwo}
-                </AppHeading>
+                <Text style={styles.names} numberOfLines={1}>
+                    {nameOne} ✦ {nameTwo}
+                </Text>
 
-                {/* Score circle */}
+                {/* Score */}
                 <View style={styles.scoreContainer}>
-                    <View style={[styles.scoreCircle, { borderColor: scoreColor }]}>
-                        <AppText style={{ ...styles.scoreText, color: scoreColor }}>
-                            {Math.round(score)}%
-                        </AppText>
-                    </View>
+                    <Text style={styles.scoreValue}>{roundedScore}</Text>
+                    <Text style={styles.scorePercent}>%</Text>
                 </View>
 
-                {/* Zodiac info */}
+                {/* Zodiac row */}
                 {(sunOne || sunTwo) && (
                     <View style={styles.zodiacRow}>
-                        <AppText style={styles.zodiacLabel}>{'\u2609'}</AppText>
-                        <AppText style={styles.zodiacText}>
-                            {getZodiacSignFr(sunOne || '')} {'\u00d7'} {getZodiacSignFr(sunTwo || '')}
-                        </AppText>
-                    </View>
-                )}
-                {(moonOne || moonTwo) && (
-                    <View style={styles.zodiacRow}>
-                        <AppText style={{ ...styles.zodiacLabel, color: colors.brand.secondary }}>{'\u263D'}</AppText>
-                        <AppText style={styles.zodiacText}>
-                            {getZodiacSignFr(moonOne || '')} {'\u00d7'} {getZodiacSignFr(moonTwo || '')}
-                        </AppText>
+                        <Text style={styles.zodiacSymbol}>
+                            {ZODIAC_SYMBOLS[sunOne ?? ''] ?? '☀'}
+                        </Text>
+                        <Text style={styles.zodiacDivider}>×</Text>
+                        <Text style={styles.zodiacSymbol}>
+                            {ZODIAC_SYMBOLS[sunTwo ?? ''] ?? '☀'}
+                        </Text>
                     </View>
                 )}
 
                 {/* Summary */}
                 {summary && (
-                    <AppText style={styles.summary} numberOfLines={2}>
-                        "{summary.slice(0, 100)}"
-                    </AppText>
+                    <Text style={styles.summary} numberOfLines={2}>
+                        "{summary.slice(0, 90)}"
+                    </Text>
                 )}
 
                 {/* Footer */}
-                <AppText style={styles.footer}>AstroMatch</AppText>
+                <Text style={styles.footer}>AstroMatch</Text>
             </LinearGradient>
         </View>
     );
@@ -139,9 +98,11 @@ export function CompatibilityShareCard({
 
 const styles = StyleSheet.create({
     container: {
-        borderRadius: borderRadius.card,
+        borderRadius: radius.xl,
         overflow: 'hidden',
         aspectRatio: 1,
+        borderWidth: 1,
+        borderColor: 'rgba(233, 195, 73, 0.15)',
     },
     gradient: {
         flex: 1,
@@ -149,69 +110,90 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
     },
-    starsContainer: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    star: {
+    glowTop: {
         position: 'absolute',
-        backgroundColor: 'rgba(255, 255, 255, 0.6)',
-        borderRadius: 10,
+        top: -40,
+        left: '20%',
+        right: '20%',
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(233, 195, 73, 0.08)',
     },
-    title: {
-        fontSize: 12,
-        letterSpacing: 4,
-        color: colors.brand.primary,
+    glowBottom: {
+        position: 'absolute',
+        bottom: -30,
+        left: '10%',
+        right: '10%',
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: 'rgba(200, 191, 255, 0.06)',
+    },
+    badge: {
+        backgroundColor: 'rgba(233, 195, 73, 0.12)',
+        borderRadius: radius.full,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 4,
+    },
+    badgeText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 9,
+        letterSpacing: 2,
+        color: colors.primary,
         textTransform: 'uppercase',
     },
     names: {
+        fontFamily: fonts.display.bold,
         fontSize: 18,
-        color: colors.text.primary,
+        color: colors.onSurface,
         textAlign: 'center',
+        letterSpacing: 0.3,
     },
     scoreContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginVertical: spacing.lg,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
     },
-    scoreCircle: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 3,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    scoreValue: {
+        fontFamily: fonts.display.bold,
+        fontSize: 64,
+        lineHeight: 70,
+        color: colors.primary,
     },
-    scoreText: {
-        fontSize: 32,
-        fontWeight: 'bold',
+    scorePercent: {
+        fontFamily: fonts.display.regular,
+        fontSize: 28,
+        color: colors.primary,
+        marginBottom: 8,
+        marginLeft: 2,
     },
     zodiacRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: spacing.xs,
+        gap: spacing.md,
     },
-    zodiacLabel: {
-        fontSize: 16,
-        color: colors.brand.primary,
-        marginRight: spacing.sm,
+    zodiacSymbol: {
+        fontSize: 22,
+        color: colors.secondary,
     },
-    zodiacText: {
+    zodiacDivider: {
+        fontFamily: fonts.display.regular,
         fontSize: 14,
-        color: colors.text.secondary,
+        color: colors.onSurfaceMuted,
     },
     summary: {
-        fontSize: 12,
-        color: colors.text.muted,
-        textAlign: 'center',
+        fontFamily: fonts.body.regular,
+        fontSize: 11,
         fontStyle: 'italic',
-        marginTop: spacing.md,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        lineHeight: 16,
         paddingHorizontal: spacing.md,
     },
     footer: {
+        fontFamily: fonts.display.regular,
         fontSize: 10,
-        color: colors.text.disabled,
-        marginTop: spacing.sm,
+        letterSpacing: 1.5,
+        color: `${colors.primary}66`,
+        textTransform: 'uppercase',
     },
 });
 

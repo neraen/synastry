@@ -26,7 +26,6 @@ import {
 } from '@/services/astrology';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 
-const BG = require('@/assets/images/interface/background-starry.png');
 
 // Score color based on value
 function getScoreColor(score: number | null): string {
@@ -172,14 +171,14 @@ export default function SynastryHistoryScreen() {
 
     if (isAuthLoading || isLoading) {
         return (
-            <Screen backgroundImage={BG}>
+            <Screen backgroundColor={colors.surfaceLowest}>
                 <LoadingState message="Chargement de l'historique..." />
             </Screen>
         );
     }
 
     return (
-        <Screen variant="scroll" backgroundImage={BG}>
+        <Screen variant="scroll" backgroundColor={colors.surfaceLowest}>
             <Spacer size="xl" />
 
             {/* Header */}

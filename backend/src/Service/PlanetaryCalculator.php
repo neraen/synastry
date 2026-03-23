@@ -354,10 +354,16 @@ class PlanetaryCalculator
             ? "{$nameA}'s Venus trine {$nameB}'s Mars"
             : "la Vénus de {$nameA} en trigone avec le Mars de {$nameB}";
 
+        $scoringRules = $isEnglish
+            ? "SCORING METHOD (MANDATORY):\nFor each dimension, start at 50 then apply:\n  +20 = perfect harmony (trine, same sign)\n  +10 = good (sextile, compatible elements)\n    0 = neutral\n  -10 = tension (square)\n  -20 = strong conflict (opposition, incompatible elements)\n\nDIMENSION PLANETS:\n  love         → Moon, Venus aspects\n  communication → Mercury aspects\n  attraction   → Mars, Venus aspects\n  long_term    → Sun, Ascendant aspects\n  conflicts    → Saturn aspects"
+            : "MÉTHODE DE SCORING (OBLIGATOIRE) :\nPour chaque dimension, pars de 50 puis applique :\n  +20 = harmonie parfaite (trigone, même signe)\n  +10 = bon (sextile, éléments compatibles)\n    0 = neutre\n  -10 = tension (carré)\n  -20 = conflit fort (opposition, éléments incompatibles)\n\nPLANÈTES PAR DIMENSION :\n  amour         → aspects Lune, Vénus\n  communication → aspects Mercure\n  attirance     → aspects Mars, Vénus\n  long_terme    → aspects Soleil, Ascendant\n  conflits      → aspects Saturne";
+
         return <<<PROMPT
 {$intro}
 
 - {$rules}
+
+{$scoringRules}
 
 ═══════════ {$chartOfA} ═══════════
 {$formatChart($chartA)}

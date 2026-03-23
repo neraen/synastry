@@ -1,28 +1,301 @@
 /**
- * DatePicker & TimePicker Components
+ * Custom Wheel Date & Time Pickers
  *
- * Cross-platform date and time pickers that match the design system.
- * Compatible with iOS and Android.
+ * Fully custom drum-roll pickers — no native dependency, identical on iOS and Android.
+ * Design follows the app glassmorphism system.
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
     View,
     Text,
+    ScrollView,
     StyleSheet,
     TouchableOpacity,
-    Platform,
+    TouchableWithoutFeedback,
     Modal,
+    NativeSyntheticEvent,
+    NativeScrollEvent,
     ViewStyle,
+    Platform,
 } from 'react-native';
-import DateTimePicker, {
-    DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
-import { colors, typography, spacing, borderRadius, layout, radius } from '@/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, radius, fonts } from '@/theme';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ITEM_H = 48;
+const VISIBLE = 5; // odd — center is selected
+const PADDING = Math.floor(VISIBLE / 2) * ITEM_H;
+
+const MONTHS_FR = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function daysInMonth(month: number, year: number): number {
+    return new Date(year, month, 0).getDate();
+}
+
+function pad(n: number) {
+    return String(n).padStart(2, '0');
+}
+
+function formatDateForDisplay(dateString: string): string {
+    if (!dateString) return '';
+    const [y, m, d] = dateString.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+function parseISODate(dateString: string): { day: number; month: number; year: number } {
+    if (!dateString) {
+        const now = new Date();
+        return { day: now.getDate(), month: now.getMonth() + 1, year: now.getFullYear() };
+    }
+    const [y, m, d] = dateString.split('-').map(Number);
+    return { day: d, month: m, year: y };
+}
+
+function parseHHMM(timeString: string): { hour: number; minute: number } {
+    if (!timeString) return { hour: 12, minute: 0 };
+    const [h, m] = timeString.split(':').map(Number);
+    return { hour: h ?? 12, minute: m ?? 0 };
+}
+
+// ─── WheelColumn ─────────────────────────────────────────────────────────────
+
+interface WheelColumnProps {
+    items: string[];
+    selectedIndex: number;
+    onChange: (index: number) => void;
+    flex?: number;
+}
+
+function WheelColumn({ items, selectedIndex, onChange, flex = 1 }: WheelColumnProps) {
+    const scrollRef = useRef<ScrollView>(null);
+    const pendingIndex = useRef(selectedIndex);
+
+    useEffect(() => {
+        // Small delay on Android to ensure layout is ready before scrolling
+        const delay = Platform.OS === 'android' ? 80 : 0;
+        const timer = setTimeout(() => {
+            scrollRef.current?.scrollTo({ y: selectedIndex * ITEM_H, animated: false });
+        }, delay);
+        pendingIndex.current = selectedIndex;
+        return () => clearTimeout(timer);
+    }, [selectedIndex, items.length]);
+
+    const commit = useCallback((y: number) => {
+        const idx = Math.max(0, Math.min(Math.round(y / ITEM_H), items.length - 1));
+        pendingIndex.current = idx;
+        onChange(idx);
+    }, [items.length, onChange]);
+
+    const handleScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        commit(e.nativeEvent.contentOffset.y);
+    }, [commit]);
+
+    return (
+        <View style={[styles.wheelColumn, { flex }]}>
+            <ScrollView
+                ref={scrollRef}
+                showsVerticalScrollIndicator={false}
+                snapToInterval={ITEM_H}
+                decelerationRate="fast"
+                onMomentumScrollEnd={handleScrollEnd}
+                onScrollEndDrag={handleScrollEnd}
+                contentContainerStyle={{ paddingVertical: PADDING }}
+                scrollEventThrottle={16}
+                nestedScrollEnabled
+            >
+                {items.map((label, i) => {
+                    const distance = Math.abs(i - selectedIndex);
+                    const opacity = distance === 0 ? 1 : distance === 1 ? 0.45 : 0.2;
+                    const isSelected = i === selectedIndex;
+                    return (
+                        <View key={i} style={styles.wheelItem}>
+                            <Text style={[
+                                styles.wheelText,
+                                isSelected && styles.wheelTextSelected,
+                                { opacity },
+                            ]}>
+                                {label}
+                            </Text>
+                        </View>
+                    );
+                })}
+            </ScrollView>
+
+            {/* Gradient overlays — wrapped in View so pointerEvents works on Android */}
+            <View pointerEvents="none" style={[styles.fade, styles.fadeTop]}>
+                <LinearGradient
+                    colors={[colors.surfaceContainer, `${colors.surfaceContainer}00`]}
+                    style={StyleSheet.absoluteFill}
+                />
+            </View>
+            <View pointerEvents="none" style={[styles.fade, styles.fadeBottom]}>
+                <LinearGradient
+                    colors={[`${colors.surfaceContainer}00`, colors.surfaceContainer]}
+                    style={StyleSheet.absoluteFill}
+                />
+            </View>
+
+            {/* Selection lines */}
+            <View pointerEvents="none" style={styles.selectionTop} />
+            <View pointerEvents="none" style={styles.selectionBottom} />
+        </View>
+    );
+}
+
+// ─── DatePickerModal ──────────────────────────────────────────────────────────
+
+interface DatePickerModalProps {
+    visible: boolean;
+    label?: string;
+    day: number;
+    month: number;
+    year: number;
+    minimumDate?: Date;
+    maximumDate?: Date;
+    onConfirm: (day: number, month: number, year: number) => void;
+    onCancel: () => void;
+}
+
+function DatePickerModal({ visible, label, day, month, year, minimumDate, maximumDate, onConfirm, onCancel }: DatePickerModalProps) {
+    const currentYear = new Date().getFullYear();
+    const minYear = minimumDate ? minimumDate.getFullYear() : currentYear - 120;
+    const maxYear = maximumDate ? maximumDate.getFullYear() : currentYear;
+    const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => String(maxYear - i));
+
+    const [selDay, setSelDay] = useState(day);
+    const [selMonth, setSelMonth] = useState(month);
+    const [selYear, setSelYear] = useState(year);
+
+    useEffect(() => {
+        if (visible) { setSelDay(day); setSelMonth(month); setSelYear(year); }
+    }, [visible]);
+
+    const numDays = daysInMonth(selMonth, selYear);
+    const days = Array.from({ length: numDays }, (_, i) => String(i + 1));
+
+    useEffect(() => {
+        if (selDay > numDays) setSelDay(numDays);
+    }, [numDays]);
+
+    const yearIndex = Math.max(0, years.indexOf(String(selYear)));
+
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
+            {/* Backdrop — TouchableWithoutFeedback does not intercept scroll gestures */}
+            <TouchableWithoutFeedback onPress={onCancel}>
+                <View style={styles.backdrop} />
+            </TouchableWithoutFeedback>
+
+            {/* Sheet — plain View, no Pressable, so ScrollViews inside work freely */}
+            <View style={styles.sheet}>
+                <View style={styles.handle} />
+                <View style={styles.sheetHeader}>
+                    <TouchableOpacity onPress={onCancel} hitSlop={12}>
+                        <Text style={styles.btnCancel}>Annuler</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.sheetTitle}>{label || 'Date de naissance'}</Text>
+                    <TouchableOpacity onPress={() => onConfirm(selDay, selMonth, selYear)} hitSlop={12}>
+                        <Text style={styles.btnConfirm}>Confirmer</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.wheelsRow}>
+                    <WheelColumn
+                        flex={1}
+                        items={days}
+                        selectedIndex={Math.min(selDay - 1, days.length - 1)}
+                        onChange={(i) => setSelDay(i + 1)}
+                    />
+                    <WheelColumn
+                        flex={2.2}
+                        items={MONTHS_FR}
+                        selectedIndex={selMonth - 1}
+                        onChange={(i) => setSelMonth(i + 1)}
+                    />
+                    <WheelColumn
+                        flex={1.3}
+                        items={years}
+                        selectedIndex={yearIndex}
+                        onChange={(i) => setSelYear(Number(years[i]))}
+                    />
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+// ─── TimePickerModal ──────────────────────────────────────────────────────────
+
+interface TimePickerModalProps {
+    visible: boolean;
+    label?: string;
+    hour: number;
+    minute: number;
+    onConfirm: (hour: number, minute: number) => void;
+    onCancel: () => void;
+}
+
+function TimePickerModal({ visible, label, hour, minute, onConfirm, onCancel }: TimePickerModalProps) {
+    const hours = Array.from({ length: 24 }, (_, i) => pad(i));
+    const minutes = Array.from({ length: 60 }, (_, i) => pad(i));
+
+    const [selHour, setSelHour] = useState(hour);
+    const [selMinute, setSelMinute] = useState(minute);
+
+    useEffect(() => {
+        if (visible) { setSelHour(hour); setSelMinute(minute); }
+    }, [visible]);
+
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
+            <TouchableWithoutFeedback onPress={onCancel}>
+                <View style={styles.backdrop} />
+            </TouchableWithoutFeedback>
+
+            <View style={styles.sheet}>
+                <View style={styles.handle} />
+                <View style={styles.sheetHeader}>
+                    <TouchableOpacity onPress={onCancel} hitSlop={12}>
+                        <Text style={styles.btnCancel}>Annuler</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.sheetTitle}>{label || 'Heure de naissance'}</Text>
+                    <TouchableOpacity onPress={() => onConfirm(selHour, selMinute)} hitSlop={12}>
+                        <Text style={styles.btnConfirm}>Confirmer</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.wheelsRow}>
+                    <WheelColumn
+                        items={hours}
+                        selectedIndex={selHour}
+                        onChange={setSelHour}
+                    />
+                    <View style={styles.timeSeparator}>
+                        <Text style={styles.timeSeparatorText}>:</Text>
+                    </View>
+                    <WheelColumn
+                        items={minutes}
+                        selectedIndex={selMinute}
+                        onChange={setSelMinute}
+                    />
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+// ─── AppDatePicker (public) ───────────────────────────────────────────────────
 
 interface AppDatePickerProps {
     label?: string;
-    value: string; // YYYY-MM-DD format
+    value: string;
     onChange: (date: string) => void;
     placeholder?: string;
     error?: string;
@@ -33,178 +306,50 @@ interface AppDatePickerProps {
     maximumDate?: Date;
 }
 
-/**
- * Format a Date object to YYYY-MM-DD string
- */
-function formatDateToISO(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-/**
- * Format a date string for display (DD/MM/YYYY)
- */
-function formatDateForDisplay(dateString: string): string {
-    if (!dateString) return '';
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${month}/${year}`;
-}
-
-/**
- * Parse YYYY-MM-DD string to Date object
- */
-function parseISODate(dateString: string): Date {
-    if (!dateString) return new Date();
-    const [year, month, day] = dateString.split('-').map(Number);
-    return new Date(year, month - 1, day);
-}
-
 export function AppDatePicker({
-    label,
-    value,
-    onChange,
-    placeholder = 'Sélectionner une date',
-    error,
-    hint,
-    disabled = false,
-    containerStyle,
-    minimumDate,
-    maximumDate,
+    label, value, onChange, placeholder = 'Sélectionner une date',
+    error, hint, disabled = false, containerStyle, minimumDate, maximumDate,
 }: AppDatePickerProps) {
-    const [showPicker, setShowPicker] = useState(false);
-    const [tempDate, setTempDate] = useState<Date>(parseISODate(value));
-
-    const handlePress = () => {
-        if (!disabled) {
-            setTempDate(parseISODate(value));
-            setShowPicker(true);
-        }
-    };
-
-    const handleChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowPicker(false);
-            if (event.type === 'set' && selectedDate) {
-                onChange(formatDateToISO(selectedDate));
-            }
-        } else {
-            // iOS: update temp date, confirm on modal close
-            if (selectedDate) {
-                setTempDate(selectedDate);
-            }
-        }
-    };
-
-    const handleIOSConfirm = () => {
-        onChange(formatDateToISO(tempDate));
-        setShowPicker(false);
-    };
-
-    const handleIOSCancel = () => {
-        setShowPicker(false);
-    };
-
-    const displayValue = value ? formatDateForDisplay(value) : '';
+    const [open, setOpen] = useState(false);
+    const parsed = parseISODate(value);
 
     return (
         <View style={[styles.container, containerStyle]}>
-            {label && (
-                <Text style={[styles.label, error && styles.labelError]}>
-                    {label}
-                </Text>
-            )}
-
+            {label && <Text style={[styles.label, error && styles.labelError]}>{label}</Text>}
             <TouchableOpacity
-                style={[
-                    styles.inputContainer,
-                    error && styles.inputError,
-                    disabled && styles.disabled,
-                ]}
-                onPress={handlePress}
+                style={[styles.trigger, error && styles.triggerError, disabled && styles.disabledStyle]}
+                onPress={() => !disabled && setOpen(true)}
                 activeOpacity={0.7}
                 disabled={disabled}
             >
-                <Text
-                    style={[
-                        styles.inputText,
-                        !displayValue && styles.placeholder,
-                    ]}
-                >
-                    {displayValue || placeholder}
+                <Text style={[styles.triggerText, !value && styles.placeholder]}>
+                    {value ? formatDateForDisplay(value) : placeholder}
                 </Text>
-                <Text style={styles.icon}>📅</Text>
+                <Text style={styles.triggerIcon}>📅</Text>
             </TouchableOpacity>
-
             {(error || hint) && (
-                <Text style={[styles.hint, error && styles.errorText]}>
-                    {error || hint}
-                </Text>
+                <Text style={[styles.hint, error && styles.hintError]}>{error || hint}</Text>
             )}
-
-            {/* Android: Native picker shows directly */}
-            {Platform.OS === 'android' && showPicker && (
-                <DateTimePicker
-                    value={tempDate}
-                    mode="date"
-                    display="default"
-                    onChange={handleChange}
-                    minimumDate={minimumDate}
-                    maximumDate={maximumDate}
-                />
-            )}
-
-            {/* iOS: Modal with picker */}
-            {Platform.OS === 'ios' && (
-                <Modal
-                    visible={showPicker}
-                    transparent
-                    animationType="slide"
-                    onRequestClose={handleIOSCancel}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <TouchableOpacity onPress={handleIOSCancel}>
-                                    <Text style={styles.modalButtonCancel}>
-                                        Annuler
-                                    </Text>
-                                </TouchableOpacity>
-                                <Text style={styles.modalTitle}>
-                                    {label || 'Date'}
-                                </Text>
-                                <TouchableOpacity onPress={handleIOSConfirm}>
-                                    <Text style={styles.modalButtonConfirm}>
-                                        OK
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                            <DateTimePicker
-                                value={tempDate}
-                                mode="date"
-                                display="spinner"
-                                onChange={handleChange}
-                                minimumDate={minimumDate}
-                                maximumDate={maximumDate}
-                                locale="fr-FR"
-                                style={styles.iosPicker}
-                            />
-                        </View>
-                    </View>
-                </Modal>
-            )}
+            <DatePickerModal
+                visible={open}
+                label={label}
+                day={parsed.day}
+                month={parsed.month}
+                year={parsed.year}
+                minimumDate={minimumDate}
+                maximumDate={maximumDate}
+                onConfirm={(d, m, y) => { onChange(`${y}-${pad(m)}-${pad(d)}`); setOpen(false); }}
+                onCancel={() => setOpen(false)}
+            />
         </View>
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIME PICKER
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── AppTimePicker (public) ───────────────────────────────────────────────────
 
 interface AppTimePickerProps {
     label?: string;
-    value: string; // HH:MM format
+    value: string;
     onChange: (time: string) => void;
     placeholder?: string;
     error?: string;
@@ -213,247 +358,206 @@ interface AppTimePickerProps {
     containerStyle?: ViewStyle;
 }
 
-/**
- * Format a Date object to HH:MM string
- */
-function formatTimeToHHMM(date: Date): string {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-}
-
-/**
- * Parse HH:MM string to Date object
- */
-function parseHHMMTime(timeString: string): Date {
-    const date = new Date();
-    if (!timeString) {
-        date.setHours(12, 0, 0, 0);
-        return date;
-    }
-    const [hours, minutes] = timeString.split(':').map(Number);
-    date.setHours(hours || 12, minutes || 0, 0, 0);
-    return date;
-}
-
 export function AppTimePicker({
-    label,
-    value,
-    onChange,
-    placeholder = "Sélectionner l'heure",
-    error,
-    hint,
-    disabled = false,
-    containerStyle,
+    label, value, onChange, placeholder = "Sélectionner l'heure",
+    error, hint, disabled = false, containerStyle,
 }: AppTimePickerProps) {
-    const [showPicker, setShowPicker] = useState(false);
-    const [tempTime, setTempTime] = useState<Date>(parseHHMMTime(value));
-
-    const handlePress = () => {
-        if (!disabled) {
-            setTempTime(parseHHMMTime(value));
-            setShowPicker(true);
-        }
-    };
-
-    const handleChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowPicker(false);
-            if (event.type === 'set' && selectedDate) {
-                onChange(formatTimeToHHMM(selectedDate));
-            }
-        } else {
-            if (selectedDate) {
-                setTempTime(selectedDate);
-            }
-        }
-    };
-
-    const handleIOSConfirm = () => {
-        onChange(formatTimeToHHMM(tempTime));
-        setShowPicker(false);
-    };
-
-    const handleIOSCancel = () => {
-        setShowPicker(false);
-    };
+    const [open, setOpen] = useState(false);
+    const parsed = parseHHMM(value);
 
     return (
         <View style={[styles.container, containerStyle]}>
-            {label && (
-                <Text style={[styles.label, error && styles.labelError]}>
-                    {label}
-                </Text>
-            )}
-
+            {label && <Text style={[styles.label, error && styles.labelError]}>{label}</Text>}
             <TouchableOpacity
-                style={[
-                    styles.inputContainer,
-                    error && styles.inputError,
-                    disabled && styles.disabled,
-                ]}
-                onPress={handlePress}
+                style={[styles.trigger, error && styles.triggerError, disabled && styles.disabledStyle]}
+                onPress={() => !disabled && setOpen(true)}
                 activeOpacity={0.7}
                 disabled={disabled}
             >
-                <Text
-                    style={[
-                        styles.inputText,
-                        !value && styles.placeholder,
-                    ]}
-                >
+                <Text style={[styles.triggerText, !value && styles.placeholder]}>
                     {value || placeholder}
                 </Text>
-                <Text style={styles.icon}>🕐</Text>
+                <Text style={styles.triggerIcon}>🕐</Text>
             </TouchableOpacity>
-
             {(error || hint) && (
-                <Text style={[styles.hint, error && styles.errorText]}>
-                    {error || hint}
-                </Text>
+                <Text style={[styles.hint, error && styles.hintError]}>{error || hint}</Text>
             )}
-
-            {/* Android: Native picker */}
-            {Platform.OS === 'android' && showPicker && (
-                <DateTimePicker
-                    value={tempTime}
-                    mode="time"
-                    display="default"
-                    onChange={handleChange}
-                    is24Hour={true}
-                />
-            )}
-
-            {/* iOS: Modal with picker */}
-            {Platform.OS === 'ios' && (
-                <Modal
-                    visible={showPicker}
-                    transparent
-                    animationType="slide"
-                    onRequestClose={handleIOSCancel}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <TouchableOpacity onPress={handleIOSCancel}>
-                                    <Text style={styles.modalButtonCancel}>
-                                        Annuler
-                                    </Text>
-                                </TouchableOpacity>
-                                <Text style={styles.modalTitle}>
-                                    {label || 'Heure'}
-                                </Text>
-                                <TouchableOpacity onPress={handleIOSConfirm}>
-                                    <Text style={styles.modalButtonConfirm}>
-                                        OK
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                            <DateTimePicker
-                                value={tempTime}
-                                mode="time"
-                                display="spinner"
-                                onChange={handleChange}
-                                is24Hour={true}
-                                locale="fr-FR"
-                                style={styles.iosPicker}
-                            />
-                        </View>
-                    </View>
-                </Modal>
-            )}
+            <TimePickerModal
+                visible={open}
+                label={label}
+                hour={parsed.hour}
+                minute={parsed.minute}
+                onConfirm={(h, m) => { onChange(`${pad(h)}:${pad(m)}`); setOpen(false); }}
+                onCancel={() => setOpen(false)}
+            />
         </View>
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STYLES
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    container: {
-        width: '100%',
-    },
+    container: { width: '100%' },
+
     label: {
-        ...typography.label,
-        color: colors.text.secondary,
+        fontFamily: fonts.body.medium,
+        fontSize: 13,
+        color: colors.onSurfaceMuted,
         marginBottom: spacing.sm,
+        letterSpacing: 0.3,
     },
-    labelError: {
-        color: colors.status.error,
-    },
-    inputContainer: {
+    labelError: { color: colors.error },
+
+    trigger: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: colors.input.background,
-        borderWidth: 1,
-        borderColor: colors.input.border,
-        borderRadius: borderRadius.input,
-        minHeight: layout.heights.input,
-        paddingHorizontal: spacing.inputPadding,
-        paddingVertical: spacing.inputPadding,
+        backgroundColor: colors.surfaceContainerHigh,
+        borderRadius: radius.md,
+        minHeight: 52,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
     },
-    inputError: {
-        borderColor: colors.status.error,
-    },
-    inputText: {
-        ...typography.input,
-        color: colors.text.primary,
+    triggerError: { borderWidth: 1, borderColor: colors.error },
+    disabledStyle: { opacity: 0.4 },
+    triggerText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        color: colors.onSurface,
         flex: 1,
     },
-    placeholder: {
-        color: colors.input.placeholder,
-    },
-    icon: {
-        fontSize: 18,
-        marginLeft: spacing.sm,
-    },
+    placeholder: { color: `${colors.onSurfaceMuted}80` },
+    triggerIcon: { fontSize: 18, marginLeft: spacing.sm },
+
     hint: {
-        ...typography.caption,
-        color: colors.text.muted,
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: colors.onSurfaceMuted,
         marginTop: spacing.xs,
     },
-    errorText: {
-        color: colors.status.error,
+    hintError: { color: colors.error },
+
+    // ── Modal layout ──
+    // Backdrop fills the full screen behind the sheet
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.6)',
     },
-    disabled: {
-        opacity: 0.5,
-    },
-    // iOS Modal
-    modalOverlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    },
-    modalContent: {
-        backgroundColor: colors.background.primary,
+    // Sheet is positioned at the bottom, plain View (no Pressable/Touchable)
+    // so nested ScrollViews receive gestures freely on Android
+    sheet: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: colors.surfaceContainer,
         borderTopLeftRadius: radius.xl,
         borderTopRightRadius: radius.xl,
-        paddingBottom: spacing['3xl'],
+        paddingBottom: spacing.xxxl,
     },
-    modalHeader: {
+    handle: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: `${colors.onSurfaceMuted}40`,
+        alignSelf: 'center',
+        marginTop: spacing.md,
+        marginBottom: spacing.sm,
+    },
+    sheetHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: spacing.lg,
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.xl,
         paddingVertical: spacing.lg,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border.subtle,
+        borderBottomColor: `${colors.onSurfaceMuted}15`,
     },
-    modalTitle: {
-        ...typography.bodyMedium,
-        color: colors.text.primary,
+    sheetTitle: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 15,
+        color: colors.onSurface,
     },
-    modalButtonCancel: {
-        ...typography.body,
-        color: colors.text.muted,
+    btnCancel: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        color: colors.onSurfaceMuted,
     },
-    modalButtonConfirm: {
-        ...typography.bodyMedium,
-        color: colors.brand.primary,
+    btnConfirm: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 15,
+        color: colors.primary,
     },
-    iosPicker: {
-        height: 200,
+
+    // ── Wheels ──
+    wheelsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.lg,
+        paddingTop: spacing.md,
+    },
+    wheelColumn: {
+        height: ITEM_H * VISIBLE,
+        overflow: 'hidden',
+        position: 'relative',
+    },
+    wheelItem: {
+        height: ITEM_H,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    wheelText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 17,
+        color: colors.onSurface,
+    },
+    wheelTextSelected: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 18,
+        color: colors.primary,
+    },
+
+    // Gradient fades — wrapped in View so pointerEvents is respected on Android
+    fade: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: PADDING,
+        zIndex: 2,
+    },
+    fadeTop: { top: 0 },
+    fadeBottom: { bottom: 0 },
+
+    // Selection lines
+    selectionTop: {
+        position: 'absolute',
+        top: PADDING,
+        left: spacing.sm,
+        right: spacing.sm,
+        height: 1,
+        backgroundColor: `${colors.primary}40`,
+        zIndex: 3,
+    },
+    selectionBottom: {
+        position: 'absolute',
+        top: PADDING + ITEM_H,
+        left: spacing.sm,
+        right: spacing.sm,
+        height: 1,
+        backgroundColor: `${colors.primary}40`,
+        zIndex: 3,
+    },
+
+    // Time picker
+    timeSeparator: {
+        width: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: ITEM_H * VISIBLE,
+    },
+    timeSeparatorText: {
+        fontFamily: fonts.body.bold,
+        fontSize: 22,
+        color: colors.onSurfaceMuted,
     },
 });

@@ -7,11 +7,11 @@ import {
     EmptyState,
 } from '@/components/ui';
 
-const BG = require('@/assets/images/interface/background-starry.png');
+import { colors } from '@/theme';
 
 export default function Explore() {
     return (
-        <Screen variant="static" backgroundImage={BG}>
+        <Screen variant="static" backgroundColor={colors.surfaceLowest}>
             <EmptyState
                 title="Bientôt disponible"
                 description="Explorez de nouvelles fonctionnalités astrologiques dans une prochaine version."

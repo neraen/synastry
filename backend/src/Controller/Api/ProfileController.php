@@ -36,6 +36,8 @@ class ProfileController extends AbstractController
             'roles' => $user->getRoles(),
             'hasBirthProfile' => $user->hasBirthProfile(),
             'birthProfile' => $birthProfile?->toArray(),
+            'isPremium' => $user->isPremium(),
+            'premiumUntil' => $user->getPremiumUntil()?->format(\DateTime::ATOM),
         ]);
     }
 

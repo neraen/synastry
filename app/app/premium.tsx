@@ -1,585 +1,562 @@
 /**
- * Premium Subscription Screen
- *
- * High-conversion premium subscription screen with cosmic styling
+ * Premium Screen
+ * Subscription paywall — Annual & Monthly plans.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
-    StyleSheet,
-    Pressable,
-    Dimensions,
+    Text,
     ScrollView,
-    StatusBar,
-    Platform,
+    StyleSheet,
+    TouchableOpacity,
+    Pressable,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { AppText, AppHeading, AppButton, Spacer } from '@/components/ui';
-import { colors, spacing, borderRadius, shadows, typography, radius } from '@/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, typography, spacing, radius } from '@/theme';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { GoldButton } from '@/components/ui/GoldButton';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+    getOffering,
+    purchasePackage,
+    restorePurchases,
+    type Offering,
+} from '@/services/purchases';
+import type { PurchasesPackage } from 'react-native-purchases';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-type PlanType = 'yearly' | 'monthly';
+type PlanId = 'annual' | 'monthly';
+
+interface Plan {
+    id: PlanId;
+    label: string;
+    price: string;
+    period: string;
+    badge?: string;
+    features: string[];
+}
 
 interface Feature {
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: string;
     title: string;
     description: string;
 }
 
+// ─── Static data ─────────────────────────────────────────────────────────────
+
 const FEATURES: Feature[] = [
     {
-        icon: 'infinite',
-        title: 'Analyses illimitées',
-        description: 'Compatibilité avec tous vos proches',
+        icon: '✦',
+        title: 'Full analysis',
+        description:
+            'Deep dive into questions and compatibility match for the stars. Track and compare with the context.',
     },
     {
-        icon: 'heart-circle',
-        title: 'Analyse relationnelle complète',
-        description: 'Synastrie détaillée et conseils personnalisés',
+        icon: '∞',
+        title: 'Unlimited matches',
+        description: 'Explore daily horoscopes. Connect with the cosmos in harmony.',
     },
     {
-        icon: 'planet',
-        title: 'Transits amoureux en temps réel',
-        description: 'Les énergies cosmiques du moment',
-    },
-    {
-        icon: 'sparkles',
-        title: 'Insights astrologiques personnalisés',
-        description: 'Basés sur votre thème natal unique',
-    },
-    {
-        icon: 'time',
-        title: 'Historique des relations',
-        description: 'Retrouvez toutes vos analyses',
+        icon: '◈',
+        title: 'Advanced insights',
+        description: 'Detailed aspects and specific insights on your synastry.',
     },
 ];
 
-interface PricingPlan {
-    id: PlanType;
-    name: string;
-    price: string;
-    pricePerMonth: string;
-    badge?: string;
-    savings?: string;
-}
-
-const PRICING_PLANS: PricingPlan[] = [
+const PLANS: Plan[] = [
     {
-        id: 'yearly',
-        name: 'Annuel',
-        price: '39,99€/an',
-        pricePerMonth: '≈ 3,33€/mois',
-        badge: 'MEILLEURE OFFRE',
-        savings: 'Économisez 44%',
+        id: 'annual',
+        label: 'ANNUAL',
+        price: '$19.99',
+        period: '/yr',
+        badge: 'Best value',
+        features: ['Best celestion alignment', 'Unlimited synastry'],
     },
     {
         id: 'monthly',
-        name: 'Mensuel',
-        price: '5,99€/mois',
-        pricePerMonth: 'Sans engagement',
+        label: 'MONTHLY',
+        price: '$9.99',
+        period: '/mo',
+        features: [
+            'Everything included',
+            '10 synastries',
+            'Priority astrological chart reads',
+        ],
     },
 ];
 
-export default function PremiumScreen() {
-    const router = useRouter();
-    const insets = useSafeAreaInsets();
-    const [selectedPlan, setSelectedPlan] = useState<PlanType>('yearly');
-    const [isLoading, setIsLoading] = useState(false);
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
-    const handleSubscribe = async () => {
-        setIsLoading(true);
-        // TODO: Integrate with RevenueCat or App Store
-        // For now, simulate a delay
-        setTimeout(() => {
-            setIsLoading(false);
-            // Navigate back or show success
-            router.back();
-        }, 2000);
-    };
-
-    const handleClose = () => {
-        router.back();
-    };
-
-    const handleRestore = () => {
-        // TODO: Implement restore purchases
-        console.log('Restore purchases');
-    };
-
+function FeatureRow({ feature }: { feature: Feature }) {
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
-
-            {/* Gradient Background */}
-            <LinearGradient
-                colors={[
-                    colors.palette.purple900,
-                    colors.palette.navy800,
-                    colors.palette.navy900,
-                ]}
-                style={styles.gradient}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-            />
-
-            {/* Decorative Glow Effects */}
-            <View style={styles.glowContainer}>
-                <View style={[styles.glow, styles.glowTop]} />
-                <View style={[styles.glow, styles.glowBottom]} />
+        <View style={styles.featureRow}>
+            <View style={styles.featureIconWrap}>
+                <Text style={styles.featureIcon}>{feature.icon}</Text>
             </View>
-
-            {/* Zodiac Wheel Background (decorative circle) */}
-            <View style={styles.zodiacWheelContainer}>
-                <View style={styles.zodiacWheel} />
-                <View style={styles.zodiacWheelInner} />
+            <View style={styles.featureTextWrap}>
+                <Text style={styles.featureTitle}>{feature.title}</Text>
+                <Text style={styles.featureDesc}>{feature.description}</Text>
             </View>
-
-            {/* Close Button */}
-            <Pressable
-                style={[styles.closeButton, { top: insets.top + spacing.md }]}
-                onPress={handleClose}
-                hitSlop={20}
-            >
-                <Ionicons name="close" size={28} color={colors.text.muted} />
-            </Pressable>
-
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={[
-                    styles.scrollContent,
-                    {
-                        paddingTop: insets.top + spacing['5xl'],
-                        paddingBottom: insets.bottom + spacing['3xl'],
-                    },
-                ]}
-                showsVerticalScrollIndicator={false}
-                bounces={true}
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.premiumBadge}>
-                        <Ionicons name="star" size={16} color={colors.palette.gold500} />
-                        <AppText style={styles.premiumBadgeText}>PREMIUM</AppText>
-                    </View>
-                    <Spacer size="lg" />
-                    <AppHeading variant="h1" align="center" style={styles.title}>
-                        Révélez votre potentiel cosmique
-                    </AppHeading>
-                    <Spacer size="md" />
-                    <AppText
-                        variant="body"
-                        color="muted"
-                        align="center"
-                        style={styles.subtitle}
-                    >
-                        Accédez aux analyses relationnelles approfondies et aux conseils astrologiques personnalisés
-                    </AppText>
-                </View>
-
-                <Spacer size="3xl" />
-
-                {/* Features List */}
-                <View style={styles.featuresContainer}>
-                    {FEATURES.map((feature, index) => (
-                        <View key={index} style={styles.featureItem}>
-                            <View style={styles.featureIconContainer}>
-                                <Ionicons
-                                    name={feature.icon}
-                                    size={24}
-                                    color={colors.palette.gold500}
-                                />
-                            </View>
-                            <View style={styles.featureContent}>
-                                <AppText variant="bodyMedium" color="primary">
-                                    {feature.title}
-                                </AppText>
-                                <AppText variant="bodySmall" color="muted">
-                                    {feature.description}
-                                </AppText>
-                            </View>
-                        </View>
-                    ))}
-                </View>
-
-                <Spacer size="3xl" />
-
-                {/* Pricing Cards */}
-                <View style={styles.pricingContainer}>
-                    {PRICING_PLANS.map((plan) => {
-                        const isSelected = selectedPlan === plan.id;
-                        return (
-                            <Pressable
-                                key={plan.id}
-                                style={[
-                                    styles.pricingCard,
-                                    isSelected && styles.pricingCardSelected,
-                                ]}
-                                onPress={() => setSelectedPlan(plan.id)}
-                            >
-                                {/* Best Value Badge */}
-                                {plan.badge && (
-                                    <View style={styles.bestValueBadge}>
-                                        <AppText style={styles.bestValueText}>
-                                            {plan.badge}
-                                        </AppText>
-                                    </View>
-                                )}
-
-                                {/* Selection Indicator */}
-                                <View style={styles.radioContainer}>
-                                    <View
-                                        style={[
-                                            styles.radioOuter,
-                                            isSelected && styles.radioOuterSelected,
-                                        ]}
-                                    >
-                                        {isSelected && <View style={styles.radioInner} />}
-                                    </View>
-                                </View>
-
-                                {/* Plan Details */}
-                                <View style={styles.planDetails}>
-                                    <View style={styles.planNameRow}>
-                                        <AppHeading variant="titleSmall" color="primary">
-                                            {plan.name}
-                                        </AppHeading>
-                                        {plan.savings && (
-                                            <View style={styles.savingsBadge}>
-                                                <AppText style={styles.savingsText}>
-                                                    {plan.savings}
-                                                </AppText>
-                                            </View>
-                                        )}
-                                    </View>
-                                    <Spacer size="xs" />
-                                    <AppHeading variant="h2" color="primary" style={styles.price}>
-                                        {plan.price}
-                                    </AppHeading>
-                                    <AppText variant="bodySmall" color="muted">
-                                        {plan.pricePerMonth}
-                                    </AppText>
-                                </View>
-                            </Pressable>
-                        );
-                    })}
-                </View>
-
-                <Spacer size="2xl" />
-
-                {/* CTA Button */}
-                <View style={styles.ctaContainer}>
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.ctaButton,
-                            pressed && styles.ctaButtonPressed,
-                            isLoading && styles.ctaButtonLoading,
-                        ]}
-                        onPress={handleSubscribe}
-                        disabled={isLoading}
-                    >
-                        <LinearGradient
-                            colors={[colors.palette.gold300, colors.palette.gold400, colors.palette.gold500]}
-                            style={styles.ctaGradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                        >
-                            {isLoading ? (
-                                <AppText style={styles.ctaText}>Chargement...</AppText>
-                            ) : (
-                                <>
-                                    <Ionicons
-                                        name="star"
-                                        size={20}
-                                        color={colors.palette.navy900}
-                                        style={styles.ctaIcon}
-                                    />
-                                    <AppText style={styles.ctaText}>
-                                        Commencer l'essai gratuit
-                                    </AppText>
-                                </>
-                            )}
-                        </LinearGradient>
-                    </Pressable>
-
-                    <Spacer size="md" />
-
-                    <AppText variant="caption" color="muted" align="center">
-                        7 jours d'essai gratuit, puis{' '}
-                        {selectedPlan === 'yearly' ? '39,99€/an' : '5,99€/mois'}
-                    </AppText>
-                </View>
-
-                <Spacer size="2xl" />
-
-                {/* Restore & Terms */}
-                <View style={styles.footer}>
-                    <Pressable onPress={handleRestore} hitSlop={10}>
-                        <AppText variant="bodySmall" color="muted" style={styles.footerLink}>
-                            Restaurer mes achats
-                        </AppText>
-                    </Pressable>
-
-                    <AppText variant="bodySmall" color="disabled" style={styles.footerDivider}>
-                        •
-                    </AppText>
-
-                    <Pressable onPress={() => router.push('/terms-of-service')} hitSlop={10}>
-                        <AppText variant="bodySmall" color="muted" style={styles.footerLink}>
-                            Conditions
-                        </AppText>
-                    </Pressable>
-
-                    <AppText variant="bodySmall" color="disabled" style={styles.footerDivider}>
-                        •
-                    </AppText>
-
-                    <Pressable onPress={() => router.push('/privacy-policy')} hitSlop={10}>
-                        <AppText variant="bodySmall" color="muted" style={styles.footerLink}>
-                            Confidentialité
-                        </AppText>
-                    </Pressable>
-                </View>
-            </ScrollView>
         </View>
     );
 }
 
+function AnnualCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean; onSelect: (id: PlanId) => void }) {
+    return (
+        <Pressable onPress={() => onSelect(plan.id)}>
+            <GlassCard opacity={selected ? 'medium' : 'low'} radius="xl" padding="none">
+                <View style={styles.planContent}>
+                    <View style={styles.planHeaderRow}>
+                        <Text style={styles.planLabel}>{plan.label}</Text>
+                        {plan.badge && (
+                            <View style={styles.bestValueBadge}>
+                                <Text style={styles.bestValueText}>{plan.badge}</Text>
+                            </View>
+                        )}
+                    </View>
+                    <View style={styles.priceRow}>
+                        <Text style={styles.priceAmount}>{plan.price}</Text>
+                        <Text style={styles.pricePeriod}>{plan.period}</Text>
+                    </View>
+                    <View style={styles.checkList}>
+                        {plan.features.map((f) => (
+                            <View key={f} style={styles.checkRow}>
+                                <Text style={styles.checkIconLight}>✓</Text>
+                                <Text style={styles.checkTextLight}>{f}</Text>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+            </GlassCard>
+        </Pressable>
+    );
+}
+
+function MonthlyCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean; onSelect: (id: PlanId) => void }) {
+    return (
+        <Pressable onPress={() => onSelect(plan.id)}>
+            <LinearGradient
+                colors={['#e9c349', '#c09a2a']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.monthlyBorder}
+            >
+                <View style={styles.monthlyInner}>
+                    <View style={styles.planContent}>
+                        <View style={styles.planHeaderRow}>
+                            <Text style={styles.planLabelDark}>{plan.label}</Text>
+                        </View>
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceAmountDark}>{plan.price}</Text>
+                            <Text style={styles.pricePeriodDark}>{plan.period}</Text>
+                        </View>
+                        <View style={styles.checkList}>
+                            {plan.features.map((f) => (
+                                <View key={f} style={styles.checkRow}>
+                                    <Text style={styles.checkIconDark}>✓</Text>
+                                    <Text style={styles.checkTextDark}>{f}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                </View>
+            </LinearGradient>
+        </Pressable>
+    );
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
+
+export default function PremiumScreen() {
+    const router = useRouter();
+    const { refreshUser } = useAuth();
+    const [selectedPlan, setSelectedPlan] = useState<PlanId>('monthly');
+    const [offering, setOffering] = useState<Offering | null>(null);
+    const [purchasing, setPurchasing] = useState(false);
+    const [restoring, setRestoring] = useState(false);
+
+    // Load RevenueCat offering on mount to get real store prices
+    useEffect(() => {
+        getOffering().then(setOffering);
+    }, []);
+
+    const handleSelectPlan = useCallback((id: PlanId) => setSelectedPlan(id), []);
+
+    const getPackageForPlan = useCallback((planId: PlanId): PurchasesPackage | null => {
+        if (!offering) return null;
+        return planId === 'annual' ? offering.annual : offering.monthly;
+    }, [offering]);
+
+    // Display real price from store if available, fallback to hardcoded
+    const getPriceLabel = useCallback((planId: PlanId): { price: string; period: string } => {
+        const pkg = getPackageForPlan(planId);
+        if (pkg) {
+            const priceString = pkg.product.priceString;
+            const period = planId === 'annual' ? '/yr' : '/mo';
+            return { price: priceString, period };
+        }
+        return planId === 'annual'
+            ? { price: '$19.99', period: '/yr' }
+            : { price: '$9.99', period: '/mo' };
+    }, [getPackageForPlan]);
+
+    const handleStartPremium = useCallback(async () => {
+        const pkg = getPackageForPlan(selectedPlan);
+        if (!pkg) {
+            // RC not configured yet — show informational alert
+            Alert.alert(
+                'Bientôt disponible',
+                'L\'achat intégré sera disponible lors du lancement sur l\'App Store et Google Play.',
+            );
+            return;
+        }
+
+        setPurchasing(true);
+        try {
+            const result = await purchasePackage(pkg);
+            if (result.cancelled) return;
+            if (result.success && result.isPremium) {
+                await refreshUser();
+                router.back();
+            } else if (result.error) {
+                Alert.alert('Erreur', result.error);
+            }
+        } finally {
+            setPurchasing(false);
+        }
+    }, [selectedPlan, getPackageForPlan, refreshUser, router]);
+
+    const handleRestore = useCallback(async () => {
+        setRestoring(true);
+        try {
+            const result = await restorePurchases();
+            if (result.isPremium) {
+                await refreshUser();
+                Alert.alert('Restauration réussie', 'Votre abonnement Premium a été restauré.');
+                router.back();
+            } else {
+                Alert.alert('Aucun abonnement trouvé', result.error ?? 'Aucun achat actif sur ce compte Apple/Google.');
+            }
+        } finally {
+            setRestoring(false);
+        }
+    }, [refreshUser, router]);
+
+    return (
+        <View style={styles.root}>
+            <LinearGradient
+                colors={[colors.surfaceLowest, colors.surfaceLow, colors.surfaceLowest]}
+                locations={[0, 0.5, 1]}
+                style={StyleSheet.absoluteFill}
+            />
+
+            <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+                {/* Close */}
+                <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} hitSlop={12}>
+                    <Text style={styles.closeIcon}>✕</Text>
+                </TouchableOpacity>
+
+                <ScrollView
+                    contentContainerStyle={styles.scroll}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Badge */}
+                    <View style={styles.badgeWrap}>
+                        <View style={styles.badge}>
+                            <Text style={styles.badgeStar}>★</Text>
+                            <Text style={styles.badgeLabel}>FOR PREMIUM MEMBERS</Text>
+                        </View>
+                    </View>
+
+                    {/* Headline */}
+                    <Text style={styles.headline}>
+                        Unlock your full{'\n'}compatibility
+                    </Text>
+                    <Text style={styles.subtitle}>
+                        Guided by the stars, refined for your soul
+                    </Text>
+
+                    {/* Features */}
+                    <View style={styles.featuresSection}>
+                        {FEATURES.map((f) => (
+                            <FeatureRow key={f.title} feature={f} />
+                        ))}
+                    </View>
+
+                    {/* Plans */}
+                    <View style={styles.plansSection}>
+                        <AnnualCard
+                            plan={{ ...PLANS[0], ...getPriceLabel('annual') }}
+                            selected={selectedPlan === 'annual'}
+                            onSelect={handleSelectPlan}
+                        />
+                        <MonthlyCard
+                            plan={{ ...PLANS[1], ...getPriceLabel('monthly') }}
+                            selected={selectedPlan === 'monthly'}
+                            onSelect={handleSelectPlan}
+                        />
+                    </View>
+
+                    {/* CTA */}
+                    <View style={styles.ctaWrap}>
+                        <GoldButton
+                            label={purchasing ? 'TRAITEMENT...' : 'START PREMIUM'}
+                            onPress={handleStartPremium}
+                            loading={purchasing}
+                            size="lg"
+                        />
+                    </View>
+
+                    {/* Legal + Restore */}
+                    <Text style={styles.legal}>
+                        Sans engagement · Renouvellement automatique
+                    </Text>
+                    <Pressable onPress={handleRestore} disabled={restoring} style={styles.restoreBtn}>
+                        {restoring
+                            ? <ActivityIndicator size="small" color={colors.onSurfaceMuted} />
+                            : <Text style={styles.restoreText}>Restaurer mes achats</Text>
+                        }
+                    </Pressable>
+                </ScrollView>
+            </SafeAreaView>
+        </View>
+    );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-    container: {
+    root: {
         flex: 1,
-        backgroundColor: colors.palette.navy900,
+        backgroundColor: colors.surfaceLowest,
     },
-    gradient: {
-        ...StyleSheet.absoluteFillObject,
+    safe: {
+        flex: 1,
     },
-    glowContainer: {
-        ...StyleSheet.absoluteFillObject,
-        overflow: 'hidden',
-    },
-    glow: {
+
+    // Close button
+    closeBtn: {
         position: 'absolute',
-        borderRadius: 999,
-    },
-    glowTop: {
-        width: SCREEN_WIDTH * 1.5,
-        height: SCREEN_WIDTH * 1.5,
-        top: -SCREEN_WIDTH * 0.75,
-        left: -SCREEN_WIDTH * 0.25,
-        backgroundColor: colors.palette.purple700,
-        opacity: 0.15,
-    },
-    glowBottom: {
-        width: SCREEN_WIDTH,
-        height: SCREEN_WIDTH,
-        bottom: -SCREEN_WIDTH * 0.3,
-        right: -SCREEN_WIDTH * 0.3,
-        backgroundColor: colors.palette.gold500,
-        opacity: 0.08,
-    },
-    zodiacWheelContainer: {
-        position: 'absolute',
-        top: SCREEN_HEIGHT * 0.15,
-        left: -SCREEN_WIDTH * 0.3,
-        width: SCREEN_WIDTH * 0.8,
-        height: SCREEN_WIDTH * 0.8,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    zodiacWheel: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
-        position: 'absolute',
-    },
-    zodiacWheelInner: {
-        width: '60%',
-        height: '60%',
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.03)',
-    },
-    closeButton: {
-        position: 'absolute',
-        right: spacing.lg,
+        top: spacing.xl,
+        right: spacing.xl,
         zIndex: 10,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        width: 32,
+        height: 32,
+        borderRadius: radius.full,
+        backgroundColor: 'rgba(255,255,255,0.08)',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    scrollView: {
-        flex: 1,
+    closeIcon: {
+        ...typography.bodyMd,
+        color: colors.onSurfaceMuted,
     },
-    scrollContent: {
-        paddingHorizontal: spacing.screenPadding,
+
+    // Scroll
+    scroll: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.xxl + spacing.xl,
+        paddingBottom: spacing.xxl,
     },
-    header: {
+
+    // Badge
+    badgeWrap: {
         alignItems: 'center',
+        marginBottom: spacing.xl,
     },
-    premiumBadge: {
+    badge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(201, 154, 100, 0.15)',
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.xs,
-        borderRadius: borderRadius.badge,
         gap: spacing.xs,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.lg,
+        backgroundColor: 'rgba(233,195,73,0.12)',
+        borderRadius: radius.full,
     },
-    premiumBadgeText: {
-        ...typography.tag,
-        color: colors.palette.gold500,
+    badgeStar: {
+        fontSize: 12,
+        color: colors.primary,
     },
-    title: {
-        maxWidth: 300,
+    badgeLabel: {
+        ...typography.labelSm,
+        color: colors.primary,
+        letterSpacing: 1.5,
+    },
+
+    // Headline
+    headline: {
+        ...typography.headlineLg,
+        color: colors.onSurface,
+        textAlign: 'center',
+        marginBottom: spacing.md,
     },
     subtitle: {
-        maxWidth: 320,
+        ...typography.bodyMd,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        marginBottom: spacing.xxl,
     },
-    featuresContainer: {
+
+    // Features
+    featuresSection: {
+        gap: spacing.xl,
+        marginBottom: spacing.xxl,
+    },
+    featureRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
         gap: spacing.lg,
     },
-    featureItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-    },
-    featureIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: 'rgba(201, 154, 100, 0.12)',
+    featureIconWrap: {
+        width: 40,
+        height: 40,
+        borderRadius: radius.md,
+        backgroundColor: 'rgba(200,191,255,0.10)',
         alignItems: 'center',
         justifyContent: 'center',
+        flexShrink: 0,
     },
-    featureContent: {
+    featureIcon: {
+        fontSize: 16,
+        color: colors.secondary,
+    },
+    featureTextWrap: {
         flex: 1,
-        gap: 2,
     },
-    pricingContainer: {
+    featureTitle: {
+        ...typography.titleMd,
+        color: colors.onSurface,
+        marginBottom: spacing.xs,
+    },
+    featureDesc: {
+        ...typography.bodyMd,
+        color: colors.onSurfaceMuted,
+    },
+
+    // Plans
+    plansSection: {
         gap: spacing.md,
+        marginBottom: spacing.xxl,
     },
-    pricingCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        borderRadius: borderRadius.cardLarge,
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+
+    // Shared plan content
+    planContent: {
         padding: spacing.xl,
+    },
+    planHeaderRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        overflow: 'hidden',
+        gap: spacing.sm,
+        marginBottom: spacing.sm,
     },
-    pricingCardSelected: {
-        borderColor: colors.palette.gold500,
-        backgroundColor: 'rgba(201, 154, 100, 0.08)',
+    planLabel: {
+        ...typography.labelMd,
+        color: colors.onSurfaceMuted,
+        letterSpacing: 1.5,
+    },
+    planLabelDark: {
+        ...typography.labelMd,
+        color: colors.primaryContainer,
+        letterSpacing: 1.5,
     },
     bestValueBadge: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        backgroundColor: colors.palette.gold500,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.xs,
-        borderBottomLeftRadius: radius.md,
+        paddingVertical: 2,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: 'rgba(233,195,73,0.15)',
+        borderRadius: radius.full,
     },
     bestValueText: {
-        ...typography.tag,
-        fontSize: 10,
-        color: colors.palette.navy900,
+        ...typography.labelSm,
+        color: colors.primary,
+        letterSpacing: 1,
     },
-    radioContainer: {
-        marginRight: spacing.lg,
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: spacing.xs,
+        marginBottom: spacing.lg,
     },
-    radioOuter: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
-        alignItems: 'center',
-        justifyContent: 'center',
+    priceAmount: {
+        ...typography.headlineLg,
+        color: colors.onSurface,
     },
-    radioOuterSelected: {
-        borderColor: colors.palette.gold500,
+    priceAmountDark: {
+        ...typography.headlineLg,
+        color: colors.surfaceLowest,
     },
-    radioInner: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: colors.palette.gold500,
+    pricePeriod: {
+        ...typography.bodyMd,
+        color: colors.onSurfaceMuted,
     },
-    planDetails: {
-        flex: 1,
+    pricePeriodDark: {
+        ...typography.bodyMd,
+        color: 'rgba(19,8,39,0.65)',
     },
-    planNameRow: {
+    checkList: {
+        gap: spacing.sm,
+    },
+    checkRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.sm,
     },
-    savingsBadge: {
-        backgroundColor: colors.status.successSoft,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xxs,
-        borderRadius: borderRadius.badge,
+    checkIconLight: {
+        fontSize: 13,
+        color: colors.primary,
+        fontFamily: 'Manrope_700Bold',
     },
-    savingsText: {
-        ...typography.caption,
-        fontWeight: '600',
-        color: colors.status.success,
+    checkTextLight: {
+        ...typography.bodyMd,
+        color: colors.onSurface,
     },
-    price: {
-        color: colors.text.primary,
+    checkIconDark: {
+        fontSize: 13,
+        color: colors.surfaceLowest,
+        fontFamily: 'Manrope_700Bold',
     },
-    ctaContainer: {
-        alignItems: 'center',
+    checkTextDark: {
+        ...typography.bodyMd,
+        color: colors.surfaceLowest,
     },
-    ctaButton: {
-        width: '100%',
-        borderRadius: borderRadius.button,
+
+    // Monthly gold card
+    monthlyBorder: {
+        borderRadius: radius.xl,
+        padding: 2,
+    },
+    monthlyInner: {
+        borderRadius: radius.xl - 2,
+        backgroundColor: colors.primary,
         overflow: 'hidden',
-        ...shadows.glow.gold,
     },
-    ctaButtonPressed: {
-        opacity: 0.9,
-        transform: [{ scale: 0.98 }],
+
+    // CTA
+    ctaWrap: {
+        marginBottom: spacing.xl,
     },
-    ctaButtonLoading: {
-        opacity: 0.7,
+
+    // Legal
+    legal: {
+        ...typography.labelSm,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        letterSpacing: 0.3,
+        marginBottom: spacing.md,
     },
-    ctaGradient: {
-        flexDirection: 'row',
+    restoreBtn: {
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: spacing.lg,
-        paddingHorizontal: spacing['2xl'],
-        gap: spacing.sm,
+        paddingVertical: spacing.sm,
     },
-    ctaIcon: {
-        marginRight: spacing.xs,
-    },
-    ctaText: {
-        ...typography.button,
-        color: colors.palette.navy900,
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: spacing.sm,
-        flexWrap: 'wrap',
-    },
-    footerLink: {
+    restoreText: {
+        ...typography.labelSm,
+        color: colors.onSurfaceMuted,
         textDecorationLine: 'underline',
-    },
-    footerDivider: {
-        opacity: 0.5,
+        letterSpacing: 0.3,
     },
 });

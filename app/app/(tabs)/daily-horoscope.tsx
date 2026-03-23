@@ -1,35 +1,56 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, ScrollView, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-    Screen,
-    AppButton,
-    AppHeading,
-    AppText,
-    AppCard,
-    Spacer,
-    LoadingState,
-    InlineLoading,
-    HoroscopeCard,
-} from '@/components/ui';
-import {
-    getDailyHoroscope,
-    DailyHoroscope,
-} from '@/services/astrology';
-import { colors, spacing, borderRadius } from '@/theme';
+import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
+import { getDailyHoroscope, DailyHoroscope } from '@/services/astrology';
 import { aiDisclaimerText } from '@/constants/legalTexts';
+import { colors, spacing, radius, fonts } from '@/theme';
 
-const BG = require('@/assets/images/interface/background-starry.png');
-
-// Card configuration for each horoscope section
-const HOROSCOPE_SECTIONS = [
-    { key: 'overview', icon: '✨', title: 'Aperçu', accentColor: colors.brand.primary },
-    { key: 'love', icon: '💕', title: 'Amour', accentColor: colors.brand.accent },
-    { key: 'energy', icon: '⚡', title: 'Énergie', accentColor: colors.status.success },
-    { key: 'advice', icon: '💡', title: 'Conseil', accentColor: colors.brand.secondary },
+// ─── Horoscope section card ────────────────────────────────────────────────────
+const SECTIONS = [
+    { key: 'overview', icon: '✦', label: 'APERÇU', color: colors.primary },
+    { key: 'love',     icon: '♡', label: 'AMOUR',  color: '#ec4899' },
+    { key: 'energy',   icon: '⚡', label: 'ÉNERGIE', color: colors.secondary },
+    { key: 'advice',   icon: '◈', label: 'CONSEIL', color: colors.onSurface },
 ] as const;
 
+function HoroscopeSection({ icon, label, content, color }: {
+    icon: string; label: string; content: string; color: string;
+}) {
+    return (
+        <GlassCard opacity="low" radius="xl">
+            <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionIcon, { color }]}>{icon}</Text>
+                <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
+            </View>
+            <Text style={styles.sectionContent}>{content}</Text>
+        </GlassCard>
+    );
+}
+
+// ─── Empty states ──────────────────────────────────────────────────────────────
+function EmptyState({ emoji, message, actionLabel, onAction }: {
+    emoji: string; message: string; actionLabel: string; onAction: () => void;
+}) {
+    return (
+        <View style={styles.screen}>
+            <SafeAreaView style={styles.safeArea}>
+                <View style={styles.emptyWrap}>
+                    <Text style={styles.emptyEmoji}>{emoji}</Text>
+                    <Text style={styles.emptyText}>{message}</Text>
+                    <View style={{ marginTop: spacing.xl }}>
+                        <GoldButton label={actionLabel} onPress={onAction} />
+                    </View>
+                </View>
+            </SafeAreaView>
+        </View>
+    );
+}
+
+// ─── Screen ────────────────────────────────────────────────────────────────────
 export default function DailyHoroscopeTab() {
     const router = useRouter();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
@@ -67,232 +88,310 @@ export default function DailyHoroscopeTab() {
         setIsRefreshing(false);
     }, [loadHoroscope]);
 
-    const formatDate = (dateString: string): string => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('fr-FR', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
+    const formatDate = (dateString: string) =>
+        new Date(dateString).toLocaleDateString('fr-FR', {
+            weekday: 'long', day: 'numeric', month: 'long',
         });
-    };
 
+    // Loading
     if (isAuthLoading || isLoading) {
         return (
-            <Screen backgroundImage={BG}>
-                <LoadingState message="Chargement de votre horoscope..." />
-            </Screen>
+            <View style={styles.screen}>
+                <SafeAreaView style={styles.safeArea}>
+                    <TabHeader />
+                    <View style={styles.emptyWrap}>
+                        <ActivityIndicator color={colors.primary} size="large" />
+                        <Text style={styles.loadingText}>Chargement de votre horoscope…</Text>
+                    </View>
+                </SafeAreaView>
+            </View>
         );
     }
 
+    // Not authenticated
     if (!isAuthenticated) {
         return (
-            <Screen backgroundImage={BG}>
-                <View style={styles.centerContent}>
-                    <AppText style={styles.bigEmoji}>🌟</AppText>
-                    <Spacer size="lg" />
-                    <AppText variant="body" color="muted" align="center">
-                        Connectez-vous pour voir votre horoscope quotidien
-                    </AppText>
-                    <Spacer size="lg" />
-                    <AppButton
-                        title="Se connecter"
-                        onPress={() => router.push('/login')}
-                        variant="primary"
-                    />
-                </View>
-            </Screen>
+            <EmptyState
+                emoji="🌟"
+                message="Connectez-vous pour voir votre horoscope quotidien"
+                actionLabel="SE CONNECTER"
+                onAction={() => router.push('/login')}
+            />
         );
     }
 
+    // No birth profile
     if (!user?.hasBirthProfile) {
         return (
-            <Screen backgroundImage={BG}>
-                <View style={styles.centerContent}>
-                    <AppText style={styles.bigEmoji}>🌙</AppText>
-                    <Spacer size="lg" />
-                    <AppText variant="body" color="muted" align="center">
-                        Complétez votre profil pour recevoir votre horoscope personnalisé
-                    </AppText>
-                    <Spacer size="lg" />
-                    <AppButton
-                        title="Compléter mon profil"
-                        onPress={() => router.push('/birth-profile')}
-                        variant="primary"
-                    />
-                </View>
-            </Screen>
+            <EmptyState
+                emoji="🌙"
+                message="Complétez votre profil pour recevoir votre horoscope personnalisé"
+                actionLabel="COMPLÉTER MON PROFIL"
+                onAction={() => router.push('/birth-profile')}
+            />
         );
     }
 
     return (
-        <Screen variant="scroll" backgroundImage={BG}>
-            <Spacer size="xl" />
+        <View style={styles.screen}>
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <TabHeader />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <AppText style={styles.headerIcon}>🌟</AppText>
-                <AppHeading variant="h1" align="center">
-                    Horoscope du Jour
-                </AppHeading>
-                {horoscope && (
-                    <>
-                        <Spacer size="sm" />
-                        <AppText variant="body" color="muted" align="center">
-                            {formatDate(horoscope.date)}
-                        </AppText>
-                    </>
-                )}
-            </View>
-
-            {error && (
-                <>
-                    <Spacer size="lg" />
-                    <AppCard variant="outline" style={styles.errorCard}>
-                        <AppText variant="body" color="error" align="center">
-                            {error}
-                        </AppText>
-                        <Spacer size="md" />
-                        <AppButton
-                            title="Réessayer"
-                            onPress={() => loadHoroscope()}
-                            variant="outline"
-                        />
-                    </AppCard>
-                </>
-            )}
-
-            {isRefreshing && (
-                <>
-                    <Spacer size="lg" />
-                    <View style={styles.refreshingContainer}>
-                        <InlineLoading />
-                        <Spacer size="sm" />
-                        <AppText variant="body" color="muted" align="center">
-                            Actualisation...
-                        </AppText>
+                    {/* Hero */}
+                    <View style={styles.hero}>
+                        <View style={styles.badge}>
+                            <View style={styles.badgeDot} />
+                            <Text style={styles.badgeText}>HOROSCOPE DU JOUR</Text>
+                        </View>
+                        {horoscope ? (
+                            <>
+                                <Text style={styles.heroTitle}>{horoscope.title}</Text>
+                                <Text style={styles.heroDate}>{formatDate(horoscope.date)}</Text>
+                            </>
+                        ) : (
+                            <Text style={styles.heroTitle}>Votre cosmos{'\n'}aujourd'hui</Text>
+                        )}
                     </View>
-                </>
-            )}
 
-            {horoscope && !isRefreshing && (
-                <>
-                    {/* Title Card */}
-                    <Spacer size="xl" />
-                    <AppCard variant="highlight" style={styles.titleCard}>
-                        <AppText variant="h3" align="center" color="primary">
-                            {horoscope.title}
-                        </AppText>
-                    </AppCard>
+                    {/* Error */}
+                    {error && (
+                        <View style={styles.sectionPad}>
+                            <GlassCard opacity="low" radius="xl">
+                                <Text style={styles.errorText}>{error}</Text>
+                                <View style={{ marginTop: spacing.lg }}>
+                                    <GhostButton label="RÉESSAYER" onPress={() => loadHoroscope()} />
+                                </View>
+                            </GlassCard>
+                        </View>
+                    )}
 
-                    {/* Horoscope Sections */}
-                    <Spacer size="xl" />
-                    <View style={styles.cardsContainer}>
-                        {HOROSCOPE_SECTIONS.map((section) => {
-                            const content = horoscope[section.key];
-                            if (!content) return null;
+                    {/* Refreshing indicator */}
+                    {isRefreshing && (
+                        <View style={styles.refreshingRow}>
+                            <ActivityIndicator color={colors.primary} size="small" />
+                            <Text style={styles.refreshingText}>Actualisation…</Text>
+                        </View>
+                    )}
 
-                            return (
-                                <React.Fragment key={section.key}>
-                                    <HoroscopeCard
-                                        icon={section.icon}
-                                        title={section.title}
+                    {/* Horoscope sections */}
+                    {horoscope && !isRefreshing && (
+                        <View style={styles.sectionsContainer}>
+                            {SECTIONS.map((s) => {
+                                const content = horoscope[s.key];
+                                if (!content) return null;
+                                return (
+                                    <HoroscopeSection
+                                        key={s.key}
+                                        icon={s.icon}
+                                        label={s.label}
                                         content={content}
-                                        accentColor={section.accentColor}
+                                        color={s.color}
                                     />
-                                    <Spacer size="md" />
-                                </React.Fragment>
-                            );
-                        })}
-                    </View>
+                                );
+                            })}
+                        </View>
+                    )}
 
-                    {/* Refresh button */}
-                    <Spacer size="lg" />
-                    <View style={styles.refreshButtonContainer}>
-                        <AppButton
-                            title={horoscope.cached ? "Actualiser l'horoscope" : "Rafraîchir"}
-                            onPress={handleRefresh}
-                            variant="outline"
-                            disabled={isRefreshing}
-                        />
-                    </View>
-
-                    {/* Cached indicator */}
-                    {horoscope.cached && (
-                        <>
-                            <Spacer size="md" />
-                            <View style={styles.cachedIndicator}>
-                                <AppText variant="caption" color="muted" align="center">
-                                    Généré plus tôt aujourd'hui
-                                </AppText>
-                            </View>
-                        </>
+                    {/* Actions */}
+                    {horoscope && !isRefreshing && (
+                        <View style={styles.actionsSection}>
+                            <GhostButton
+                                label={horoscope.cached ? "ACTUALISER L'HOROSCOPE" : 'RAFRAÎCHIR'}
+                                onPress={handleRefresh}
+                                disabled={isRefreshing}
+                            />
+                            {horoscope.cached && (
+                                <Text style={styles.cachedText}>Généré plus tôt aujourd'hui</Text>
+                            )}
+                        </View>
                     )}
 
                     {/* AI Disclaimer */}
-                    <Spacer size="xl" />
-                    <View style={styles.disclaimerContainer}>
-                        <AppText variant="caption" color="muted" align="center" style={styles.disclaimerText}>
-                            {aiDisclaimerText}
-                        </AppText>
+                    <View style={styles.disclaimer}>
+                        <Text style={styles.disclaimerText}>{aiDisclaimerText}</Text>
                     </View>
-                </>
-            )}
 
-            <Spacer size="3xl" />
-        </Screen>
+                    <View style={{ height: 100 }} />
+                </ScrollView>
+            </SafeAreaView>
+        </View>
     );
 }
 
+// ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.surfaceLowest },
+    safeArea: { flex: 1 },
+    scroll: { flex: 1 },
+    scrollContent: { flexGrow: 1 },
+
     header: {
+        flexDirection: 'row',
         alignItems: 'center',
-    },
-    headerIcon: {
-        fontSize: 44,
-        lineHeight: 56,
-        marginBottom: spacing.sm,
-        textAlign: 'center',
-    },
-    centerContent: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.lg,
     },
-    bigEmoji: {
-        fontSize: 64,
-        lineHeight: 80,
-        textAlign: 'center',
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    logoIcon: {
+        fontSize: 14,
+        color: colors.primary,
+        lineHeight: 18,
     },
-    errorCard: {
-        borderColor: colors.status.error,
-        padding: spacing.lg,
+    logoText: {
+        fontFamily: fonts.display.regular,
+        fontSize: 18,
+        color: colors.onSurface,
+        letterSpacing: 0.5,
+    },
+    userRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    hiText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
+    avatarBubble: {
+        width: 36, height: 36, borderRadius: 18,
+        backgroundColor: colors.surfaceContainerHigh,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    avatarLetter: { fontFamily: fonts.body.semiBold, fontSize: 14, color: colors.onSurface },
+
+    // Hero
+    hero: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.xxxl,
+    },
+    badge: {
+        flexDirection: 'row',
         alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: spacing.sm,
+        backgroundColor: colors.surfaceContainerHigh,
+        borderRadius: radius.full,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        marginBottom: spacing.xl,
     },
-    refreshingContainer: {
+    badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+    badgeText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 10,
+        letterSpacing: 1.5,
+        color: colors.onSurfaceMuted,
+        textTransform: 'uppercase',
+    },
+    heroTitle: {
+        fontFamily: fonts.display.bold,
+        fontSize: 40,
+        lineHeight: 48,
+        color: colors.onSurface,
+        letterSpacing: -0.5,
+        marginBottom: spacing.md,
+    },
+    heroDate: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        color: colors.onSurfaceMuted,
+        textTransform: 'capitalize',
+    },
+
+    sectionPad: { paddingHorizontal: spacing.xl },
+
+    // Horoscope sections
+    sectionsContainer: {
+        paddingHorizontal: spacing.xl,
+        gap: spacing.lg,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: spacing.xl,
+        gap: spacing.sm,
+        marginBottom: spacing.lg,
     },
-    titleCard: {
-        padding: spacing.xl,
+    sectionIcon: { fontSize: 16, lineHeight: 20 },
+    sectionLabel: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 11,
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
     },
-    cardsContainer: {
+    sectionContent: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        lineHeight: 24,
+        color: colors.onSurface,
+    },
+
+    // Actions
+    actionsSection: {
+        paddingHorizontal: spacing.xl,
+        marginTop: spacing.xxl,
+        alignItems: 'center',
         gap: spacing.md,
     },
-    refreshButtonContainer: {
-        alignItems: 'center',
+    cachedText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: colors.onSurfaceMuted,
     },
-    cachedIndicator: {
-        paddingVertical: spacing.sm,
-    },
-    disclaimerContainer: {
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
-        backgroundColor: colors.surface.default,
-        borderRadius: borderRadius.card,
+
+    // Disclaimer
+    disclaimer: {
+        paddingHorizontal: spacing.xl,
+        marginTop: spacing.xxl,
     },
     disclaimerText: {
-        fontStyle: 'italic',
+        fontFamily: fonts.body.regular,
+        fontSize: 11,
         lineHeight: 18,
+        color: `${colors.onSurfaceMuted}80`,
+        fontStyle: 'italic',
+        textAlign: 'center',
+    },
+
+    // Empty / Loading states
+    emptyWrap: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: spacing.xl,
+        gap: spacing.lg,
+    },
+    emptyEmoji: { fontSize: 56, lineHeight: 68 },
+    emptyText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        lineHeight: 24,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        maxWidth: 280,
+    },
+    loadingText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
+        marginTop: spacing.lg,
+    },
+    refreshingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.md,
+        paddingVertical: spacing.xl,
+    },
+    refreshingText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
+    },
+    errorText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.error,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });

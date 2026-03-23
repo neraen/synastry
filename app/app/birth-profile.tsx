@@ -31,7 +31,6 @@ import {
 } from '@/services/birthProfile';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 
-const BG = require('@/assets/images/interface/background-starry.png');
 
 export default function BirthProfileScreen() {
     const router = useRouter();
@@ -172,14 +171,14 @@ export default function BirthProfileScreen() {
 
     if (isLoading) {
         return (
-            <Screen backgroundImage={BG}>
+            <Screen backgroundColor={colors.surfaceLowest}>
                 <LoadingState message="Chargement du profil..." />
             </Screen>
         );
     }
 
     return (
-        <Screen variant="form" backgroundImage={BG}>
+        <Screen variant="form" backgroundColor={colors.surfaceLowest}>
             <Spacer size="xl" />
 
             {/* Header */}

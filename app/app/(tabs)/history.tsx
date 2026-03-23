@@ -1,53 +1,100 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
+    Text,
+    ScrollView,
+    Pressable,
     StyleSheet,
-    FlatList,
-    TouchableOpacity,
     RefreshControl,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-    Screen,
-    AppButton,
-    AppHeading,
-    AppText,
-    AppCard,
-    Spacer,
-    LoadingState,
-    EmptyState,
-} from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
 import {
     getSynastryHistory,
     deleteSynastryHistoryEntry,
     SynastryHistorySummary,
 } from '@/services/astrology';
-import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { colors, spacing, radius, fonts } from '@/theme';
 
-const BG = require('@/assets/images/interface/background-starry.png');
-
-function getScoreColor(score: number | null): string {
-    if (score === null) return colors.text.muted;
-    if (score >= 80) return colors.status.success;
-    if (score >= 60) return colors.brand.primary;
-    if (score >= 40) return colors.status.warning;
-    return colors.status.error;
-}
-
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
         day: 'numeric',
-        month: 'short',
+        month: 'long',
         year: 'numeric',
     });
 }
 
+function scoreLabel(score: number): string {
+    if (score >= 85) return 'Âmes sœurs';
+    if (score >= 70) return 'Très compatible';
+    if (score >= 55) return 'Compatible';
+    if (score >= 40) return 'Complexe';
+    return 'Difficile';
+}
+
+// ─── History Card ──────────────────────────────────────────────────────────────
+function HistoryCard({
+    item,
+    userName,
+    onPress,
+    onDelete,
+}: {
+    item: SynastryHistorySummary;
+    userName: string;
+    onPress: () => void;
+    onDelete: () => void;
+}) {
+    const score = item.compatibilityScore;
+
+    return (
+        <GlassCard opacity="low" radius="xl">
+            <View style={styles.cardRow}>
+                {/* Left: names + date + label */}
+                <View style={styles.cardInfo}>
+                    <Text style={styles.cardNames} numberOfLines={1}>
+                        {userName} & {item.partnerName}
+                    </Text>
+                    <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
+                    {score !== null && (
+                        <Text style={styles.cardLabel}>{scoreLabel(score)}</Text>
+                    )}
+                </View>
+
+                {/* Right: score */}
+                {score !== null && (
+                    <View style={styles.scoreBlock}>
+                        <Text style={styles.scoreValue}>{Math.round(score)}</Text>
+                        <Text style={styles.scorePercent}>%</Text>
+                    </View>
+                )}
+            </View>
+
+            {/* Footer: VIEW DETAILS + delete */}
+            <View style={styles.cardFooter}>
+                <Pressable style={styles.detailsBtn} onPress={onPress} hitSlop={8}>
+                    <Text style={styles.detailsBtnText}>VOIR DÉTAILS</Text>
+                    <Feather name="arrow-up-right" size={12} color={colors.primary} />
+                </Pressable>
+
+                <Pressable onPress={onDelete} hitSlop={12} style={styles.deleteBtn}>
+                    <Feather name="trash-2" size={14} color={colors.onSurfaceMuted} />
+                </Pressable>
+            </View>
+        </GlassCard>
+    );
+}
+
+// ─── Screen ────────────────────────────────────────────────────────────────────
 export default function HistoryTab() {
     const router = useRouter();
-    const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+    const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
+    const userName = user?.firstName || 'Vous';
 
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -57,7 +104,6 @@ export default function HistoryTab() {
     const loadHistory = useCallback(async (showRefresh = false) => {
         if (showRefresh) setIsRefreshing(true);
         setError(undefined);
-
         try {
             const response = await getSynastryHistory();
             if (response.success && response.histories) {
@@ -74,9 +120,8 @@ export default function HistoryTab() {
     }, []);
 
     useEffect(() => {
-        if (isAuthenticated) {
-            loadHistory();
-        }
+        if (isAuthenticated) loadHistory();
+        else setIsLoading(false);
     }, [isAuthenticated, loadHistory]);
 
     const handleDelete = useCallback((item: SynastryHistorySummary) => {
@@ -103,257 +148,313 @@ export default function HistoryTab() {
         );
     }, []);
 
-    const renderItem = useCallback(({ item }: { item: SynastryHistorySummary }) => {
-        const score = item.compatibilityScore;
-        const scoreColor = getScoreColor(score);
-
-        return (
-            <TouchableOpacity
-                style={styles.historyItem}
-                onPress={() => router.push(`/synastry-detail?id=${item.id}`)}
-                activeOpacity={0.8}
-            >
-                {/* Accent bar on left */}
-                <View style={[styles.accentBar, { backgroundColor: scoreColor }]} />
-
-                <View style={styles.historyContent}>
-                    {/* Emoji container */}
-                    <View style={styles.emojiContainer}>
-                        <AppText style={styles.partnerEmoji}>
-                            {score !== null && score >= 70 ? '💕' : '💫'}
-                        </AppText>
-                    </View>
-
-                    {/* Info section */}
-                    <View style={styles.historyInfo}>
-                        <AppText variant="bodyMedium" color="primary" numberOfLines={1}>
-                            {item.partnerName}
-                        </AppText>
-                        <Spacer size="xxs" />
-                        <AppText variant="caption" color="muted">
-                            {formatDate(item.createdAt)}
-                        </AppText>
-                    </View>
-
-                    {/* Score section */}
-                    <View style={styles.scoreSection}>
-                        {score !== null ? (
-                            <View style={styles.scoreCircle}>
-                                <AppText style={[styles.scoreValue, { color: scoreColor }]}>
-                                    {Math.round(score)}
-                                </AppText>
-                                <AppText style={styles.scorePercent}>%</AppText>
-                            </View>
-                        ) : (
-                            <AppText variant="caption" color="muted">—</AppText>
-                        )}
-                    </View>
-
-                    {/* Arrow indicator */}
-                    <View style={styles.arrowContainer}>
-                        <AppText style={styles.arrowIcon}>›</AppText>
-                    </View>
-                </View>
-
-                {/* Delete button */}
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(item)}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                    <AppText style={styles.deleteIcon}>×</AppText>
-                </TouchableOpacity>
-            </TouchableOpacity>
-        );
-    }, [router, handleDelete]);
-
+    // ── Loading ──
     if (isAuthLoading || isLoading) {
         return (
-            <Screen backgroundImage={BG}>
-                <LoadingState message="Chargement..." />
-            </Screen>
+            <View style={styles.screen}>
+                <SafeAreaView style={styles.safeArea}>
+                    <TabHeader />
+                    <View style={styles.centered}>
+                        <ActivityIndicator color={colors.primary} size="large" />
+                    </View>
+                </SafeAreaView>
+            </View>
         );
     }
 
+    // ── Not authenticated ──
     if (!isAuthenticated) {
         return (
-            <Screen backgroundImage={BG}>
-                <View style={styles.centerContent}>
-                    <AppText variant="body" color="muted" align="center">
-                        Connectez-vous pour voir votre historique
-                    </AppText>
-                    <Spacer size="lg" />
-                    <AppButton
-                        title="Se connecter"
-                        onPress={() => router.push('/login')}
-                        variant="primary"
-                    />
-                </View>
-            </Screen>
+            <View style={styles.screen}>
+                <SafeAreaView style={styles.safeArea}>
+                    <TabHeader />
+                    <View style={styles.centered}>
+                        <Text style={styles.emptyEmoji}>🔒</Text>
+                        <Text style={styles.emptyText}>Connectez-vous pour voir vos analyses</Text>
+                        <View style={{ marginTop: spacing.xl }}>
+                            <GoldButton label="SE CONNECTER" onPress={() => router.push('/login')} />
+                        </View>
+                    </View>
+                </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <Screen variant="static" backgroundImage={BG}>
-            <Spacer size="xl" />
-
-            {/* Header */}
-            <View style={styles.header}>
-                <AppText style={styles.headerIcon}>📜</AppText>
-                <AppHeading variant="h1" align="center">
-                    Historique
-                </AppHeading>
-            </View>
-
-            <Spacer size="xl" />
-
-            {error && (
-                <AppCard variant="outline" style={styles.errorCard}>
-                    <AppText variant="body" color="error" align="center">
-                        {error}
-                    </AppText>
-                </AppCard>
-            )}
-
-            {histories.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <EmptyState
-                        title="Aucune analyse"
-                        description="Vos analyses de compatibilité apparaîtront ici"
-                    />
-                </View>
-            ) : (
-                <FlatList
-                    data={histories}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderItem}
+        <View style={styles.screen}>
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
                             refreshing={isRefreshing}
                             onRefresh={() => loadHistory(true)}
-                            tintColor={colors.brand.primary}
+                            tintColor={colors.primary}
                         />
                     }
-                    ItemSeparatorComponent={() => <Spacer size="md" />}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                />
-            )}
-        </Screen>
+                >
+                    <TabHeader />
+
+                    {/* Hero */}
+                    <View style={styles.hero}>
+                        <View style={styles.badge}>
+                            <View style={styles.badgeDot} />
+                            <Text style={styles.badgeText}>ARCHIVE</Text>
+                        </View>
+                        <Text style={styles.heroTitle}>Past{'\n'}Alignments</Text>
+                        <Text style={styles.heroSubtitle}>
+                            Un historique de vos connexions célestes et l'harmonie des astres à travers le temps.
+                        </Text>
+                    </View>
+
+                    {/* Error */}
+                    {error && (
+                        <View style={styles.sectionPad}>
+                            <GlassCard opacity="low" radius="xl">
+                                <Text style={styles.errorText}>{error}</Text>
+                                <View style={{ marginTop: spacing.lg }}>
+                                    <GhostButton label="RÉESSAYER" onPress={() => loadHistory()} />
+                                </View>
+                            </GlassCard>
+                        </View>
+                    )}
+
+                    {/* Empty state */}
+                    {!error && histories.length === 0 && (
+                        <View style={styles.centered}>
+                            <Text style={styles.emptyEmoji}>✦</Text>
+                            <Text style={styles.emptyText}>
+                                Aucune analyse pour l'instant.{'\n'}Commencez par analyser une compatibilité.
+                            </Text>
+                            <View style={{ marginTop: spacing.xl }}>
+                                <GoldButton
+                                    label="ANALYSER UNE COMPATIBILITÉ"
+                                    onPress={() => router.push('/compatibility')}
+                                    rightIcon
+                                />
+                            </View>
+                        </View>
+                    )}
+
+                    {/* History list */}
+                    {histories.length > 0 && (
+                        <View style={styles.list}>
+                            {histories.map((item) => (
+                                <HistoryCard
+                                    key={item.id}
+                                    item={item}
+                                    userName={userName}
+                                    onPress={() => router.push(`/synastry-detail?id=${item.id}`)}
+                                    onDelete={() => handleDelete(item)}
+                                />
+                            ))}
+
+                            <View style={styles.bottomActions}>
+                                <GhostButton
+                                    label="NOUVELLE ANALYSE"
+                                    onPress={() => router.push('/compatibility')}
+                                />
+                            </View>
+                        </View>
+                    )}
+
+                    <View style={{ height: 100 }} />
+                </ScrollView>
+            </SafeAreaView>
+        </View>
     );
 }
 
+// ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.surfaceLowest },
+    safeArea: { flex: 1 },
+    scroll: { flex: 1 },
+    scrollContent: { flexGrow: 1 },
+
+    // Header
     header: {
+        flexDirection: 'row',
         alignItems: 'center',
-    },
-    headerIcon: {
-        fontSize: 40,
-        marginBottom: spacing.sm,
-        lineHeight: 50,
-    },
-    centerContent: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: spacing.xl,
-    },
-    errorCard: {
-        borderColor: colors.status.error,
-        padding: spacing.lg,
-        marginHorizontal: spacing.screenPadding,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    listContent: {
-        paddingHorizontal: spacing.screenPadding,
-        paddingBottom: spacing['3xl'],
-    },
-    historyItem: {
-        backgroundColor: colors.surface.elevated,
-        borderRadius: borderRadius.card,
-        borderWidth: 1,
-        borderColor: colors.border.subtle,
-        position: 'relative',
-        ...shadows.md,
-    },
-    accentBar: {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: 4,
-        borderTopLeftRadius: borderRadius.card,
-        borderBottomLeftRadius: borderRadius.card,
-    },
-    historyContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
         paddingVertical: spacing.lg,
-        paddingLeft: spacing.xl,
-        paddingRight: spacing.md,
     },
-    emojiContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: colors.surface.highlight,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: spacing.md,
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    logoIcon: {
+        fontSize: 14,
+        color: colors.primary,
+        lineHeight: 18,
     },
-    partnerEmoji: {
-        fontSize: 24,
-        lineHeight: 32,
-        textAlign: 'center',
+    logoText: {
+        fontFamily: fonts.display.regular,
+        fontSize: 18,
+        color: colors.onSurface,
+        letterSpacing: 0.5,
     },
-    historyInfo: {
-        flex: 1,
-        marginRight: spacing.md,
+    userRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    hiText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
+    avatarBubble: {
+        width: 36, height: 36, borderRadius: 18,
+        backgroundColor: colors.surfaceContainerHigh,
+        alignItems: 'center', justifyContent: 'center',
     },
-    scoreSection: {
-        alignItems: 'center',
-        marginRight: spacing.sm,
+    avatarLetter: { fontFamily: fonts.body.semiBold, fontSize: 14, color: colors.onSurface },
+
+    // Hero
+    hero: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.xxxl,
     },
-    scoreCircle: {
+    badge: {
         flexDirection: 'row',
-        alignItems: 'baseline',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: spacing.sm,
+        backgroundColor: colors.surfaceContainerHigh,
+        borderRadius: radius.full,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        marginBottom: spacing.xl,
+    },
+    badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+    badgeText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 10,
+        letterSpacing: 1.5,
+        color: colors.onSurfaceMuted,
+        textTransform: 'uppercase',
+    },
+    heroTitle: {
+        fontFamily: fonts.display.bold,
+        fontSize: 42,
+        lineHeight: 50,
+        color: colors.onSurface,
+        letterSpacing: -0.5,
+        marginBottom: spacing.md,
+    },
+    heroSubtitle: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        lineHeight: 22,
+        color: colors.onSurfaceMuted,
+        maxWidth: 300,
+    },
+
+    sectionPad: { paddingHorizontal: spacing.xl },
+
+    // List
+    list: {
+        paddingHorizontal: spacing.xl,
+        gap: spacing.lg,
+    },
+
+    // Card
+    cardRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: spacing.lg,
+    },
+    cardInfo: { flex: 1, paddingRight: spacing.lg },
+    cardNames: {
+        fontFamily: fonts.display.regular,
+        fontSize: 18,
+        color: colors.onSurface,
+        letterSpacing: 0.2,
+        marginBottom: spacing.xs,
+    },
+    cardDate: {
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: colors.onSurfaceMuted,
+        marginBottom: spacing.xs,
+    },
+    cardLabel: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 10,
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
+        color: `${colors.primary}99`,
+    },
+    scoreBlock: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
     },
     scoreValue: {
-        fontSize: 24,
-        fontWeight: '700',
+        fontFamily: fonts.display.bold,
+        fontSize: 40,
+        lineHeight: 46,
+        color: colors.primary,
     },
     scorePercent: {
-        fontSize: 12,
-        color: colors.text.muted,
-        marginLeft: 1,
+        fontFamily: fonts.display.regular,
+        fontSize: 18,
+        color: colors.primary,
+        marginBottom: 4,
+        marginLeft: 2,
     },
-    arrowContainer: {
-        width: 24,
+
+    // Card footer
+    cardFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingTop: spacing.md,
+    },
+    detailsBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    detailsBtnText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 10,
+        letterSpacing: 1.5,
+        color: colors.primary,
+        textTransform: 'uppercase',
+    },
+    deleteBtn: {
+        padding: spacing.xs,
+    },
+
+    // Bottom
+    bottomActions: {
+        alignItems: 'center',
+        marginTop: spacing.lg,
+    },
+
+    // States
+    centered: {
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.xxxl,
+        gap: spacing.lg,
     },
-    arrowIcon: {
-        fontSize: 24,
-        color: colors.text.muted,
-        fontWeight: '300',
+    emptyEmoji: {
+        fontSize: 48,
+        lineHeight: 60,
+        color: colors.primary,
+        fontFamily: fonts.display.regular,
     },
-    deleteButton: {
-        position: 'absolute',
-        top: spacing.sm,
-        right: spacing.sm,
-        width: 28,
-        height: 28,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surface.highlight,
-        borderRadius: 14,
+    emptyText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        lineHeight: 24,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        maxWidth: 280,
     },
-    deleteIcon: {
-        fontSize: 20,
-        color: colors.text.muted,
-        lineHeight: 22,
+    errorText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.error,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });

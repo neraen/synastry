@@ -12,7 +12,23 @@ import {
     StyleProp,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, zodiac as zodiacColors } from '@/theme';
+import { colors } from '@/theme';
+
+// Per-sign gradient colors (fire/earth/air/water groupings)
+const zodiacColors: Record<string, readonly [string, string]> = {
+    aries:       ['#ef4444', '#f97316'],
+    taurus:      ['#22c55e', '#16a34a'],
+    gemini:      ['#eab308', '#f59e0b'],
+    cancer:      ['#94a3b8', '#c8bfff'],
+    leo:         ['#f97316', '#eab308'],
+    virgo:       ['#84cc16', '#22c55e'],
+    libra:       ['#c8bfff', '#a78bfa'],
+    scorpio:     ['#7c3aed', '#4c1d95'],
+    sagittarius: ['#f97316', '#dc2626'],
+    capricorn:   ['#64748b', '#475569'],
+    aquarius:    ['#38bdf8', '#6366f1'],
+    pisces:      ['#818cf8', '#c084fc'],
+};
 
 // Zodiac signs data
 const ZODIAC_DATA = {
@@ -58,7 +74,7 @@ export function ZodiacCircle({
 }: ZodiacCircleProps) {
     const dimensions = SIZES[size];
     const zodiacInfo = ZODIAC_DATA[sign];
-    const gradientColors = zodiacColors[sign] || colors.gradients.primary;
+    const gradientColors = zodiacColors[sign] ?? (['#6D28D9', '#9333EA'] as const);
     const glowColor = gradientColors[0];
 
     return (

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +12,7 @@ import {
     Screen,
     GlassCard,
     GradientButton,
+    GoldButton,
     AppHeading,
     AppText,
     Spacer,
@@ -31,8 +32,79 @@ import {
     formatDegree,
     getPlanetNameFr,
 } from '@/services/astrology';
-import { colors, spacing, radius, gradients, glow } from '@/theme';
+import { colors, spacing, radius, gradients, glow, fonts } from '@/theme';
 import { aiDisclaimerText } from '@/constants/legalTexts';
+
+// Zodiac data for display
+const ZODIAC_INFO: Record<string, { symbol: string; nameFr: string }> = {
+    aries:       { symbol: '♈', nameFr: 'Bélier' },
+    taurus:      { symbol: '♉', nameFr: 'Taureau' },
+    gemini:      { symbol: '♊', nameFr: 'Gémeaux' },
+    cancer:      { symbol: '♋', nameFr: 'Cancer' },
+    leo:         { symbol: '♌', nameFr: 'Lion' },
+    virgo:       { symbol: '♍', nameFr: 'Vierge' },
+    libra:       { symbol: '♎', nameFr: 'Balance' },
+    scorpio:     { symbol: '♏', nameFr: 'Scorpion' },
+    sagittarius: { symbol: '♐', nameFr: 'Sagittaire' },
+    capricorn:   { symbol: '♑', nameFr: 'Capricorne' },
+    aquarius:    { symbol: '♒', nameFr: 'Verseau' },
+    pisces:      { symbol: '♓', nameFr: 'Poissons' },
+};
+
+function ZodiacGlassIcon({ sign }: { sign: string }) {
+    const info = ZODIAC_INFO[sign] ?? { symbol: '✦', nameFr: sign };
+    return (
+        <View style={zodiacStyles.container}>
+            <View style={zodiacStyles.circle}>
+                {/* top sheen */}
+                <View style={zodiacStyles.sheen} />
+                <Text style={zodiacStyles.symbol}>{info.symbol}</Text>
+            </View>
+            <Text style={zodiacStyles.name}>{info.nameFr}</Text>
+        </View>
+    );
+}
+
+const zodiacStyles = StyleSheet.create({
+    container: { alignItems: 'center', gap: 10 },
+    circle: {
+        width: 88,
+        height: 88,
+        borderRadius: 44,
+        backgroundColor: 'rgba(30, 19, 56, 0.70)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        elevation: 6,
+    },
+    sheen: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '45%',
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        borderTopLeftRadius: 44,
+        borderTopRightRadius: 44,
+    },
+    symbol: {
+        fontFamily: fonts.display.bold,
+        fontSize: 36,
+        color: colors.primary,
+        lineHeight: 44,
+    },
+    name: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 11,
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
+        color: colors.onSurfaceMuted,
+    },
+});
 
 // Score color gradient based on value
 function getScoreGradient(score: number): readonly string[] {
@@ -41,6 +113,15 @@ function getScoreGradient(score: number): readonly string[] {
     if (score >= 40) return gradients.fire;
     return ['#EF4444', '#DC2626'];
 }
+
+// Gold gradient scale: dark gold (index 0) → bright gold (last index)
+const DIMENSION_GOLD_GRADIENTS: readonly [string, string][] = [
+    ['#2e1e00', '#5c3d00'],
+    ['#5c3d00', '#866a00'],
+    ['#866a00', '#ab8a10'],
+    ['#ab8a10', '#cfa82a'],
+    ['#cfa82a', '#e9c349'],
+];
 
 // Format date for display
 function formatDate(dateString: string): string {
@@ -128,7 +209,7 @@ export default function SynastryDetailScreen() {
 
     if (isAuthLoading || isLoading) {
         return (
-            <Screen backgroundVariant="cosmic">
+            <Screen backgroundColor={colors.surfaceLowest}>
                 <LoadingState message="Chargement de l'analyse..." />
             </Screen>
         );
@@ -136,7 +217,7 @@ export default function SynastryDetailScreen() {
 
     if (error || !history) {
         return (
-            <Screen variant="scroll" backgroundVariant="cosmic">
+            <Screen variant="scroll" backgroundColor={colors.surfaceLowest}>
                 <Spacer size="xl" />
                 <GlassCard style={styles.errorCard}>
                     <AppText variant="body" color="error" align="center">
@@ -161,7 +242,7 @@ export default function SynastryDetailScreen() {
     const dimensions = history.compatibilityDetails?.dimensions || {};
 
     return (
-        <Screen variant="scroll" backgroundVariant="cosmic">
+        <Screen variant="scroll" backgroundColor={colors.surfaceLowest}>
             <Animated.View
                 style={{
                     opacity: fadeAnim,
@@ -179,14 +260,14 @@ export default function SynastryDetailScreen() {
 
                 {/* Zodiac Pair */}
                 <View style={styles.zodiacSection}>
-                    <ZodiacCircle sign={userSign} size="large" showName showGlow />
+                    <ZodiacGlassIcon sign={userSign} />
 
                     <View style={styles.heartContainer}>
                         <View style={styles.heartGlow} />
-                        <AppText style={styles.heart}>❤️</AppText>
+                        <AppText style={styles.heart}>♡</AppText>
                     </View>
 
-                    <ZodiacCircle sign={partnerSign} size="large" showName showGlow />
+                    <ZodiacGlassIcon sign={partnerSign} />
                 </View>
 
                 <Spacer size="sm" />
@@ -220,12 +301,12 @@ export default function SynastryDetailScreen() {
                             <AppHeading variant="display" style={styles.scoreValue}>
                                 {Math.round(score)}
                             </AppHeading>
-                            <AppText variant="h3" color="muted">%</AppText>
+                            <AppText variant="h3" style={styles.scorePercent}>%</AppText>
                         </View>
                         <ProgressBar
                             value={score}
                             height={8}
-                            gradientColors={getScoreGradient(score)}
+                            gradientColors={['#866a00', '#e9c349']}
                             style={styles.mainProgressBar}
                         />
                     </View>
@@ -235,12 +316,13 @@ export default function SynastryDetailScreen() {
                     {/* Dimension Scores */}
                     {Object.keys(dimensions).length > 0 && (
                         <View style={styles.dimensionsSection}>
-                            {Object.entries(dimensions).map(([key, data]: [string, any]) => (
+                            {Object.entries(dimensions).map(([key, data]: [string, any], index) => (
                                 <ScoreRow
                                     key={key}
                                     label={key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}
                                     value={data.score || 0}
                                     icon={dimensionIcons[key]}
+                                    gradientColors={DIMENSION_GOLD_GRADIENTS[Math.min(index, DIMENSION_GOLD_GRADIENTS.length - 1)]}
                                 />
                             ))}
                         </View>
@@ -264,11 +346,9 @@ export default function SynastryDetailScreen() {
                     <Spacer size="lg" />
 
                     {/* CTA */}
-                    <GradientButton
-                        title="Nouvelle analyse"
+                    <GoldButton
+                        label="NOUVELLE ANALYSE"
                         onPress={() => router.push('/synastry')}
-                        variant="primary"
-                        size="medium"
                     />
                 </GlassCard>
 
@@ -453,9 +533,18 @@ const styles = StyleSheet.create({
         alignItems: 'baseline',
     },
     scoreValue: {
-        fontSize: 64,
-        fontWeight: '700',
-        color: colors.text.primary,
+        fontSize: 72,
+        fontFamily: fonts.display.bold,
+        color: colors.primary,
+        lineHeight: 80,
+    },
+    scorePercent: {
+        fontFamily: fonts.display.bold,
+        fontSize: 32,
+        color: colors.primary,
+        alignSelf: 'flex-end',
+        marginBottom: 8,
+        marginLeft: 4,
     },
     mainProgressBar: {
         width: '100%',

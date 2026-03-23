@@ -64,4 +64,37 @@ class HoroscopeController extends AbstractController
 
         return $this->json($result);
     }
+
+    /**
+     * Get 3 upcoming significant transits for the authenticated user
+     */
+    #[Route('/transits', name: 'api_horoscope_transits', methods: ['GET'])]
+    public function getUpcomingTransits(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $locale = $this->getLocaleFromRequest($request);
+
+        if (!$user->hasBirthProfile()) {
+            $errorMessage = $locale === 'en'
+                ? 'Please complete your birth profile first'
+                : 'Veuillez compléter votre profil de naissance';
+
+            return $this->json([
+                'success' => false,
+                'error' => $errorMessage,
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $this->horoscopeGeneratorService->setLocale($locale);
+
+        $result = $this->horoscopeGeneratorService->getUpcomingTransits($user);
+
+        if (!$result['success']) {
+            return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return $this->json($result);
+    }
 }
