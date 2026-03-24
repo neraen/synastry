@@ -81,6 +81,10 @@ WORKDIR /var/www
 # Copy application from composer stage
 COPY --from=composer /app /var/www
 
+# Create minimal .env for Symfony bootstrap (secrets come from Docker env vars)
+RUN echo "APP_ENV=prod" > /var/www/.env && \
+    echo "APP_DEBUG=0" >> /var/www/.env
+
 # Copy JWT keys (will be overridden by volumes in production)
 COPY config/jwt /var/www/config/jwt
 
