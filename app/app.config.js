@@ -81,7 +81,6 @@ export default {
     plugins: [
       'expo-router',
       'expo-secure-store',
-      'react-native-purchases',
       [
         'expo-splash-screen',
         {
