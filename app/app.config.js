@@ -81,6 +81,8 @@ export default {
     plugins: [
       'expo-router',
       'expo-secure-store',
+      '@react-native-community/datetimepicker',
+      'expo-localization',
       [
         'expo-splash-screen',
         {
