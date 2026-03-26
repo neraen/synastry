@@ -81,6 +81,7 @@ export default {
     plugins: [
       'expo-router',
       'expo-secure-store',
+      'react-native-purchases',
       [
         'expo-splash-screen',
         {
@@ -103,23 +104,21 @@ export default {
 
     // Extra configuration
     extra: {
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://api.astromatch.app',
+      apiUrl: process.env.EXPO_PUBLIC_API_URL_PROD || 'https://astro-api.clement-silvestre.com',
       eas: {
-        projectId: process.env.EAS_PROJECT_ID || 'your-project-id',
+        projectId: '8968e738-730c-4db7-b676-9749546b6740',
       },
     },
 
     // Updates (OTA)
     updates: {
-      enabled: true,
-      fallbackToCacheTimeout: 0,
-      url: 'https://u.expo.dev/your-project-id',
+      url: 'https://u.expo.dev/8968e738-730c-4db7-b676-9749546b6740',
     },
 
     // Assets
     assetBundlePatterns: ['**/*'],
 
-    // Owner
-    owner: 'astromatch',
+    // Owner (Expo username)
+    owner: 'neraen',
   },
 };

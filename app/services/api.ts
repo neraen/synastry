@@ -3,12 +3,7 @@
  */
 
 import i18n from '@/i18n';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-
-if (!API_BASE_URL) {
-    console.warn('EXPO_PUBLIC_API_URL is not set. API calls will fail.');
-}
+import { getApiUrl } from './apiConfig';
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
     body?: Record<string, unknown>;
@@ -23,10 +18,7 @@ interface ApiError extends Error {
  * Normalize URL by ensuring proper path joining
  */
 function buildUrl(path: string): string {
-    if (!API_BASE_URL) {
-        throw new Error('API_BASE_URL is not configured. Set EXPO_PUBLIC_API_URL in .env');
-    }
-    const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    const base = getApiUrl().replace(/\/$/, '');
     const endpoint = path.startsWith('/') ? path : `/${path}`;
     return `${base}${endpoint}`;
 }
@@ -97,8 +89,6 @@ export const api = {
 /**
  * Get the configured API URL (useful for debugging)
  */
-export function getApiUrl(): string | undefined {
-    return API_BASE_URL;
-}
+export { getApiUrl } from './apiConfig';
 
 export default api;

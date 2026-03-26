@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import { configurePurchases, identifyPurchasesUser, resetPurchasesUser } from '@/services/purchases';
+import { initApiConfig } from '@/services/apiConfig';
 
 // Fonts
 import {
@@ -113,8 +114,11 @@ export default function RootLayout() {
     const fontsLoaded = notoSerifLoaded && manropeLoaded;
     const fontError = notoSerifError || manropeError;
 
-    // Initialize RevenueCat once at startup
-    useEffect(() => { configurePurchases(); }, []);
+    // Initialize API config and RevenueCat once at startup
+    useEffect(() => {
+        initApiConfig();
+        configurePurchases();
+    }, []);
 
     useEffect(() => {
         if (fontsLoaded || fontError) {

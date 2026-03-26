@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,6 +8,7 @@ import {
     Modal,
     Alert,
     ActivityIndicator,
+    Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
+import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
 
 // ─── Preference Row ────────────────────────────────────────────────────────────
 interface PrefRowProps {
@@ -112,6 +114,16 @@ export default function ProfileTab() {
     const { user, isAuthenticated, isLoading, logout, deleteAccount } = useAuth();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isLocal, setIsLocal] = useState(getApiEnv() === 'local');
+
+    useEffect(() => {
+        setIsLocal(getApiEnv() === 'local');
+    }, []);
+
+    async function toggleApiEnv(value: boolean) {
+        setIsLocal(value);
+        await setApiEnv(value ? 'local' : 'prod');
+    }
 
     const handleDeleteAccount = async () => {
         setIsDeleting(true);
@@ -271,6 +283,29 @@ export default function ProfileTab() {
                         <Pressable onPress={() => setShowDeleteModal(true)} hitSlop={8}>
                             <Text style={styles.deleteText}>Supprimer mon compte</Text>
                         </Pressable>
+                    </View>
+
+                    {/* ── Dev Tools ──────────────────────────────────────────── */}
+                    <View style={styles.demoSection}>
+                        <Text style={styles.sectionLabel}>DÉVELOPPEMENT</Text>
+                        <GlassCard opacity="low" radius="xl">
+                            <View style={styles.devRow}>
+                                <View style={styles.devInfo}>
+                                    <Text style={styles.devTitle}>
+                                        {isLocal ? 'Serveur local' : 'Serveur prod'}
+                                    </Text>
+                                    <Text style={styles.devUrl} numberOfLines={1}>
+                                        {isLocal ? LOCAL_URL : PROD_URL}
+                                    </Text>
+                                </View>
+                                <Switch
+                                    value={isLocal}
+                                    onValueChange={toggleApiEnv}
+                                    trackColor={{ false: `${colors.primary}40`, true: `${colors.secondary}60` }}
+                                    thumbColor={isLocal ? colors.secondary : colors.primary}
+                                />
+                            </View>
+                        </GlassCard>
                     </View>
 
                     {/* ── Design Demo ────────────────────────────────────────── */}
@@ -618,6 +653,25 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: `${colors.error}80`,
         textDecorationLine: 'underline',
+    },
+
+    // Dev tools
+    devRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    devInfo: { flex: 1 },
+    devTitle: {
+        fontFamily: fonts.body.medium,
+        fontSize: 14,
+        color: colors.onSurface,
+        marginBottom: 2,
+    },
+    devUrl: {
+        fontFamily: fonts.body.regular,
+        fontSize: 11,
+        color: colors.onSurfaceMuted,
     },
 
     // Demo

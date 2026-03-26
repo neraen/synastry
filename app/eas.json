@@ -22,7 +22,8 @@
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "preview",
-        "EXPO_PUBLIC_API_URL": "https://api.astromatch.app"
+        "EXPO_PUBLIC_API_URL_LOCAL": "http://192.168.1.12:8000",
+        "EXPO_PUBLIC_API_URL_PROD": "https://astro-api.clement-silvestre.com"
       },
       "ios": {
         "resourceClass": "m-medium"
@@ -35,7 +36,8 @@
       "distribution": "store",
       "env": {
         "APP_VARIANT": "production",
-        "EXPO_PUBLIC_API_URL": "https://api.astromatch.app"
+        "EXPO_PUBLIC_API_URL_LOCAL": "http://192.168.1.12:8000",
+        "EXPO_PUBLIC_API_URL_PROD": "https://astro-api.clement-silvestre.com"
       },
       "ios": {
         "resourceClass": "m-medium"
