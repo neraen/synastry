@@ -22,12 +22,19 @@
  */
 
 import { Platform } from 'react-native';
-import Purchases, {
-    LOG_LEVEL,
-    type PurchasesPackage,
-    type CustomerInfo,
-    type PurchasesOffering,
-} from 'react-native-purchases';
+
+// Lazy import to prevent native module crash if billing is unavailable
+let Purchases: typeof import('react-native-purchases').default | null = null;
+let LOG_LEVEL: typeof import('react-native-purchases').LOG_LEVEL | null = null;
+try {
+    const mod = require('react-native-purchases');
+    Purchases = mod.default ?? mod;
+    LOG_LEVEL = mod.LOG_LEVEL;
+} catch (e) {
+    console.warn('[Purchases] react-native-purchases not available:', e);
+}
+
+import type { PurchasesPackage, CustomerInfo, PurchasesOffering } from 'react-native-purchases';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +66,7 @@ export interface PurchaseResult {
  * Safe to call multiple times.
  */
 export function configurePurchases(): void {
+    if (!Purchases) return;
     if (!RC_API_KEY_IOS && !RC_API_KEY_ANDROID) {
         console.warn('[Purchases] RevenueCat API keys not set. Set EXPO_PUBLIC_RC_API_KEY_IOS / EXPO_PUBLIC_RC_API_KEY_ANDROID.');
         return;
@@ -66,7 +74,7 @@ export function configurePurchases(): void {
 
     const apiKey = Platform.OS === 'ios' ? RC_API_KEY_IOS : RC_API_KEY_ANDROID;
 
-    Purchases.setLogLevel(LOG_LEVEL.ERROR);
+    if (LOG_LEVEL) Purchases.setLogLevel(LOG_LEVEL.ERROR);
     Purchases.configure({ apiKey });
 }
 
@@ -75,6 +83,7 @@ export function configurePurchases(): void {
  * RevenueCat uses this ID to sync entitlements across devices.
  */
 export async function identifyPurchasesUser(userId: string): Promise<void> {
+    if (!Purchases) return;
     try {
         await Purchases.logIn(userId);
     } catch (e) {
@@ -86,6 +95,7 @@ export async function identifyPurchasesUser(userId: string): Promise<void> {
  * Call after logout so the next user starts with a clean anonymous session.
  */
 export async function resetPurchasesUser(): Promise<void> {
+    if (!Purchases) return;
     try {
         await Purchases.logOut();
     } catch (e) {
@@ -100,6 +110,7 @@ export async function resetPurchasesUser(): Promise<void> {
  * Returns null if RC is not configured or network fails.
  */
 export async function getOffering(): Promise<Offering | null> {
+    if (!Purchases) return null;
     try {
         const offerings = await Purchases.getOfferings();
         const current = offerings.current;
@@ -127,6 +138,7 @@ export async function getOffering(): Promise<Offering | null> {
  * Initiates the native purchase sheet for a given package.
  */
 export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
+    if (!Purchases) return { success: false, isPremium: false, error: 'Purchases not available' };
     try {
         const { customerInfo } = await Purchases.purchasePackage(pkg);
         return {
@@ -151,6 +163,7 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseRe
  * Restores previous purchases (required by App Store / Google Play guidelines).
  */
 export async function restorePurchases(): Promise<PurchaseResult> {
+    if (!Purchases) return { success: false, isPremium: false, error: 'Purchases not available' };
     try {
         const customerInfo = await Purchases.restorePurchases();
         const isPremium = isPremiumFromCustomerInfo(customerInfo);
@@ -174,6 +187,7 @@ export async function restorePurchases(): Promise<PurchaseResult> {
  * Checks the current premium status from RevenueCat (network call).
  */
 export async function checkPremiumStatus(): Promise<boolean> {
+    if (!Purchases) return false;
     try {
         const customerInfo = await Purchases.getCustomerInfo();
         return isPremiumFromCustomerInfo(customerInfo);
