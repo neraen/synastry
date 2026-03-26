@@ -30,6 +30,7 @@ import {
 import '@/i18n';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { colors } from '@/theme';
 
 // Keep splash screen visible while fonts load
@@ -118,6 +119,19 @@ export default function RootLayout() {
     useEffect(() => {
         initApiConfig();
         configurePurchases();
+
+        // Catch unhandled promise rejections so they don't silently crash the app
+        const handler = (event: { reason?: unknown }) => {
+            console.error('[UnhandledRejection]', event.reason);
+        };
+        // @ts-ignore
+        if (typeof global !== 'undefined') {
+            // @ts-ignore
+            global.ErrorUtils?.setGlobalHandler?.((error: Error, isFatal: boolean) => {
+                console.error('[GlobalError]', isFatal ? 'FATAL' : 'non-fatal', error?.message, error?.stack);
+            });
+        }
+        return () => {};
     }, []);
 
     useEffect(() => {
@@ -132,6 +146,7 @@ export default function RootLayout() {
     }
 
     return (
+        <ErrorBoundary>
         <SafeAreaProvider>
             <AuthProvider>
                 <PurchasesInitializer />
@@ -156,6 +171,7 @@ export default function RootLayout() {
                 </ThemeProvider>
             </AuthProvider>
         </SafeAreaProvider>
+        </ErrorBoundary>
     );
 }
 
