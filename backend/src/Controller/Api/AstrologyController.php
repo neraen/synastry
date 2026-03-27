@@ -160,6 +160,8 @@ class AstrologyController extends AbstractController
             'latitude' => (float) $data['latitude'],
             'longitude' => (float) $data['longitude'],
             'timezone' => (float) ($data['timezone'] ?? 0),
+            'timezoneName' => $data['timezoneName'] ?? null,
+            'birthDate' => $birthDate,
         ];
 
         $question = $data['question'] ?? null;

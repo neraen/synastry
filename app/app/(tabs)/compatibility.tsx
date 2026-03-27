@@ -387,7 +387,9 @@ export default function CompatibilityTab() {
             const response = await calculateSynastry({
                 partnerName: partnerName.trim(), birthDate,
                 birthTime: birthTime || undefined, birthCity,
-                latitude, longitude, timezone: finalTimezone || undefined,
+                latitude, longitude,
+                timezone: finalTimezone || undefined,
+                timezoneName: timezoneName || undefined,
             });
             if (response.success) setResult(response);
             else setError(response.error || 'Erreur lors du calcul');

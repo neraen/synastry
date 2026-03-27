@@ -232,7 +232,20 @@ class AstrologyService
 
             // Create DateTime with local time and convert to UTC
             $partnerDateTime = new \DateTime("$partnerDate $partnerTime");
-            $partnerTimezone = $partnerBirthData['timezone'] ?? null;
+
+            // If timezoneName is provided, recalculate DST-correct offset on the server
+            // (same approach as BirthProfileController for the user's own natal chart)
+            $partnerTimezoneName = $partnerBirthData['timezoneName'] ?? null;
+            $partnerBirthDateObj = $partnerBirthData['birthDate'] ?? null; // \DateTime
+
+            if ($partnerTimezoneName && $partnerBirthDateObj instanceof \DateTimeInterface) {
+                $tz = new \DateTimeZone($partnerTimezoneName);
+                $tzRef = new \DateTime($partnerBirthDateObj->format('Y-m-d') . ' 12:00:00', $tz);
+                $offsetSeconds = $tz->getOffset($tzRef);
+                $partnerTimezone = $offsetSeconds / 3600;
+            } else {
+                $partnerTimezone = $partnerBirthData['timezone'] ?? null;
+            }
 
             if ($partnerTimezone !== null) {
                 $offsetMinutes = (int) ((float) $partnerTimezone * 60);

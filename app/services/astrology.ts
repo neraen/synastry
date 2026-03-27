@@ -41,6 +41,7 @@ export interface PartnerBirthData {
     latitude: number;
     longitude: number;
     timezone?: number;
+    timezoneName?: string; // IANA name — backend uses this to recalculate DST-correct offset
     question?: string;
 }
 
