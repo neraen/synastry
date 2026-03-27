@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Defs, LinearGradient as SvgGrad, Stop } from 'react-native-svg';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     GlassCard,
@@ -27,6 +26,7 @@ import {
     CopyableText,
     TabHeader,
     FormattedText,
+    ScoreRow,
 } from '@/components/ui';
 import { calculateSynastry, SynastryResponse } from '@/services/astrology';
 import { searchCities, CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
@@ -53,43 +53,17 @@ function EmptyState({ emoji, message, actionLabel, onAction }: {
     );
 }
 
-// ─── Mini SVG ring ─────────────────────────────────────────────────────────────
-function MiniRing({ percentage, id }: { percentage: number; id: string }) {
-    const size = 64; const sw = 4;
-    const r = (size - sw) / 2;
-    const circ = 2 * Math.PI * r;
-    const offset = circ - (percentage / 100) * circ;
-    return (
-        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-            <Svg width={size} height={size} style={{ position: 'absolute' }}>
-                <Circle cx={size/2} cy={size/2} r={r} fill="none" stroke={colors.surfaceContainerHigh} strokeWidth={sw} />
-            </Svg>
-            <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
-                <Defs>
-                    <SvgGrad id={`g-${id}`} x1="0" y1="0" x2="1" y2="0">
-                        <Stop offset="0" stopColor={colors.primary} />
-                        <Stop offset="1" stopColor={colors.primaryContainer} />
-                    </SvgGrad>
-                </Defs>
-                <Circle cx={size/2} cy={size/2} r={r} fill="none" stroke={`url(#g-${id})`}
-                    strokeWidth={sw} strokeLinecap="round"
-                    strokeDasharray={circ} strokeDashoffset={offset} />
-            </Svg>
-            <Text style={styles.ringPct}>{percentage}%</Text>
-        </View>
-    );
-}
-
-// ─── Dimension label mapping ───────────────────────────────────────────────────
-const DIM_LABELS: Record<string, { label: string; title: string }> = {
-    amour:         { label: 'Amour',          title: 'Connexion profonde' },
-    love:          { label: 'Amour',          title: 'Deep Resonance' },
-    communication: { label: 'Communication',  title: 'Échange fluide' },
-    attirance:     { label: 'Attraction',     title: 'Attraction magnétique' },
-    attraction:    { label: 'Attraction',     title: 'Magnetic Pull' },
-    long_terme:    { label: 'Long terme',     title: 'Orbite stable' },
-    long_term:     { label: 'Long-term',      title: 'Stable Orbit' },
-    conflits:      { label: 'Conflits',       title: 'Tensions' },
+// ─── Dimension config ──────────────────────────────────────────────────────────
+const DIM_LABELS: Record<string, { label: string; icon: string }> = {
+    amour:         { label: 'Amour',         icon: '💕' },
+    love:          { label: 'Amour',         icon: '💕' },
+    communication: { label: 'Communication', icon: '🗣️' },
+    attirance:     { label: 'Attirance',     icon: '🔥' },
+    attraction:    { label: 'Attraction',    icon: '🔥' },
+    long_terme:    { label: 'Long terme',    icon: '💍' },
+    long_term:     { label: 'Long-term',     icon: '💍' },
+    conflits:      { label: 'Conflits',      icon: '⚡' },
+    conflicts:     { label: 'Conflicts',     icon: '⚡' },
 };
 
 // ─── Result view ───────────────────────────────────────────────────────────────
@@ -105,7 +79,7 @@ function ResultView({
     const score = Math.round(result.compatibilityScore || 0);
     const headline = result.compatibilityDetails?.headline;
     const dimensions = result.compatibilityDetails?.dimensions || {};
-    const dimEntries = Object.entries(dimensions).slice(0, 4);
+    const dimEntries = Object.entries(dimensions);
 
     return (
         <View style={styles.screen}>
@@ -124,26 +98,24 @@ function ResultView({
                         </Text>
                     </View>
 
-                    {/* Dimension MetricCards */}
+                    {/* Dimension bars */}
                     {dimEntries.length > 0 && (
                         <View style={styles.sectionPad}>
-                            {dimEntries.map(([key, data]: [string, any]) => {
-                                const dim = DIM_LABELS[key] || { label: key, title: key };
-                                const pct = Math.round(data?.score || 0);
-                                return (
-                                    <View key={key} style={styles.metricGap}>
-                                        <GlassCard opacity="low" radius="md">
-                                            <View style={styles.metricRow}>
-                                                <View style={styles.metricLeft}>
-                                                    <Text style={styles.metricLabel}>{dim.label.toUpperCase()}</Text>
-                                                    <Text style={styles.metricTitle}>{dim.title}</Text>
-                                                </View>
-                                                <MiniRing percentage={pct} id={key} />
-                                            </View>
-                                        </GlassCard>
-                                    </View>
-                                );
-                            })}
+                            <GlassCard opacity="low" radius="xl">
+                                <Text style={styles.dimTitle}>COMPATIBILITÉ PAR DIMENSION</Text>
+                                <View style={{ height: spacing.md }} />
+                                {dimEntries.map(([key, data]: [string, any]) => {
+                                    const dim = DIM_LABELS[key] || { label: key, icon: '✦' };
+                                    return (
+                                        <ScoreRow
+                                            key={key}
+                                            label={dim.label}
+                                            value={Math.round(data?.score || 0)}
+                                            icon={dim.icon}
+                                        />
+                                    );
+                                })}
+                            </GlassCard>
                         </View>
                     )}
 
@@ -573,16 +545,9 @@ const styles = StyleSheet.create({
     },
 
     sectionPad: { paddingHorizontal: spacing.xl },
-    metricGap: { marginBottom: spacing.md },
-    metricRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    metricLeft: { flex: 1, gap: spacing.xs },
-    metricLabel: {
-        fontFamily: fonts.body.semiBold, fontSize: 10, letterSpacing: 1.5,
+    dimTitle: {
+        fontFamily: fonts.body.semiBold, fontSize: 10, letterSpacing: 2,
         color: colors.onSurfaceMuted, textTransform: 'uppercase',
-    },
-    metricTitle: { fontFamily: fonts.display.regular, fontSize: 20, color: colors.onSurface },
-    ringPct: {
-        fontFamily: fonts.body.medium, fontSize: 13, color: colors.onSurface, position: 'absolute',
     },
 
     insightHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg },

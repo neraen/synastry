@@ -44,6 +44,16 @@ export interface PartnerBirthData {
     question?: string;
 }
 
+export interface CompatibilityDetails {
+    headline?: string;
+    resume?: string;
+    forces?: string[];
+    tensions?: string[];
+    dimensions?: Record<string, { score: number; analyse: string }>;
+    aspect_cle?: { planetes: string; impact: string };
+    conseil?: string;
+}
+
 export interface SynastryResponse {
     success: boolean;
     historyId?: number;
@@ -57,6 +67,7 @@ export interface SynastryResponse {
     };
     analysis?: string;
     compatibilityScore?: number;
+    compatibilityDetails?: CompatibilityDetails;
     error?: string;
 }
 
@@ -83,7 +94,7 @@ export interface SynastryHistoryDetail {
     };
     analysis: string;
     compatibilityScore: number | null;
-    compatibilityDetails: Record<string, unknown> | null;
+    compatibilityDetails: CompatibilityDetails | null;
     userPositions: Record<string, PlanetPosition> | null;
     partnerPositions: Record<string, PlanetPosition> | null;
     question: string | null;
