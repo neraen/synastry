@@ -159,18 +159,6 @@ export default function SynastryDetailScreen() {
                         </GlassCard>
                     </View>
 
-                    {/* Conseil */}
-                    {history.compatibilityDetails?.conseil && (
-                        <View style={[styles.sectionPad, { marginTop: spacing.lg }]}>
-                            <GlassCard opacity="low" radius="xl">
-                                <View style={styles.insightHeader}>
-                                    <Text style={[styles.insightLabel, { color: colors.secondary }]}>◈ CONSEIL</Text>
-                                </View>
-                                <FormattedText text={history.compatibilityDetails.conseil} style={styles.insightText} />
-                            </GlassCard>
-                        </View>
-                    )}
-
                     {/* Actions */}
                     <View style={[styles.sectionPad, styles.actionsSection]}>
                         <GoldButton label="NOUVELLE ANALYSE" onPress={() => router.replace('/(tabs)/compatibility')} rightIcon />
