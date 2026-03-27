@@ -236,8 +236,8 @@ IMPORTANT : Sois encourageant et bienveillant. Présente les défis comme des op
         $baseInstructions = $this->localeService->getBaseInstructions();
 
         $instructions = $this->localeService->getLocale() === 'en'
-            ? "You are a warm astrologer specializing in love relationships.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- When you mention an aspect (trine, square, etc.), briefly explain its effect\n- Respond only in valid JSON"
-            : "Tu es un astrologue bienveillant spécialisé dans les relations amoureuses.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Quand tu mentionnes un aspect (trigone, carré, etc.), explique brièvement son effet\n- Réponds uniquement en JSON valide";
+            ? "You are an astrological scoring engine. Your role is to produce ACCURATE and CONTRASTED compatibility scores based strictly on astrological facts — not to be kind or balanced.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- Follow the scoring method described in the prompt exactly\n- Respond ONLY with valid JSON, no text before or after"
+            : "Tu es un moteur de scoring astrologique. Ton rôle est de produire des scores de compatibilité PRÉCIS et CONTRASTÉS basés strictement sur les faits astrologiques — pas d'être gentil ou équilibré.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Suis exactement la méthode de scoring décrite dans le prompt\n- Réponds UNIQUEMENT en JSON valide, sans texte avant ou après";
 
         $result = $this->callResponsesApi($prompt, $instructions);
 
@@ -384,18 +384,18 @@ IMPORTANT : Sois encourageant et bienveillant. Présente les défis comme des op
     }
 
     /**
-     * Calculate compatibility score from dimension scores
-     * This is more reliable than trusting the AI's score_global
+     * Use the AI's score_global directly — it is computed per the scoring method in the prompt.
+     * Fallback to simple average of dimension scores if score_global is missing.
      */
     private function calculateScoreFromDimensions(array $data): ?int
     {
-        $dimensions = $data['dimensions'] ?? [];
-
-        if (empty($dimensions)) {
-            // Fallback to AI's score if no dimensions
-            return isset($data['score_global']) ? (int) $data['score_global'] : null;
+        // Trust the AI's score_global (computed following our scoring instructions)
+        if (isset($data['score_global']) && is_numeric($data['score_global'])) {
+            return max(0, min(100, (int) $data['score_global']));
         }
 
+        // Fallback: simple average of dimension scores
+        $dimensions = $data['dimensions'] ?? [];
         $scores = [];
         foreach ($dimensions as $dimension) {
             if (isset($dimension['score']) && is_numeric($dimension['score'])) {
@@ -404,32 +404,10 @@ IMPORTANT : Sois encourageant et bienveillant. Présente les défis comme des op
         }
 
         if (empty($scores)) {
-            return isset($data['score_global']) ? (int) $data['score_global'] : null;
+            return null;
         }
 
-        // Calculate weighted average
-        // Weight: love and attraction count more for romantic compatibility
-        $weights = [
-            0 => 1.3,  // amour/love - higher weight
-            1 => 1.0,  // communication
-            2 => 0.9,  // conflits/conflicts - slightly lower (high conflict score = good)
-            3 => 1.1,  // long_terme/long_term
-            4 => 1.2,  // attirance/attraction - higher weight
-        ];
-
-        $weightedSum = 0;
-        $totalWeight = 0;
-
-        foreach ($scores as $index => $score) {
-            $weight = $weights[$index] ?? 1.0;
-            $weightedSum += $score * $weight;
-            $totalWeight += $weight;
-        }
-
-        $average = $totalWeight > 0 ? $weightedSum / $totalWeight : 0;
-
-        // Clamp to 0-100
-        return max(0, min(100, (int) round($average)));
+        return max(0, min(100, (int) round(array_sum($scores) / count($scores))));
     }
 
     /**

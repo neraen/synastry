@@ -282,7 +282,7 @@ class PromptLocaleService
                     'You MUST avoid average scores. You MUST use the full range from 0 to 100.',
                     'A bad compatibility MUST score below 40. A strong compatibility MUST score above 80.',
                     'DO NOT cluster scores between 60-80. USE extreme differences when justified.',
-                    'For EACH dimension: start from 50, then add or subtract: +20 = perfect harmony (trine, same sign), +10 = good (sextile, compatible elements), 0 = neutral, -8 = tension (square), -15 = strong conflict (opposition, incompatible elements).',
+                    'For EACH dimension: start from 50, then add or subtract: +20 = perfect harmony (trine, same sign), +10 = good (sextile, compatible elements), 0 = neutral, -5 = tension (square), -15 = strong conflict (opposition, incompatible elements).',
                     'You MUST justify EACH score with actual astrological aspects.',
                     'score_global MUST be the exact average of the 5 dimension scores.',
                     'Base your analysis strictly on the listed aspects, not on generalities.',
