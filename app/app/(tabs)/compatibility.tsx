@@ -14,12 +14,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     GlassCard,
     GoldButton,
-    GhostButton,
     AppInput,
     AppDatePicker,
     AppTimePicker,
@@ -159,13 +157,6 @@ function ResultView({
                     {/* Actions */}
                     <View style={[styles.sectionPad, styles.actionsSection]}>
                         <GoldButton label="NOUVELLE ANALYSE" onPress={onReset} rightIcon />
-                        <View style={{ height: spacing.md }} />
-                        <GhostButton label="PARTAGER LE RÉSULTAT" onPress={() => {}} />
-                    </View>
-
-                    {/* Disclaimer */}
-                    <View style={styles.disclaimer}>
-                        <Text style={styles.disclaimerText}>{aiDisclaimerText}</Text>
                     </View>
 
                     <View style={{ height: 100 }} />

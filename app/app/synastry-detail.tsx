@@ -7,12 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     GlassCard,
     GoldButton,
-    GhostButton,
     TabHeader,
     FormattedText,
     ScoreRow,
     CopyableText,
-    CompatibilityShareButton,
 } from '@/components/ui';
 import {
     getSynastryHistoryDetail,
@@ -162,23 +160,6 @@ export default function SynastryDetailScreen() {
                     {/* Actions */}
                     <View style={[styles.sectionPad, styles.actionsSection]}>
                         <GoldButton label="NOUVELLE ANALYSE" onPress={() => router.replace('/(tabs)/compatibility')} rightIcon />
-                        <View style={{ height: spacing.md }} />
-                        <CompatibilityShareButton
-                            compatibilityId={history.id}
-                            nameOne={user?.birthProfile?.firstName || 'Vous'}
-                            nameTwo={history.partnerName}
-                            score={history.compatibilityScore ?? 0}
-                            sunOne={history.userPositions?.Sun?.Sign}
-                            sunTwo={history.partnerPositions?.Sun?.Sign}
-                            moonOne={history.userPositions?.Moon?.Sign}
-                            moonTwo={history.partnerPositions?.Moon?.Sign}
-                            summary={history.analysis?.slice(0, 200)}
-                        />
-                    </View>
-
-                    {/* Disclaimer */}
-                    <View style={styles.disclaimer}>
-                        <Text style={styles.disclaimerText}>{aiDisclaimerText}</Text>
                     </View>
 
                     <View style={{ height: 100 }} />
