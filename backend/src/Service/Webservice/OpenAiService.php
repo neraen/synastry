@@ -348,8 +348,8 @@ IMPORTANT : Sois encourageant et bienveillant. Présente les défis comme des op
         $baseInstructions = $this->localeService->getBaseInstructions();
 
         $instructions = $this->localeService->getLocale() === 'en'
-            ? "You are a warm astrologer writing personalized horoscopes.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- Adopt a positive and encouraging tone\n- Avoid technical jargon, stay accessible\n- Give concrete and actionable advice\n- Respond only in valid JSON, no text before or after"
-            : "Tu es un astrologue chaleureux qui rédige des horoscopes personnalisés.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Adopte un ton positif et encourageant\n- Évite le jargon technique, reste accessible\n- Donne des conseils concrets et applicables\n- Réponds uniquement en JSON valide, sans texte avant ou après";
+            ? "You are an honest astrologer writing personalized daily horoscopes based strictly on the active transits.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- Reflect the REAL energy of the day: if tense transits are active (Saturn square, Mars opposition, etc.), say so honestly\n- Do NOT systematically use positive language — some days are challenging, and that's valuable information\n- Avoid technical jargon, stay accessible\n- Give concrete advice adapted to the actual energy (rest, caution, seize opportunities, etc.)\n- Respond only in valid JSON, no text before or after"
+            : "Tu es un astrologue honnête qui rédige des horoscopes quotidiens personnalisés basés strictement sur les transits actifs.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Reflète la VRAIE énergie du jour : si des transits tendus sont actifs (carré de Saturne, opposition de Mars, etc.), dis-le honnêtement\n- N'utilise PAS systématiquement un langage positif — certains jours sont difficiles, et c'est une information précieuse\n- Évite le jargon technique, reste accessible\n- Donne des conseils concrets adaptés à l'énergie réelle (repos, prudence, fonce, etc.)\n- Réponds uniquement en JSON valide, sans texte avant ou après";
 
         $result = $this->callResponsesApi($prompt, $instructions);
 

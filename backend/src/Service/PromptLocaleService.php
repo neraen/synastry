@@ -209,15 +209,15 @@ class PromptLocaleService
     {
         if ($this->locale === self::LOCALE_EN) {
             return [
-                'intro' => 'You are writing a personalized daily horoscope.',
+                'intro' => 'You are writing an honest personalized daily horoscope based strictly on the active transits.',
                 'rules' => [
                     'Write ONLY in English.',
                     'ALWAYS use English planet names (Sun, Moon, Mercury, Venus, etc.)',
                     'ALWAYS use English zodiac signs (Aries, Taurus, Gemini, etc.)',
-                    'Use a warm and encouraging tone, not too technical.',
+                    'Be honest: reflect the real energy of the transits, whether positive or tense.',
                     'Maximum 180 words total.',
-                    'Use positive language ("you might", "this is an opportunity to").',
-                    'Give concrete and actionable advice.',
+                    'Do NOT default to positive language — challenging days deserve honest advice (rest, caution, avoid conflict, etc.).',
+                    'Give concrete and actionable advice adapted to the actual energy.',
                 ],
                 'format' => [
                     'title' => 'Inspiring title (max 8 words)',
@@ -239,19 +239,19 @@ class PromptLocaleService
 
         // French (default)
         return [
-            'intro' => 'Tu rédiges un horoscope quotidien personnalisé et chaleureux.',
+            'intro' => 'Tu rédiges un horoscope quotidien personnalisé et honnête, basé strictement sur les transits actifs.',
             'rules' => [
                 'Écris UNIQUEMENT en français.',
                 'Utilise TOUJOURS les noms français des planètes (Soleil, Lune, Mercure, Vénus, etc.)',
                 'Utilise TOUJOURS les signes en français (Bélier, Taureau, Gémeaux, etc.)',
-                'Ton chaleureux et encourageant, pas trop technique.',
+                'Sois honnête : reflète la vraie énergie des transits, qu\'elle soit positive ou tendue.',
                 'Maximum 180 mots au total.',
-                'Utilise un langage positif ("vous pourriez", "c\'est l\'occasion de").',
-                'Donne des conseils concrets et applicables.',
+                'N\'utilise PAS systématiquement un langage positif — les jours difficiles méritent des conseils adaptés (repos, prudence, évite les conflits, etc.).',
+                'Donne des conseils concrets adaptés à l\'énergie réelle de la journée.',
             ],
             'format' => [
-                'title' => 'Titre inspirant (max 8 mots)',
-                'overview' => 'Vue d\'ensemble de la journée (2-3 phrases encourageantes)',
+                'title' => 'Titre reflétant l\'énergie réelle du jour (max 8 mots)',
+                'overview' => 'Vue d\'ensemble de la journée (2-3 phrases honnêtes)',
                 'love' => 'Amour et relations (1-2 phrases)',
                 'energy' => 'Énergie et bien-être (1-2 phrases)',
                 'advice' => 'Conseil pratique du jour (1 phrase)',
