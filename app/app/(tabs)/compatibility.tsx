@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react'; // useRef used in FormView
 import {
     View,
     Text,
@@ -12,8 +12,9 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     GlassCard,
@@ -26,7 +27,7 @@ import {
     FormattedText,
     ScoreRow,
 } from '@/components/ui';
-import { calculateSynastry, SynastryResponse } from '@/services/astrology';
+import { calculateSynastry, getSynastryHistoryDetail, SynastryResponse } from '@/services/astrology';
 import { searchCities, CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
 import { aiDisclaimerText } from '@/constants/legalTexts';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -52,16 +53,16 @@ function EmptyState({ emoji, message, actionLabel, onAction }: {
 }
 
 // ─── Dimension config ──────────────────────────────────────────────────────────
-const DIM_LABELS: Record<string, { label: string; icon: string }> = {
-    amour:         { label: 'Amour',         icon: '💕' },
-    love:          { label: 'Amour',         icon: '💕' },
-    communication: { label: 'Communication', icon: '🗣️' },
-    attirance:     { label: 'Attirance',     icon: '🔥' },
-    attraction:    { label: 'Attraction',    icon: '🔥' },
-    long_terme:    { label: 'Long terme',    icon: '💍' },
-    long_term:     { label: 'Long-term',     icon: '💍' },
-    conflits:      { label: 'Conflits',      icon: '⚡' },
-    conflicts:     { label: 'Conflicts',     icon: '⚡' },
+const DIM_LABELS: Record<string, { label: string; icon: keyof typeof Feather.glyphMap }> = {
+    amour:         { label: 'Amour',         icon: 'heart' },
+    love:          { label: 'Amour',         icon: 'heart' },
+    communication: { label: 'Communication', icon: 'message-circle' },
+    attirance:     { label: 'Attirance',     icon: 'zap' },
+    attraction:    { label: 'Attraction',    icon: 'zap' },
+    long_terme:    { label: 'Long terme',    icon: 'anchor' },
+    long_term:     { label: 'Long-term',     icon: 'anchor' },
+    conflits:      { label: 'Conflits',      icon: 'activity' },
+    conflicts:     { label: 'Conflicts',     icon: 'activity' },
 };
 
 // ─── Result view ───────────────────────────────────────────────────────────────
@@ -74,6 +75,7 @@ function ResultView({
     userName: string;
     onReset: () => void;
 }) {
+    const { t } = useTranslation();
     const score = Math.round(result.compatibilityScore || 0);
     const headline = result.compatibilityDetails?.headline;
     const dimensions = result.compatibilityDetails?.dimensions || {};
@@ -89,10 +91,10 @@ function ResultView({
                     <View style={styles.hero}>
                         <Text style={styles.heroPct}>{score}%</Text>
                         <Text style={styles.heroSub}>
-                            {headline || (score >= 80 ? 'Connexion profonde' : score >= 60 ? 'Belle harmonie' : 'Complémentarité')}
+                            {headline || (score >= 80 ? t('synastry.deepConnection') : score >= 60 ? t('synastry.niceHarmony') : t('synastry.complementarity'))}
                         </Text>
                         <Text style={styles.heroCaption}>
-                            COMPATIBILITÉ AVEC {(result.partner?.name || '').toUpperCase()}
+                            {t('synastry.compatibilityWith', { name: (result.partner?.name || '').toUpperCase() })}
                         </Text>
                     </View>
 
@@ -100,16 +102,17 @@ function ResultView({
                     {dimEntries.length > 0 && (
                         <View style={styles.sectionPad}>
                             <GlassCard opacity="low" radius="xl">
-                                <Text style={styles.dimTitle}>COMPATIBILITÉ PAR DIMENSION</Text>
+                                <Text style={styles.dimTitle}>{t('synastry.dimensionsByTitle')}</Text>
                                 <View style={{ height: spacing.md }} />
                                 {dimEntries.map(([key, data]: [string, any]) => {
-                                    const dim = DIM_LABELS[key] || { label: key, icon: '✦' };
+                                    const dim = DIM_LABELS[key] || { label: key, icon: 'star' as const };
                                     return (
                                         <ScoreRow
                                             key={key}
                                             label={dim.label}
                                             value={Math.round(data?.score || 0)}
                                             icon={dim.icon}
+                                            gradientColors={['#a78bfa', '#ddd6fe']}
                                         />
                                     );
                                 })}
@@ -124,39 +127,16 @@ function ResultView({
                                 <View style={styles.insightIconWrap}>
                                     <Feather name="star" size={16} color={colors.primary} />
                                 </View>
-                                <Text style={styles.insightLabel}>ANALYSE CÉLESTE</Text>
+                                <Text style={styles.insightLabel}>{t('synastry.celestialAnalysis')}</Text>
                             </View>
                             <CopyableText text={result.analysis || ''}>
                                 <FormattedText text={result.analysis || ''} style={styles.insightText} />
                             </CopyableText>
-                            {/* Forces / Tensions */}
-                            {(result.compatibilityDetails?.forces?.length || result.compatibilityDetails?.tensions?.length) ? (
-                                <View style={styles.forcesRow}>
-                                    {result.compatibilityDetails?.forces?.slice(0, 2).map((f: string, i: number) => (
-                                        <View key={i} style={styles.forceChip}>
-                                            <Text style={styles.forceChipText}>✦ {f}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            ) : null}
                         </GlassCard>
                     </View>
-
-                    {/* Conseil */}
-                    {result.compatibilityDetails?.conseil && (
-                        <View style={[styles.sectionPad, { marginTop: spacing.lg }]}>
-                            <GlassCard opacity="low" radius="xl">
-                                <View style={styles.insightHeader}>
-                                    <Text style={[styles.insightLabel, { color: colors.secondary }]}>◈ CONSEIL</Text>
-                                </View>
-                                <FormattedText text={result.compatibilityDetails.conseil} style={styles.insightText} />
-                            </GlassCard>
-                        </View>
-                    )}
-
                     {/* Actions */}
                     <View style={[styles.sectionPad, styles.actionsSection]}>
-                        <GoldButton label="NOUVELLE ANALYSE" onPress={onReset} rightIcon />
+                        <GoldButton label={t('synastry.newAnalysisBtn')} onPress={onReset} rightIcon />
                     </View>
 
                     <View style={{ height: 100 }} />
@@ -183,6 +163,8 @@ function FormView({
     handleSelectCity,
     handleSubmit,
 }: any) {
+    const { t } = useTranslation();
+    const cityInputRef = useRef<any>(null);
     return (
         <View style={styles.screen}>
             <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -197,11 +179,11 @@ function FormView({
                     <View style={styles.hero}>
                         <View style={styles.badge}>
                             <View style={styles.badgeDot} />
-                            <Text style={styles.badgeText}>ANALYSE DE COMPATIBILITÉ</Text>
+                            <Text style={styles.badgeText}>{t('synastry.badge')}</Text>
                         </View>
-                        <Text style={styles.formTitle}>Calculez votre{'\n'}compatibilité</Text>
+                        <Text style={styles.formTitle}>{t('synastry.formTitle')}</Text>
                         <Text style={styles.formSubtitle}>
-                            Entrez les informations de votre partenaire pour découvrir votre alignement cosmique.
+                            {t('synastry.formSubtitle')}
                         </Text>
                     </View>
 
@@ -209,15 +191,15 @@ function FormView({
                     <View style={styles.sectionPad}>
                         <GlassCard opacity="medium" radius="xxl">
                             <AppInput
-                                label="Prénom du partenaire"
-                                placeholder="Ex : Marie"
+                                label={t('synastry.partnerName')}
+                                placeholder={t('synastry.partnerNamePlaceholder')}
                                 value={partnerName}
                                 onChangeText={setPartnerName}
                                 disabled={isLoading}
                             />
                             <View style={{ height: spacing.lg }} />
                             <AppDatePicker
-                                label="Date de naissance"
+                                label={t('synastry.birthDateLabel')}
                                 value={birthDate}
                                 onChange={setBirthDate}
                                 disabled={isLoading}
@@ -225,23 +207,23 @@ function FormView({
                             />
                             <View style={{ height: spacing.lg }} />
                             <AppTimePicker
-                                label="Heure de naissance"
+                                label={t('synastry.birthTimeLabel')}
                                 value={birthTime}
                                 onChange={setBirthTime}
                                 disabled={isLoading}
-                                hint="Optionnel"
+                                hint={t('synastry.birthTimeHint')}
                             />
                             <View style={{ height: spacing.lg }} />
                             {/* City selector */}
                             <View>
-                                <Text style={styles.inputLabel}>Lieu de naissance</Text>
+                                <Text style={styles.inputLabel}>{t('synastry.birthCityLabel')}</Text>
                                 <TouchableOpacity
                                     style={[styles.citySelector, birthCity && styles.citySelectorFilled]}
                                     onPress={() => setShowCityModal(true)}
                                     disabled={isLoading}
                                 >
                                     <Text style={[styles.citySelectorText, !birthCity && styles.citySelectorPlaceholder]}>
-                                        {birthCity || 'Rechercher une ville...'}
+                                        {birthCity || t('synastry.birthCityPlaceholder')}
                                     </Text>
                                     <Feather name="search" size={16} color={colors.onSurfaceMuted} />
                                 </TouchableOpacity>
@@ -263,10 +245,10 @@ function FormView({
                         {isLoading ? (
                             <View style={styles.loadingRow}>
                                 <ActivityIndicator color={colors.primary} />
-                                <Text style={styles.loadingText}>Calcul en cours…</Text>
+                                <Text style={styles.loadingText}>{t('synastry.calculatingLabel')}</Text>
                             </View>
                         ) : (
-                            <GoldButton label="ANALYSER LA COMPATIBILITÉ" onPress={handleSubmit} rightIcon />
+                            <GoldButton label={t('synastry.analyzeBtn')} onPress={handleSubmit} rightIcon />
                         )}
                     </View>
 
@@ -280,19 +262,23 @@ function FormView({
                 animationType="slide"
                 presentationStyle="pageSheet"
                 onRequestClose={() => setShowCityModal(false)}
+                onShow={() => {
+                    // Delay focus until after the modal slide animation completes
+                    setTimeout(() => cityInputRef.current?.focus(), 100);
+                }}
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Rechercher une ville</Text>
+                        <Text style={styles.modalTitle}>{t('synastry.searchCityTitle')}</Text>
                         <Pressable onPress={() => setShowCityModal(false)}>
-                            <Text style={styles.modalClose}>Fermer</Text>
+                            <Text style={styles.modalClose}>{t('common.close')}</Text>
                         </Pressable>
                     </View>
                     <AppInput
-                        placeholder="Tapez le nom de la ville..."
+                        ref={cityInputRef}
+                        placeholder={t('birthProfile.citySearchPlaceholder')}
                         value={cityQuery}
                         onChangeText={handleCitySearch}
-                        autoFocus
                     />
                     {isSearching && (
                         <View style={styles.searchingRow}>
@@ -325,12 +311,35 @@ function FormView({
 // ─── Main screen ───────────────────────────────────────────────────────────────
 export default function CompatibilityTab() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+    const { id: historyId } = useLocalSearchParams<{ id?: string }>();
     const userName = user?.firstName || 'Stargazer';
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>();
     const [result, setResult] = useState<SynastryResponse | null>(null);
+
+    // Load from history if id param is present
+    useEffect(() => {
+        if (!historyId) return;
+        setIsLoading(true);
+        getSynastryHistoryDetail(Number(historyId))
+            .then((res) => {
+                if (res.success && res.history) {
+                    const h = res.history;
+                    setResult({
+                        success: true,
+                        partner: { name: h.partnerName, positions: h.partnerPositions ?? {} },
+                        analysis: h.analysis,
+                        compatibilityScore: h.compatibilityScore ?? undefined,
+                        compatibilityDetails: h.compatibilityDetails ?? undefined,
+                    });
+                }
+            })
+            .catch(() => {})
+            .finally(() => setIsLoading(false));
+    }, [historyId]);
 
     const [partnerName, setPartnerName] = useState('');
     const [birthDate, setBirthDate] = useState('');
@@ -377,9 +386,9 @@ export default function CompatibilityTab() {
 
     async function handleSubmit() {
         setError(undefined);
-        if (!partnerName.trim()) { setError('Le prénom est requis'); return; }
-        if (!birthDate) { setError('La date de naissance est requise'); return; }
-        if (!birthCity || latitude === null || longitude === null) { setError('Veuillez sélectionner une ville'); return; }
+        if (!partnerName.trim()) { setError(t('synastry.partnerNameRequired')); return; }
+        if (!birthDate) { setError(t('synastry.birthDateRequired')); return; }
+        if (!birthCity || latitude === null || longitude === null) { setError(t('synastry.birthCityRequired')); return; }
         setIsLoading(true);
         try {
             let finalTimezone = timezone;
@@ -392,9 +401,9 @@ export default function CompatibilityTab() {
                 timezoneName: timezoneName || undefined,
             });
             if (response.success) setResult(response);
-            else setError(response.error || 'Erreur lors du calcul');
+            else setError(response.error || t('synastry.calcError'));
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erreur inconnue');
+            setError(err instanceof Error ? err.message : t('synastry.calcError'));
         } finally {
             setIsLoading(false);
         }
@@ -416,8 +425,8 @@ export default function CompatibilityTab() {
         return (
             <EmptyState
                 emoji="💫"
-                message="Connectez-vous pour analyser votre compatibilité"
-                actionLabel="SE CONNECTER"
+                message={t('synastry.loginPrompt')}
+                actionLabel={t('synastry.loginBtn')}
                 onAction={() => router.push('/login')}
             />
         );
@@ -427,15 +436,15 @@ export default function CompatibilityTab() {
         return (
             <EmptyState
                 emoji="✨"
-                message="Complétez votre profil astrologique pour commencer"
-                actionLabel="COMPLÉTER MON PROFIL"
+                message={t('synastry.profilePrompt')}
+                actionLabel={t('synastry.profileBtn')}
                 onAction={() => router.push('/birth-profile')}
             />
         );
     }
 
     if (result) {
-        return <ResultView result={result} userName={userName} onReset={resetForm} />;
+        return <ResultView result={result} userName={userName} onReset={historyId ? () => router.back() : resetForm} />;
     }
 
     return (

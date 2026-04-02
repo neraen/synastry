@@ -342,3 +342,176 @@ export interface UpcomingTransitsResponse {
 export async function getUpcomingTransits(): Promise<UpcomingTransitsResponse> {
     return authApi.get<UpcomingTransitsResponse>('/api/horoscope/transits');
 }
+
+// ─── Calendar Transits ─────────────────────────────────────────────────────────
+
+export interface CalendarAspect {
+    transit_planet: string;
+    natal_planet: string;
+    aspect_type: 'conjunction' | 'opposition' | 'trine' | 'square' | 'sextile';
+    aspect_name: string;
+    symbol: string;
+    orb: number;
+}
+
+export interface CalendarTransitsResponse {
+    success: boolean;
+    days?: Record<string, CalendarAspect[]>;
+    error?: string;
+}
+
+/**
+ * Get transit aspects for every day of a month (astronomical, no AI)
+ * @param month format: "YYYY-MM"
+ */
+export async function getCalendarTransits(month: string): Promise<CalendarTransitsResponse> {
+    return authApi.get<CalendarTransitsResponse>(`/api/horoscope/calendar?month=${month}`);
+}
+
+export interface TransitInterpretationResponse {
+    success: boolean;
+    interpretation?: string;
+    error?: string;
+}
+
+/**
+ * Get AI-generated interpretation for a single transit aspect
+ */
+export async function getTransitInterpretation(aspect: CalendarAspect): Promise<TransitInterpretationResponse> {
+    return authApi.post<TransitInterpretationResponse>('/api/horoscope/transit-interpretation', aspect as unknown as Record<string, unknown>);
+}
+
+// ─── Cosmic Headline ───────────────────────────────────────────────────────────
+
+export interface CosmicHeadlineResponse {
+    success: boolean;
+    headline?: {
+        title: string;
+        subtitle: string;
+        weekOf: string;
+        generatedAt: string;
+    };
+    cached?: boolean;
+    error?: string;
+}
+
+/**
+ * Get the weekly cosmic headline (global, cached per locale per week)
+ */
+export async function getCosmicHeadline(): Promise<CosmicHeadlineResponse> {
+    return authApi.get<CosmicHeadlineResponse>('/api/horoscope/headline');
+}
+
+// ─── Astrologer Chat ──────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    createdAt: Date;
+}
+
+export interface ChatResponse {
+    success: boolean;
+    message?: string;
+    error?: string;
+}
+
+export interface ChatPartner {
+    id: number;
+    partnerName: string;
+    compatibilityScore: number | null;
+}
+
+export interface ChatPartnersResponse {
+    success: boolean;
+    partners?: ChatPartner[];
+    error?: string;
+}
+
+/**
+ * Send the full conversation history to Lyra (AI astrologer) and get a reply.
+ * Stateless — full history is sent each time.
+ */
+export async function sendChatMessage(
+    messages: Pick<ChatMessage, 'role' | 'content'>[],
+    partnerHistoryId?: number
+): Promise<ChatResponse> {
+    return authApi.post<ChatResponse>('/api/chat', {
+        messages,
+        ...(partnerHistoryId ? { partnerHistoryId } : {}),
+    });
+}
+
+/**
+ * Get list of past compatibility partners for the chat context picker.
+ */
+export async function getChatPartners(): Promise<ChatPartnersResponse> {
+    return authApi.get<ChatPartnersResponse>('/api/chat/partners');
+}
+
+// ─── Miroir Temporel ──────────────────────────────────────────────────────────
+
+export interface MirrorAspect {
+    transit_planet: string;
+    natal_planet: string;
+    aspect_type: 'conjunction' | 'opposition' | 'trine' | 'square' | 'sextile';
+    orb_exact: number;
+    intensity: number;
+    symbol: string;
+}
+
+export interface UnlockedRange {
+    min: number;
+    max: number;
+}
+
+export interface MirrorTransitsData {
+    age: number;
+    target_date: string;
+    target_year: number;
+    natal_positions: Record<string, PlanetPosition>;
+    transit_positions: Record<string, PlanetPosition>;
+    aspects: MirrorAspect[];
+    global_intensity: number;
+}
+
+export interface MirrorTransitsResponse {
+    success: boolean;
+    error?: string;
+    unlocked_ranges?: UnlockedRange[];
+    age?: number;
+    target_date?: string;
+    target_year?: number;
+    natal_positions?: Record<string, PlanetPosition>;
+    transit_positions?: Record<string, PlanetPosition>;
+    aspects?: MirrorAspect[];
+    global_intensity?: number;
+}
+
+export interface MirrorInterpretationResponse {
+    success: boolean;
+    interpretation?: string;
+    error?: string;
+    unlocked_ranges?: UnlockedRange[];
+}
+
+/**
+ * Get transit positions + active aspects for a given age (no AI).
+ */
+export async function getMirrorTransits(age: number): Promise<MirrorTransitsResponse> {
+    return authApi.get<MirrorTransitsResponse>(`/api/mirror/transits?age=${age}`);
+}
+
+/**
+ * Get AI-generated interpretation of the energy at a given age.
+ */
+export async function getMirrorInterpretation(
+    age: number,
+    pinnedEvent?: string
+): Promise<MirrorInterpretationResponse> {
+    return authApi.post<MirrorInterpretationResponse>('/api/mirror/interpret', {
+        age,
+        ...(pinnedEvent ? { pinned_event: pinnedEvent } : {}),
+    });
+}

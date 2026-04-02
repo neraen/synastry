@@ -13,7 +13,6 @@ export { SectionHeader } from './SectionHeader';
 export { CosmicProgressRing } from './CosmicProgressRing';
 export { TransitCard } from './TransitCard';
 export { NavBar } from './NavBar';
-export { AppHeader } from './AppHeader';
 export { TabHeader } from './TabHeader';
 export { FormattedText } from './FormattedText';
 

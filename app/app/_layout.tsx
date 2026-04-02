@@ -36,6 +36,10 @@ import { colors } from '@/theme';
 // Keep splash screen visible while fonts load
 SplashScreen.preventAutoHideAsync();
 
+// Initialize RevenueCat immediately at module load (before any component renders)
+// so that identifyPurchasesUser() is never called before configure().
+configurePurchases();
+
 // ─── RevenueCat initializer ───────────────────────────────────────────────────
 // Placed inside AuthProvider so it can access the user context.
 function PurchasesInitializer() {
@@ -115,10 +119,9 @@ export default function RootLayout() {
     const fontsLoaded = notoSerifLoaded && manropeLoaded;
     const fontError = notoSerifError || manropeError;
 
-    // Initialize API config and RevenueCat once at startup
+    // Initialize API config once at startup
     useEffect(() => {
         initApiConfig();
-        configurePurchases();
 
         // Catch unhandled promise rejections so they don't silently crash the app
         const handler = (event: { reason?: unknown }) => {
@@ -157,11 +160,9 @@ export default function RootLayout() {
                         <Stack.Screen name="login" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="signup" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="birth-profile" options={{ headerShown: false, presentation: 'modal' }} />
-<Stack.Screen name="synastry" options={{ headerShown: false }} />
-                        <Stack.Screen name="synastry-detail" options={{ headerShown: false }} />
                         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
                         <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
-                        <Stack.Screen name="transits" options={{ headerShown: false }} />
                         {/* Legal Screens */}
                         <Stack.Screen name="privacy-policy" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="terms-of-service" options={{ headerShown: false, presentation: 'modal' }} />

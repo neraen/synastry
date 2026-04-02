@@ -3,11 +3,13 @@
 namespace App\Controller\Api;
 
 use App\Entity\User;
+use App\Message\CalculateLifetimeTransitsMessage;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -19,6 +21,7 @@ class RegistrationController extends AbstractController
         private EntityManagerInterface $entityManager,
         private UserPasswordHasherInterface $passwordHasher,
         private ValidatorInterface $validator,
+        private MessageBusInterface $bus,
     ) {}
 
     #[Route('/register', name: 'api_register', methods: ['POST'])]
@@ -90,6 +93,9 @@ class RegistrationController extends AbstractController
         // Save user
         $this->entityManager->persist($user);
         $this->entityManager->flush();
+
+        // Pre-calculate lifetime transits asynchronously (requires birth profile, dispatched lazily)
+        $this->bus->dispatch(new CalculateLifetimeTransitsMessage($user->getId()));
 
         return $this->json([
             'message' => 'User registered successfully',

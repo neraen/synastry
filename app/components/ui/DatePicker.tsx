@@ -20,6 +20,7 @@ import {
     Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { colors, spacing, radius, fonts } from '@/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -75,27 +76,26 @@ interface WheelColumnProps {
 
 function WheelColumn({ items, selectedIndex, onChange, flex = 1 }: WheelColumnProps) {
     const scrollRef = useRef<ScrollView>(null);
-    const pendingIndex = useRef(selectedIndex);
+    // Track whether the user is actively scrolling to avoid interrupting momentum
+    const isScrollingRef = useRef(false);
+    const momentumStartedRef = useRef(false);
 
     useEffect(() => {
-        // Small delay on Android to ensure layout is ready before scrolling
+        // Only snap programmatically when not scrolling (external value change)
+        if (isScrollingRef.current) return;
         const delay = Platform.OS === 'android' ? 80 : 0;
         const timer = setTimeout(() => {
             scrollRef.current?.scrollTo({ y: selectedIndex * ITEM_H, animated: false });
         }, delay);
-        pendingIndex.current = selectedIndex;
         return () => clearTimeout(timer);
     }, [selectedIndex, items.length]);
 
     const commit = useCallback((y: number) => {
         const idx = Math.max(0, Math.min(Math.round(y / ITEM_H), items.length - 1));
-        pendingIndex.current = idx;
+        isScrollingRef.current = false;
+        momentumStartedRef.current = false;
         onChange(idx);
     }, [items.length, onChange]);
-
-    const handleScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-        commit(e.nativeEvent.contentOffset.y);
-    }, [commit]);
 
     return (
         <View style={[styles.wheelColumn, { flex }]}>
@@ -103,9 +103,24 @@ function WheelColumn({ items, selectedIndex, onChange, flex = 1 }: WheelColumnPr
                 ref={scrollRef}
                 showsVerticalScrollIndicator={false}
                 snapToInterval={ITEM_H}
-                decelerationRate="fast"
-                onMomentumScrollEnd={handleScrollEnd}
-                onScrollEndDrag={handleScrollEnd}
+                decelerationRate="normal"
+                onScrollBeginDrag={() => {
+                    isScrollingRef.current = true;
+                    momentumStartedRef.current = false;
+                }}
+                onMomentumScrollBegin={() => {
+                    momentumStartedRef.current = true;
+                }}
+                onMomentumScrollEnd={(e) => {
+                    commit(e.nativeEvent.contentOffset.y);
+                }}
+                onScrollEndDrag={(e) => {
+                    // Only commit if no momentum follows (slow drag, no flick)
+                    const y = e.nativeEvent.contentOffset.y;
+                    setTimeout(() => {
+                        if (!momentumStartedRef.current) commit(y);
+                    }, 50);
+                }}
                 contentContainerStyle={{ paddingVertical: PADDING }}
                 scrollEventThrottle={16}
                 nestedScrollEnabled
@@ -325,7 +340,7 @@ export function AppDatePicker({
                 <Text style={[styles.triggerText, !value && styles.placeholder]}>
                     {value ? formatDateForDisplay(value) : placeholder}
                 </Text>
-                <Text style={styles.triggerIcon}>📅</Text>
+                <Feather name="calendar" size={18} color={colors.onSurfaceMuted} style={styles.triggerIcon} />
             </TouchableOpacity>
             {(error || hint) && (
                 <Text style={[styles.hint, error && styles.hintError]}>{error || hint}</Text>
@@ -377,7 +392,7 @@ export function AppTimePicker({
                 <Text style={[styles.triggerText, !value && styles.placeholder]}>
                     {value || placeholder}
                 </Text>
-                <Text style={styles.triggerIcon}>🕐</Text>
+                <Feather name="clock" size={18} color={colors.onSurfaceMuted} style={styles.triggerIcon} />
             </TouchableOpacity>
             {(error || hint) && (
                 <Text style={[styles.hint, error && styles.hintError]}>{error || hint}</Text>
@@ -427,7 +442,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     placeholder: { color: `${colors.onSurfaceMuted}80` },
-    triggerIcon: { fontSize: 18, marginLeft: spacing.sm },
+    triggerIcon: { marginLeft: spacing.sm },
 
     hint: {
         fontFamily: fonts.body.regular,

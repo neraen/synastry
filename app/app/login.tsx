@@ -13,12 +13,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppInput, InlineLoading } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 
 export default function Login() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { login, isLoading } = useAuth();
     const [email, setEmail] = useState('');
     const [pwd, setPwd] = useState('');
@@ -36,7 +38,7 @@ export default function Login() {
 
     async function handleLogin() {
         if (!email || !pwd) {
-            setError('Veuillez renseigner email et mot de passe.');
+            setError(t('auth.errors.emailRequired'));
             return;
         }
         setError(undefined);
@@ -44,7 +46,7 @@ export default function Login() {
             await login({ email, password: pwd });
             router.replace('/(tabs)');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erreur de connexion');
+            setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
         }
     }
 
@@ -79,18 +81,18 @@ export default function Login() {
                             {/* Badge */}
                             <View style={styles.badge}>
                                 <Feather name="star" size={13} color={colors.primary} />
-                                <Text style={styles.badgeText}>THE STARS ARE ALIGNING</Text>
+                                <Text style={styles.badgeText}>{t('login.badge')}</Text>
                             </View>
 
                             {/* Hero title */}
                             <Text style={styles.heroTitle}>
-                                Discover your{'\n'}true{' '}
-                                <Text style={styles.heroAccent}>compatibility</Text>
+                                {t('login.heroTitle')}{' '}
+                                <Text style={styles.heroAccent}>{t('login.heroAccent')}</Text>
                             </Text>
 
                             {/* Description */}
                             <Text style={styles.description}>
-                                Where ancient wisdom meets modern connection. Journey through the zodiac to find a soul that resonates with your celestial frequency.
+                                {t('login.description')}
                             </Text>
 
                             {/* Avatar stack */}
@@ -112,7 +114,7 @@ export default function Login() {
                             </View>
                             <View style={styles.socialProof}>
                                 <View style={styles.proofDot} />
-                                <Text style={styles.proofText}>Join 12,000+ souls already connected</Text>
+                                <Text style={styles.proofText}>{t('login.socialProof', { count: '12,000+' })}</Text>
                             </View>
                         </Animated.View>
 
@@ -120,16 +122,16 @@ export default function Login() {
                         <Animated.View
                             style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
                         >
-                            <Text style={styles.cardTitle}>Begin your journey</Text>
+                            <Text style={styles.cardTitle}>{t('login.cardTitle')}</Text>
                             <Text style={styles.cardSub}>
-                                Connectez-vous pour accéder à votre univers astrologique.
+                                {t('login.cardSubtitle')}
                             </Text>
 
                             {/* Inputs */}
                             <View style={styles.inputs}>
                                 <AppInput
-                                    label="Email"
-                                    placeholder="vous@exemple.com"
+                                    label={t('auth.email')}
+                                    placeholder={t('auth.emailPlaceholder')}
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                     autoCorrect={false}
@@ -139,8 +141,8 @@ export default function Login() {
                                 />
                                 <View style={{ height: spacing.lg }} />
                                 <AppInput
-                                    label="Mot de passe"
-                                    placeholder="••••••••"
+                                    label={t('auth.password')}
+                                    placeholder={t('auth.passwordPlaceholder')}
                                     secureTextEntry
                                     value={pwd}
                                     onChangeText={setPwd}
@@ -159,7 +161,7 @@ export default function Login() {
                             {isLoading ? (
                                 <View style={styles.loadingWrap}>
                                     <InlineLoading />
-                                    <Text style={styles.loadingText}>Connexion en cours...</Text>
+                                    <Text style={styles.loadingText}>{t('auth.loggingIn')}</Text>
                                 </View>
                             ) : (
                                 <>
@@ -171,7 +173,7 @@ export default function Login() {
                                             end={{ x: 1, y: 1 }}
                                             style={styles.primaryBtnGradient}
                                         >
-                                            <Text style={styles.primaryBtnText}>Se connecter</Text>
+                                            <Text style={styles.primaryBtnText}>{t('login.signInBtn')}</Text>
                                             <Feather name="arrow-right" size={16} color={colors.surfaceLowest} />
                                         </LinearGradient>
                                     </Pressable>
@@ -179,7 +181,7 @@ export default function Login() {
                                     {/* Divider */}
                                     <View style={styles.dividerRow}>
                                         <View style={styles.dividerLine} />
-                                        <Text style={styles.dividerText}>OU</Text>
+                                        <Text style={styles.dividerText}>{t('login.divider')}</Text>
                                         <View style={styles.dividerLine} />
                                     </View>
 
@@ -188,7 +190,7 @@ export default function Login() {
                                         style={styles.secondaryBtn}
                                         onPress={() => router.push('/signup')}
                                     >
-                                        <Text style={styles.secondaryBtnText}>Créer un compte</Text>
+                                        <Text style={styles.secondaryBtnText}>{t('login.createAccountBtn')}</Text>
                                     </Pressable>
                                 </>
                             )}

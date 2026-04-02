@@ -3,25 +3,27 @@ import { View, ScrollView, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, CosmicProgressRing, TabHeader } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
-import { getUpcomingTransits } from '@/services/astrology';
+import { getUpcomingTransits, getCosmicHeadline } from '@/services/astrology';
 
 // ─── CompatibilityCard ─────────────────────────────────────────────────────────
 function CompatibilityCard({ onAnalyze }: { onAnalyze: () => void }) {
+    const { t } = useTranslation();
     return (
         <GlassCard opacity="medium" radius="xxl" ambient>
             <View style={styles.badge}>
                 <View style={styles.badgeDot} />
-                <Text style={styles.badgeText}>DAILY ALIGNMENT</Text>
+                <Text style={styles.badgeText}>{t('home.heroBadge')}</Text>
             </View>
-            <Text style={styles.cardTitle}>Your compatibility{'\n'}today</Text>
+            <Text style={styles.cardTitle}>{t('home.compatibilityCardTitle')}</Text>
             <Text style={styles.cardDesc}>
-                Celestial energy is 88% synchronized for new romantic ventures. The moon's position in Taurus stabilizes your emotional core.
+                {t('home.compatibilityCardDesc')}
             </Text>
             <View style={styles.cardBtnSpacing}>
-                <GoldButton label="ANALYZE A NEW MATCH" onPress={onAnalyze} rightIcon />
+                <GoldButton label={t('home.analyzeNewMatch')} onPress={onAnalyze} rightIcon />
             </View>
             <View style={styles.ringContainer}>
                 <CosmicProgressRing percentage={88} size={160} />
@@ -80,6 +82,7 @@ interface Transit {
 }
 
 function TransitTimeline({ onViewAll }: { onViewAll: () => void }) {
+    const { t } = useTranslation();
     const [transits, setTransits] = useState<Transit[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -104,9 +107,9 @@ function TransitTimeline({ onViewAll }: { onViewAll: () => void }) {
     return (
         <View style={styles.transitsSection}>
             <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Upcoming Transits</Text>
+                <Text style={styles.sectionTitle}>{t('home.upcomingTransits')}</Text>
                 <Pressable onPress={onViewAll} hitSlop={8}>
-                    <Text style={styles.sectionAction}>VIEW ALL</Text>
+                    <Text style={styles.sectionAction}>{t('home.viewAllTransits')}</Text>
                 </Pressable>
             </View>
             {loading ? (
@@ -140,6 +143,20 @@ function TransitTimeline({ onViewAll }: { onViewAll: () => void }) {
 export default function Home() {
     const router = useRouter();
     const { user } = useAuth();
+    const { t } = useTranslation();
+    const [heroTitle, setHeroTitle] = useState<string | null>(null);
+    const [heroSubtitle, setHeroSubtitle] = useState<string | null>(null);
+
+    useEffect(() => {
+        getCosmicHeadline()
+            .then((res) => {
+                if (res.success && res.headline) {
+                    setHeroTitle(res.headline.title);
+                    setHeroSubtitle(res.headline.subtitle);
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     return (
         <View style={styles.screen}>
@@ -153,35 +170,32 @@ export default function Home() {
 
                     {/* Hero */}
                     <View style={styles.hero}>
-                        <Text style={styles.heroTitle}>Venus in{'\n'}Retrograde</Text>
-                        <Text style={styles.heroSubtitle}>The stars favor deep connections today.</Text>
+                        <Text style={styles.heroTitle}>{heroTitle ?? t('home.heroTitle')}</Text>
+                        <Text style={styles.heroSubtitle}>{heroSubtitle ?? t('home.heroSubtitle')}</Text>
                     </View>
 
-                    {/* Compatibility card */}
-                    <View style={styles.sectionPad}>
-                        <CompatibilityCard onAnalyze={() => router.push('/compatibility')} />
-                    </View>
+
 
                     {/* Insight cards */}
                     <View style={styles.insightSection}>
                         <InsightCard
                             iconName="star"
-                            title="Your birth chart"
-                            description="Deep dive into your sun, moon, and rising signs to unlock your cosmic DNA."
+                            title={t('home.birthChartTitle')}
+                            description={t('home.birthChartDesc')}
                             symbols={['☀', '☽', '↑']}
                             onPress={() => router.push('/(tabs)/horoscope')}
                         />
                         <View style={{ height: spacing.lg }} />
                         <InsightCard
                             iconName="zap"
-                            title="Daily insights"
-                            description="Personalized horoscopes based on your current transits and house placements."
-                            highlightText="Communication will be key as Mercury enters your 5th house."
+                            title={t('home.dailyInsightsTitle')}
+                            description={t('home.dailyInsightsDesc')}
+                            highlightText={t('home.dailyInsightsQuote')}
                             onPress={() => router.push('/daily-horoscope')}
                         />
                     </View>
 
-                    <TransitTimeline onViewAll={() => router.push('/transits')} />
+                    <TransitTimeline onViewAll={() => router.push('/(tabs)/transits')} />
 
                     <View style={{ height: 100 }} />
                 </ScrollView>

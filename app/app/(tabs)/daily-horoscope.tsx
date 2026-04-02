@@ -3,6 +3,7 @@ import { View, ScrollView, Text, Pressable, StyleSheet, ActivityIndicator } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
 import { getDailyHoroscope, DailyHoroscope } from '@/services/astrology';
@@ -10,11 +11,11 @@ import { aiDisclaimerText } from '@/constants/legalTexts';
 import { colors, spacing, radius, fonts } from '@/theme';
 
 // ─── Horoscope section card ────────────────────────────────────────────────────
-const SECTIONS = [
-    { key: 'overview', icon: '✦', label: 'APERÇU', color: colors.primary },
-    { key: 'love',     icon: '♡', label: 'AMOUR',  color: '#ec4899' },
-    { key: 'energy',   icon: '⚡', label: 'ÉNERGIE', color: colors.secondary },
-    { key: 'advice',   icon: '◈', label: 'CONSEIL', color: colors.onSurface },
+const getSections = (t: (key: string) => string) => [
+    { key: 'overview', icon: '✦', label: t('dailyHoroscope.sectionOverview'), color: colors.primary },
+    { key: 'love',     icon: '♡', label: t('dailyHoroscope.sectionLove'),     color: '#ec4899' },
+    { key: 'energy',   icon: '⚡', label: t('dailyHoroscope.sectionEnergy'),  color: colors.secondary },
+    { key: 'advice',   icon: '◈', label: t('dailyHoroscope.sectionAdvice'),  color: colors.onSurface },
 ] as const;
 
 function HoroscopeSection({ icon, label, content, color }: {
@@ -26,7 +27,7 @@ function HoroscopeSection({ icon, label, content, color }: {
                 <Text style={[styles.sectionIcon, { color }]}>{icon}</Text>
                 <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
             </View>
-            <Text style={styles.sectionContent}>{content}</Text>
+            <Text style={styles.sectionContent}>{content} </Text>
         </GlassCard>
     );
 }
@@ -53,6 +54,7 @@ function EmptyState({ emoji, message, actionLabel, onAction }: {
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export default function DailyHoroscopeTab() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -67,12 +69,12 @@ export default function DailyHoroscopeTab() {
             if (response.success && response.horoscope) {
                 setHoroscope(response.horoscope);
             } else {
-                setError(response.error || 'Erreur lors du chargement');
+                setError(response.error || t('dailyHoroscope.loadError'));
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erreur inconnue');
+            setError(err instanceof Error ? err.message : t('dailyHoroscope.unknownError'));
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         if (isAuthenticated && user?.hasBirthProfile) {
@@ -101,7 +103,7 @@ export default function DailyHoroscopeTab() {
                     <TabHeader />
                     <View style={styles.emptyWrap}>
                         <ActivityIndicator color={colors.primary} size="large" />
-                        <Text style={styles.loadingText}>Chargement de votre horoscope…</Text>
+                        <Text style={styles.loadingText}>{t('dailyHoroscope.loadingText')}</Text>
                     </View>
                 </SafeAreaView>
             </View>
@@ -113,8 +115,8 @@ export default function DailyHoroscopeTab() {
         return (
             <EmptyState
                 emoji="🌟"
-                message="Connectez-vous pour voir votre horoscope quotidien"
-                actionLabel="SE CONNECTER"
+                message={t('dailyHoroscope.loginPrompt')}
+                actionLabel={t('dailyHoroscope.loginBtn')}
                 onAction={() => router.push('/login')}
             />
         );
@@ -125,12 +127,14 @@ export default function DailyHoroscopeTab() {
         return (
             <EmptyState
                 emoji="🌙"
-                message="Complétez votre profil pour recevoir votre horoscope personnalisé"
-                actionLabel="COMPLÉTER MON PROFIL"
+                message={t('dailyHoroscope.profilePrompt')}
+                actionLabel={t('dailyHoroscope.profileBtn')}
                 onAction={() => router.push('/birth-profile')}
             />
         );
     }
+
+    const SECTIONS = getSections(t);
 
     return (
         <View style={styles.screen}>
@@ -146,7 +150,7 @@ export default function DailyHoroscopeTab() {
                     <View style={styles.hero}>
                         <View style={styles.badge}>
                             <View style={styles.badgeDot} />
-                            <Text style={styles.badgeText}>HOROSCOPE DU JOUR</Text>
+                            <Text style={styles.badgeText}>{t('dailyHoroscope.badge')}</Text>
                         </View>
                         {horoscope ? (
                             <>
@@ -154,7 +158,7 @@ export default function DailyHoroscopeTab() {
                                 <Text style={styles.heroDate}>{formatDate(horoscope.date)}</Text>
                             </>
                         ) : (
-                            <Text style={styles.heroTitle}>Votre cosmos{'\n'}aujourd'hui</Text>
+                            <Text style={styles.heroTitle}>{t('dailyHoroscope.defaultTitle')}</Text>
                         )}
                     </View>
 
@@ -164,7 +168,7 @@ export default function DailyHoroscopeTab() {
                             <GlassCard opacity="low" radius="xl">
                                 <Text style={styles.errorText}>{error}</Text>
                                 <View style={{ marginTop: spacing.lg }}>
-                                    <GhostButton label="RÉESSAYER" onPress={() => loadHoroscope()} />
+                                    <GhostButton label={t('dailyHoroscope.retry')} onPress={() => loadHoroscope()} />
                                 </View>
                             </GlassCard>
                         </View>
@@ -174,7 +178,7 @@ export default function DailyHoroscopeTab() {
                     {isRefreshing && (
                         <View style={styles.refreshingRow}>
                             <ActivityIndicator color={colors.primary} size="small" />
-                            <Text style={styles.refreshingText}>Actualisation…</Text>
+                            <Text style={styles.refreshingText}>{t('dailyHoroscope.refreshing')}</Text>
                         </View>
                     )}
 
@@ -201,12 +205,12 @@ export default function DailyHoroscopeTab() {
                     {horoscope && !isRefreshing && (
                         <View style={styles.actionsSection}>
                             <GhostButton
-                                label={horoscope.cached ? "ACTUALISER L'HOROSCOPE" : 'RAFRAÎCHIR'}
+                                label={horoscope.cached ? t('dailyHoroscope.refreshBtn') : t('dailyHoroscope.refreshBtnSimple')}
                                 onPress={handleRefresh}
                                 disabled={isRefreshing}
                             />
                             {horoscope.cached && (
-                                <Text style={styles.cachedText}>Généré plus tôt aujourd'hui</Text>
+                                <Text style={styles.cachedText}>{t('dailyHoroscope.generatedToday')}</Text>
                             )}
                         </View>
                     )}

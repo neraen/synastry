@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
 import {
@@ -30,12 +31,12 @@ function formatDate(dateString: string): string {
     });
 }
 
-function scoreLabel(score: number): string {
-    if (score >= 85) return 'Âmes sœurs';
-    if (score >= 70) return 'Très compatible';
-    if (score >= 55) return 'Compatible';
-    if (score >= 40) return 'Complexe';
-    return 'Difficile';
+function scoreLabel(score: number, t: (key: string) => string): string {
+    if (score >= 85) return t('history.scoreLabels.soulmates');
+    if (score >= 70) return t('history.scoreLabels.veryCompatible');
+    if (score >= 55) return t('history.scoreLabels.compatible');
+    if (score >= 40) return t('history.scoreLabels.complex');
+    return t('history.scoreLabels.challenging');
 }
 
 // ─── History Card ──────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ function HistoryCard({
     onPress: () => void;
     onDelete: () => void;
 }) {
+    const { t } = useTranslation();
     const score = item.compatibilityScore;
 
     return (
@@ -62,7 +64,7 @@ function HistoryCard({
                     </Text>
                     <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
                     {score !== null && (
-                        <Text style={styles.cardLabel}>{scoreLabel(score)}</Text>
+                        <Text style={styles.cardLabel}>{scoreLabel(score, t)}</Text>
                     )}
                 </View>
 
@@ -78,7 +80,7 @@ function HistoryCard({
             {/* Footer: VIEW DETAILS + delete */}
             <View style={styles.cardFooter}>
                 <Pressable style={styles.detailsBtn} onPress={onPress} hitSlop={8}>
-                    <Text style={styles.detailsBtnText}>VOIR DÉTAILS</Text>
+                    <Text style={styles.detailsBtnText}>{t('common.viewDetails')}</Text>
                     <Feather name="arrow-up-right" size={12} color={colors.primary} />
                 </Pressable>
 
@@ -93,6 +95,7 @@ function HistoryCard({
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export default function HistoryTab() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
     const userName = user?.firstName || 'Vous';
 
@@ -109,15 +112,15 @@ export default function HistoryTab() {
             if (response.success && response.histories) {
                 setHistories(response.histories);
             } else {
-                setError(response.error || 'Erreur lors du chargement');
+                setError(response.error || t('history.loadError'));
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erreur inconnue');
+            setError(err instanceof Error ? err.message : t('history.unknownError'));
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         if (isAuthenticated) loadHistory();
@@ -126,12 +129,12 @@ export default function HistoryTab() {
 
     const handleDelete = useCallback((item: SynastryHistorySummary) => {
         Alert.alert(
-            'Supprimer',
-            `Supprimer l'analyse avec ${item.partnerName} ?`,
+            t('history.deleteTitle'),
+            t('history.deleteMessage', { name: item.partnerName }),
             [
-                { text: 'Annuler', style: 'cancel' },
+                { text: t('history.deleteCancelBtn'), style: 'cancel' },
                 {
-                    text: 'Supprimer',
+                    text: t('history.deleteConfirmBtn'),
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -140,13 +143,13 @@ export default function HistoryTab() {
                                 setHistories(prev => prev.filter(h => h.id !== item.id));
                             }
                         } catch {
-                            Alert.alert('Erreur', 'Impossible de supprimer');
+                            Alert.alert(t('common.error'), t('history.deleteError'));
                         }
                     },
                 },
             ]
         );
-    }, []);
+    }, [t]);
 
     // ── Loading ──
     if (isAuthLoading || isLoading) {
@@ -170,9 +173,9 @@ export default function HistoryTab() {
                     <TabHeader />
                     <View style={styles.centered}>
                         <Text style={styles.emptyEmoji}>🔒</Text>
-                        <Text style={styles.emptyText}>Connectez-vous pour voir vos analyses</Text>
+                        <Text style={styles.emptyText}>{t('history.loginPrompt')}</Text>
                         <View style={{ marginTop: spacing.xl }}>
-                            <GoldButton label="SE CONNECTER" onPress={() => router.push('/login')} />
+                            <GoldButton label={t('history.loginBtn')} onPress={() => router.push('/login')} />
                         </View>
                     </View>
                 </SafeAreaView>
@@ -201,11 +204,11 @@ export default function HistoryTab() {
                     <View style={styles.hero}>
                         <View style={styles.badge}>
                             <View style={styles.badgeDot} />
-                            <Text style={styles.badgeText}>ARCHIVE</Text>
+                            <Text style={styles.badgeText}>{t('history.badge')}</Text>
                         </View>
-                        <Text style={styles.heroTitle}>Past{'\n'}Alignments</Text>
+                        <Text style={styles.heroTitle}>{t('history.heroTitle')}</Text>
                         <Text style={styles.heroSubtitle}>
-                            Un historique de vos connexions célestes et l'harmonie des astres à travers le temps.
+                            {t('history.heroSubtitle')}
                         </Text>
                     </View>
 
@@ -215,7 +218,7 @@ export default function HistoryTab() {
                             <GlassCard opacity="low" radius="xl">
                                 <Text style={styles.errorText}>{error}</Text>
                                 <View style={{ marginTop: spacing.lg }}>
-                                    <GhostButton label="RÉESSAYER" onPress={() => loadHistory()} />
+                                    <GhostButton label={t('history.retry')} onPress={() => loadHistory()} />
                                 </View>
                             </GlassCard>
                         </View>
@@ -226,11 +229,11 @@ export default function HistoryTab() {
                         <View style={styles.centered}>
                             <Text style={styles.emptyEmoji}>✦</Text>
                             <Text style={styles.emptyText}>
-                                Aucune analyse pour l'instant.{'\n'}Commencez par analyser une compatibilité.
+                                {t('history.emptyText')}
                             </Text>
                             <View style={{ marginTop: spacing.xl }}>
                                 <GoldButton
-                                    label="ANALYSER UNE COMPATIBILITÉ"
+                                    label={t('history.analyzeCompatibilityBtn')}
                                     onPress={() => router.push('/compatibility')}
                                     rightIcon
                                 />
@@ -246,14 +249,14 @@ export default function HistoryTab() {
                                     key={item.id}
                                     item={item}
                                     userName={userName}
-                                    onPress={() => router.push(`/synastry-detail?id=${item.id}`)}
+                                    onPress={() => router.push(`/(tabs)/compatibility?id=${item.id}`)}
                                     onDelete={() => handleDelete(item)}
                                 />
                             ))}
 
                             <View style={styles.bottomActions}>
                                 <GhostButton
-                                    label="NOUVELLE ANALYSE"
+                                    label={t('history.newAnalysisBtn')}
                                     onPress={() => router.push('/compatibility')}
                                 />
                             </View>

@@ -21,7 +21,8 @@ export const DEFAULT_LANGUAGE: SupportedLanguage = 'fr';
 const getDeviceLanguage = (): SupportedLanguage => {
     try {
         const Localization = require('expo-localization');
-        const deviceLocale = Localization.getLocales()[0]?.languageCode || DEFAULT_LANGUAGE;
+        const loc = Localization.getLocales()[0];
+        const deviceLocale = loc?.languageCode || loc?.locale?.slice(0, 2) || DEFAULT_LANGUAGE;
 
         // Check if device language is supported
         if (SUPPORTED_LANGUAGES.includes(deviceLocale as SupportedLanguage)) {

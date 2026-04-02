@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -50,6 +51,7 @@ function PrefRow({ icon, title, subtitle, onPress, danger = false, showChevron =
 // ─── Subscription Card ─────────────────────────────────────────────────────────
 function SubscriptionCard({ isPremium, premiumUntil }: { isPremium?: boolean; premiumUntil?: string | null }) {
     const router = useRouter();
+    const { t } = useTranslation();
 
     const formattedDate = premiumUntil
         ? new Date(premiumUntil).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -69,11 +71,11 @@ function SubscriptionCard({ isPremium, premiumUntil }: { isPremium?: boolean; pr
                             <Text style={styles.subIcon}>★</Text>
                         </View>
                         <View style={styles.subInfo}>
-                            <Text style={styles.subTitleDark}>Premium actif</Text>
-                            <Text style={styles.subSubtitleDark}>Renouvellement le {formattedDate}</Text>
+                            <Text style={styles.subTitleDark}>{t('profile.premiumActive')}</Text>
+                            <Text style={styles.subSubtitleDark}>{t('profile.premiumRenewal', { date: formattedDate })}</Text>
                         </View>
                         <View style={styles.subActiveBadge}>
-                            <Text style={styles.subActiveBadgeText}>ACTIF</Text>
+                            <Text style={styles.subActiveBadgeText}>{t('profile.premiumActiveBadge')}</Text>
                         </View>
                     </View>
                 </LinearGradient>
@@ -89,8 +91,8 @@ function SubscriptionCard({ isPremium, premiumUntil }: { isPremium?: boolean; pr
                         <Text style={styles.subIconDim}>★</Text>
                     </View>
                     <View style={styles.subInfo}>
-                        <Text style={styles.subTitle}>Passer Premium</Text>
-                        <Text style={styles.subSubtitle}>Analyses illimitées · Insights avancés</Text>
+                        <Text style={styles.subTitle}>{t('profile.upgradePremium')}</Text>
+                        <Text style={styles.subSubtitle}>{t('profile.upgradeSubtitle')}</Text>
                     </View>
                     <Pressable onPress={() => router.push('/premium')} style={styles.subCta} hitSlop={8}>
                         <LinearGradient
@@ -99,7 +101,7 @@ function SubscriptionCard({ isPremium, premiumUntil }: { isPremium?: boolean; pr
                             end={{ x: 1, y: 1 }}
                             style={styles.subCtaGradient}
                         >
-                            <Text style={styles.subCtaText}>VOIR</Text>
+                            <Text style={styles.subCtaText}>{t('profile.upgradeBtn')}</Text>
                         </LinearGradient>
                     </Pressable>
                 </View>
@@ -111,6 +113,7 @@ function SubscriptionCard({ isPremium, premiumUntil }: { isPremium?: boolean; pr
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export default function ProfileTab() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { user, isAuthenticated, isLoading, logout, deleteAccount } = useAuth();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -132,7 +135,7 @@ export default function ProfileTab() {
             setShowDeleteModal(false);
             router.replace('/login');
         } catch {
-            Alert.alert('Erreur', 'Impossible de supprimer le compte. Veuillez réessayer.');
+            Alert.alert(t('common.error'), t('profile.deleteError'));
         } finally {
             setIsDeleting(false);
         }
@@ -200,7 +203,7 @@ export default function ProfileTab() {
                                 styles.statusChipText,
                                 { color: user.hasBirthProfile ? '#4ade80' : colors.primary },
                             ]}>
-                                {user.hasBirthProfile ? 'PROFIL COMPLET' : 'PROFIL INCOMPLET'}
+                                {user.hasBirthProfile ? t('profile.profileComplete') : t('profile.profileIncomplete')}
                             </Text>
                         </View>
                     </View>
@@ -217,15 +220,15 @@ export default function ProfileTab() {
                                         <Feather name="star" size={20} color={colors.primary} />
                                     </View>
                                     <View style={styles.natalInfo}>
-                                        <Text style={styles.natalTitle}>Mon thème natal</Text>
-                                        <Text style={styles.natalSubtitle}>Soleil, Lune, Ascendant et plus</Text>
+                                        <Text style={styles.natalTitle}>{t('profile.natalChartTitle')}</Text>
+                                        <Text style={styles.natalSubtitle}>{t('profile.natalChartSubtitle')}</Text>
                                     </View>
                                     <Pressable
                                         onPress={() => router.push('/(tabs)/horoscope')}
                                         style={styles.natalBtn}
                                         hitSlop={8}
                                     >
-                                        <Text style={styles.natalBtnText}>VOIR</Text>
+                                        <Text style={styles.natalBtnText}>{t('profile.natalChartBtn')}</Text>
                                         <Feather name="arrow-up-right" size={12} color={colors.primary} />
                                     </Pressable>
                                 </View>
@@ -233,14 +236,37 @@ export default function ProfileTab() {
                         </View>
                     )}
 
+                    {/* ── Historique des compatibilités ─────────────────────── */}
+                    <View style={styles.section}>
+                        <GlassCard opacity="medium" radius="xl">
+                            <View style={styles.natalRow}>
+                                <View style={styles.natalIcon}>
+                                    <Feather name="clock" size={20} color={colors.primary} />
+                                </View>
+                                <View style={styles.natalInfo}>
+                                    <Text style={styles.natalTitle}>{t('profile.historyCardTitle')}</Text>
+                                    <Text style={styles.natalSubtitle}>{t('profile.historyCardSubtitle')}</Text>
+                                </View>
+                                <Pressable
+                                    onPress={() => router.push('/(tabs)/history')}
+                                    style={styles.natalBtn}
+                                    hitSlop={8}
+                                >
+                                    <Text style={styles.natalBtnText}>{t('profile.historyCardBtn')}</Text>
+                                    <Feather name="arrow-up-right" size={12} color={colors.primary} />
+                                </Pressable>
+                            </View>
+                        </GlassCard>
+                    </View>
+
                     {/* ── Profil astrologique ────────────────────────────────── */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionLabel}>MON PROFIL</Text>
+                        <Text style={styles.sectionLabel}>{t('profile.sectionMyProfile')}</Text>
                         <GlassCard opacity="low" radius="xl">
                             <PrefRow
                                 icon="user"
-                                title={user.hasBirthProfile ? 'Modifier mon profil de naissance' : 'Compléter mon profil de naissance'}
-                                subtitle={user.hasBirthProfile ? 'Date, heure et lieu de naissance' : 'Requis pour les analyses'}
+                                title={user.hasBirthProfile ? t('profile.editBirthProfile') : t('profile.completeBirthProfile')}
+                                subtitle={user.hasBirthProfile ? t('profile.birthProfileSubtitle') : t('profile.birthProfileRequired')}
                                 onPress={() => router.push('/birth-profile')}
                             />
                         </GlassCard>
@@ -248,29 +274,29 @@ export default function ProfileTab() {
 
                     {/* ── Preferences & Alignment ────────────────────────────── */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionLabel}>PRÉFÉRENCES & ALIGNEMENT</Text>
+                        <Text style={styles.sectionLabel}>{t('profile.sectionPreferences')}</Text>
                         <GlassCard opacity="low" radius="xl">
                             <PrefRow
                                 icon="shield"
-                                title="Politique de confidentialité"
+                                title={t('profile.privacyPolicy')}
                                 onPress={() => router.push('/privacy-policy')}
                             />
                             <View style={styles.prefSep} />
                             <PrefRow
                                 icon="file-text"
-                                title="Conditions d'utilisation"
+                                title={t('profile.termsOfService')}
                                 onPress={() => router.push('/terms-of-service')}
                             />
                             <View style={styles.prefSep} />
                             <PrefRow
                                 icon="info"
-                                title="Mentions légales"
+                                title={t('profile.legalNotice')}
                                 onPress={() => router.push('/legal-notice')}
                             />
                             <View style={styles.prefSep} />
                             <PrefRow
                                 icon="log-out"
-                                title="Se déconnecter"
+                                title={t('auth.logout')}
                                 onPress={logout}
                                 danger
                                 showChevron={false}
@@ -281,18 +307,18 @@ export default function ProfileTab() {
                     {/* ── Delete account ─────────────────────────────────────── */}
                     <View style={styles.deleteWrap}>
                         <Pressable onPress={() => setShowDeleteModal(true)} hitSlop={8}>
-                            <Text style={styles.deleteText}>Supprimer mon compte</Text>
+                            <Text style={styles.deleteText}>{t('profile.deleteAccount')}</Text>
                         </Pressable>
                     </View>
 
                     {/* ── Dev Tools ──────────────────────────────────────────── */}
                     <View style={styles.demoSection}>
-                        <Text style={styles.sectionLabel}>DÉVELOPPEMENT</Text>
+                        <Text style={styles.sectionLabel}>{t('profile.sectionDevelopment')}</Text>
                         <GlassCard opacity="low" radius="xl">
                             <View style={styles.devRow}>
                                 <View style={styles.devInfo}>
                                     <Text style={styles.devTitle}>
-                                        {isLocal ? 'Serveur local' : 'Serveur prod'}
+                                        {isLocal ? t('profile.localServer') : t('profile.prodServer')}
                                     </Text>
                                     <Text style={styles.devUrl} numberOfLines={1}>
                                         {isLocal ? LOCAL_URL : PROD_URL}
@@ -310,7 +336,7 @@ export default function ProfileTab() {
 
                     {/* ── Design Demo ────────────────────────────────────────── */}
                     <View style={styles.demoSection}>
-                        <Text style={styles.sectionLabel}>DESIGN DEMO</Text>
+                        <Text style={styles.sectionLabel}>{t('profile.sectionDesignDemo')}</Text>
                         <View style={styles.demoGrid}>
                             {[
                                 { label: 'Home', route: '/demo/home' },

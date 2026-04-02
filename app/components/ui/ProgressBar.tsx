@@ -13,7 +13,8 @@ import {
     StyleProp,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius, spacing } from '@/theme';
+import { Feather } from '@expo/vector-icons';
+import { colors, radius, spacing, fonts } from '@/theme';
 
 interface ProgressBarProps {
     value: number; // 0-100
@@ -114,7 +115,7 @@ export function ProgressBar({
 interface ScoreRowProps {
     label: string;
     value: number;
-    icon?: string;
+    icon?: keyof typeof Feather.glyphMap;
     gradientColors?: readonly string[];
     style?: StyleProp<ViewStyle>;
 }
@@ -137,7 +138,11 @@ export function ScoreRow({
         <View style={[styles.scoreRow, style]}>
             <View style={styles.scoreHeader}>
                 <View style={styles.scoreLabel}>
-                    {icon && <Text style={styles.scoreIcon}>{icon}</Text>}
+                    {icon && (
+                        <View style={styles.scoreIconWrap}>
+                            <Feather name={icon} size={13} color={colors.primary} />
+                        </View>
+                    )}
                     <Text style={styles.scoreLabelText}>{label}</Text>
                 </View>
                 <Text style={styles.scoreValue}>{Math.round(value)}%</Text>
@@ -279,14 +284,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    scoreIcon: {
-        fontSize: 16,
-        marginRight: spacing.xs,
+    scoreIconWrap: {
+        marginRight: spacing.sm,
     },
     scoreLabelText: {
-        fontSize: 14,
-        color: colors.text.secondary,
-        fontWeight: '500',
+        fontFamily: fonts.body.medium,
+        fontSize: 13,
+        color: colors.onSurfaceMuted,
     },
     scoreValue: {
         fontSize: 14,

@@ -50,6 +50,15 @@ class AstrologyAnalysisService
     }
 
     /**
+     * Public wrapper — allows other services (e.g. MirrorService) to build a
+     * natal PlanetaryCalculator without duplicating the UTC-conversion logic.
+     */
+    public function createCalculatorFromBirthProfile(BirthProfile $profile): PlanetaryCalculator
+    {
+        return $this->createCalculatorFromProfile($profile);
+    }
+
+    /**
      * Create PlanetaryCalculator from BirthProfile
      * Converts local birth time to UTC using the timezone offset
      */
@@ -127,6 +136,65 @@ class AstrologyAnalysisService
                 'orb' => $aspect['orb'],
             ];
         }, $significantAspects);
+    }
+
+    /**
+     * Get transit aspects for each day of a given month
+     *
+     * @return array Map of 'YYYY-MM-DD' => aspect[]
+     */
+    public function getCalendarAspects(User $user, int $year, int $month): array
+    {
+        $birthProfile = $user->getBirthProfile();
+
+        if (!$birthProfile) {
+            throw new \RuntimeException('User has no birth profile');
+        }
+
+        // Slow planets transit weight (lower = shown first)
+        $planetWeight = [
+            'Saturn'  => 1, 'Neptune' => 1, 'Uranus'  => 1,
+            'Pluto'   => 1, 'Jupiter' => 2,
+            'Mars'    => 3, 'Sun'     => 4, 'Venus'   => 4,
+            'Mercury' => 5, 'Moon'    => 6,
+        ];
+
+        $natalCalculator = $this->createCalculatorFromProfile($birthProfile);
+        $daysInMonth = (int) (new \DateTime(sprintf('%04d-%02d-01', $year, $month)))->format('t');
+        $days = [];
+
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
+            $transitCalculator = new PlanetaryCalculator($date, '12:00', 0.0, 0.0, 'Transits');
+
+            $aspects = $natalCalculator->getSynastryAspects($transitCalculator);
+
+            // Filter: only major aspects with tight orb
+            $filtered = array_values(array_filter($aspects, function ($a) {
+                return $a['type'] !== 'quincunx' && $a['orb'] < 5.0;
+            }));
+
+            // Sort: slow transit planets first, then by orb (most exact)
+            usort($filtered, function ($a, $b) use ($planetWeight) {
+                $wa = $planetWeight[$a['planet_b']] ?? 7;
+                $wb = $planetWeight[$b['planet_b']] ?? 7;
+                if ($wa !== $wb) return $wa <=> $wb;
+                return $a['orb'] <=> $b['orb'];
+            });
+
+            $days[$date] = array_values(array_map(function ($a) {
+                return [
+                    'transit_planet' => $a['planet_b'],
+                    'natal_planet'   => $a['planet_a'],
+                    'aspect_type'    => $a['type'],
+                    'aspect_name'    => $a['name'],
+                    'symbol'         => $a['symbol'],
+                    'orb'            => $a['orb'],
+                ];
+            }, $filtered));
+        }
+
+        return $days;
     }
 
     /**

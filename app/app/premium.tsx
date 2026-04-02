@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, radius } from '@/theme';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GoldButton } from '@/components/ui/GoldButton';
@@ -47,49 +48,6 @@ interface Feature {
     title: string;
     description: string;
 }
-
-// ─── Static data ─────────────────────────────────────────────────────────────
-
-const FEATURES: Feature[] = [
-    {
-        icon: '✦',
-        title: 'Full analysis',
-        description:
-            'Deep dive into questions and compatibility match for the stars. Track and compare with the context.',
-    },
-    {
-        icon: '∞',
-        title: 'Unlimited matches',
-        description: 'Explore daily horoscopes. Connect with the cosmos in harmony.',
-    },
-    {
-        icon: '◈',
-        title: 'Advanced insights',
-        description: 'Detailed aspects and specific insights on your synastry.',
-    },
-];
-
-const PLANS: Plan[] = [
-    {
-        id: 'annual',
-        label: 'ANNUAL',
-        price: '$19.99',
-        period: '/yr',
-        badge: 'Best value',
-        features: ['Best celestion alignment', 'Unlimited synastry'],
-    },
-    {
-        id: 'monthly',
-        label: 'MONTHLY',
-        price: '$9.99',
-        period: '/mo',
-        features: [
-            'Everything included',
-            '10 synastries',
-            'Priority astrological chart reads',
-        ],
-    },
-];
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -175,11 +133,52 @@ function MonthlyCard({ plan, selected, onSelect }: { plan: Plan; selected: boole
 
 export default function PremiumScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { refreshUser } = useAuth();
     const [selectedPlan, setSelectedPlan] = useState<PlanId>('monthly');
     const [offering, setOffering] = useState<Offering | null>(null);
     const [purchasing, setPurchasing] = useState(false);
     const [restoring, setRestoring] = useState(false);
+
+    const FEATURES: Feature[] = [
+        {
+            icon: '✦',
+            title: t('premium.featureFullAnalysisTitle'),
+            description: t('premium.featureFullAnalysisDesc'),
+        },
+        {
+            icon: '∞',
+            title: t('premium.featureUnlimitedTitle'),
+            description: t('premium.featureUnlimitedDesc'),
+        },
+        {
+            icon: '◈',
+            title: t('premium.featureInsightsTitle'),
+            description: t('premium.featureInsightsDesc'),
+        },
+    ];
+
+    const PLANS: Plan[] = [
+        {
+            id: 'annual',
+            label: t('premium.planAnnualLabel'),
+            price: '$19.99',
+            period: t('premium.planPeriodYear'),
+            badge: t('premium.planBestValue'),
+            features: [t('premium.annualFeature1'), t('premium.annualFeature2')],
+        },
+        {
+            id: 'monthly',
+            label: t('premium.planMonthlyLabel'),
+            price: '$9.99',
+            period: t('premium.planPeriodMonth'),
+            features: [
+                t('premium.monthlyFeature1'),
+                t('premium.monthlyFeature2'),
+                t('premium.monthlyFeature3'),
+            ],
+        },
+    ];
 
     // Load RevenueCat offering on mount to get real store prices
     useEffect(() => {
@@ -198,21 +197,21 @@ export default function PremiumScreen() {
         const pkg = getPackageForPlan(planId);
         if (pkg) {
             const priceString = pkg.product.priceString;
-            const period = planId === 'annual' ? '/yr' : '/mo';
+            const period = planId === 'annual' ? t('premium.planPeriodYear') : t('premium.planPeriodMonth');
             return { price: priceString, period };
         }
         return planId === 'annual'
-            ? { price: '$19.99', period: '/yr' }
-            : { price: '$9.99', period: '/mo' };
-    }, [getPackageForPlan]);
+            ? { price: '$19.99', period: t('premium.planPeriodYear') }
+            : { price: '$9.99', period: t('premium.planPeriodMonth') };
+    }, [getPackageForPlan, t]);
 
     const handleStartPremium = useCallback(async () => {
         const pkg = getPackageForPlan(selectedPlan);
         if (!pkg) {
             // RC not configured yet — show informational alert
             Alert.alert(
-                'Bientôt disponible',
-                'L\'achat intégré sera disponible lors du lancement sur l\'App Store et Google Play.',
+                t('premium.comingSoon'),
+                t('premium.comingSoonDesc'),
             );
             return;
         }
@@ -225,12 +224,12 @@ export default function PremiumScreen() {
                 await refreshUser();
                 router.back();
             } else if (result.error) {
-                Alert.alert('Erreur', result.error);
+                Alert.alert(t('common.error'), result.error);
             }
         } finally {
             setPurchasing(false);
         }
-    }, [selectedPlan, getPackageForPlan, refreshUser, router]);
+    }, [selectedPlan, getPackageForPlan, refreshUser, router, t]);
 
     const handleRestore = useCallback(async () => {
         setRestoring(true);
@@ -238,15 +237,15 @@ export default function PremiumScreen() {
             const result = await restorePurchases();
             if (result.isPremium) {
                 await refreshUser();
-                Alert.alert('Restauration réussie', 'Votre abonnement Premium a été restauré.');
+                Alert.alert(t('premium.restoreSuccess'), t('premium.restoreSuccessMsg'));
                 router.back();
             } else {
-                Alert.alert('Aucun abonnement trouvé', result.error ?? 'Aucun achat actif sur ce compte Apple/Google.');
+                Alert.alert(t('premium.restoreNone'), result.error ?? t('premium.restoreNoneDefault'));
             }
         } finally {
             setRestoring(false);
         }
-    }, [refreshUser, router]);
+    }, [refreshUser, router, t]);
 
     return (
         <View style={styles.root}>
@@ -270,16 +269,16 @@ export default function PremiumScreen() {
                     <View style={styles.badgeWrap}>
                         <View style={styles.badge}>
                             <Text style={styles.badgeStar}>★</Text>
-                            <Text style={styles.badgeLabel}>FOR PREMIUM MEMBERS</Text>
+                            <Text style={styles.badgeLabel}>{t('premium.memberBadge')}</Text>
                         </View>
                     </View>
 
                     {/* Headline */}
                     <Text style={styles.headline}>
-                        Unlock your full{'\n'}compatibility
+                        {t('premium.headline')}
                     </Text>
                     <Text style={styles.subtitle}>
-                        Guided by the stars, refined for your soul
+                        {t('premium.tagline')}
                     </Text>
 
                     {/* Features */}
@@ -306,7 +305,7 @@ export default function PremiumScreen() {
                     {/* CTA */}
                     <View style={styles.ctaWrap}>
                         <GoldButton
-                            label={purchasing ? 'TRAITEMENT...' : 'START PREMIUM'}
+                            label={purchasing ? t('premium.processingBtn') : t('premium.startPremiumBtn')}
                             onPress={handleStartPremium}
                             loading={purchasing}
                             size="lg"
@@ -315,12 +314,12 @@ export default function PremiumScreen() {
 
                     {/* Legal + Restore */}
                     <Text style={styles.legal}>
-                        Sans engagement · Renouvellement automatique
+                        {t('premium.legalNotice')}
                     </Text>
                     <Pressable onPress={handleRestore} disabled={restoring} style={styles.restoreBtn}>
                         {restoring
                             ? <ActivityIndicator size="small" color={colors.onSurfaceMuted} />
-                            : <Text style={styles.restoreText}>Restaurer mes achats</Text>
+                            : <Text style={styles.restoreText}>{t('premium.restoreBtn')}</Text>
                         }
                     </Pressable>
                 </ScrollView>

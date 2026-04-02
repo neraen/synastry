@@ -9,6 +9,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Screen,
@@ -34,6 +35,7 @@ import { colors, spacing, borderRadius, shadows } from '@/theme';
 
 export default function BirthProfileScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { isAuthenticated, refreshUser } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -131,12 +133,12 @@ export default function BirthProfileScreen() {
 
         // Validation
         if (!birthDate) {
-            setError('La date de naissance est requise');
+            setError(t('birthProfile.birthDateRequired'));
             return;
         }
 
         if (!birthCity || latitude === null || longitude === null) {
-            setError('Veuillez sélectionner une ville de naissance');
+            setError(t('birthProfile.birthCityRequired'));
             return;
         }
 
@@ -162,7 +164,7 @@ export default function BirthProfileScreen() {
 
             router.back();
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Erreur lors de la sauvegarde';
+            const message = err instanceof Error ? err.message : t('birthProfile.saveError');
             setError(message);
         } finally {
             setIsSaving(false);
@@ -172,7 +174,7 @@ export default function BirthProfileScreen() {
     if (isLoading) {
         return (
             <Screen backgroundColor={colors.surfaceLowest}>
-                <LoadingState message="Chargement du profil..." />
+                <LoadingState message={t('birthProfile.loadingProfile')} />
             </Screen>
         );
     }
@@ -185,11 +187,11 @@ export default function BirthProfileScreen() {
             <View style={styles.header}>
                 <AppText style={styles.headerIcon}>✨</AppText>
                 <AppHeading variant="h1" align="center">
-                    Mon profil astrologique
+                    {t('birthProfile.screenTitle')}
                 </AppHeading>
                 <Spacer size="sm" />
                 <AppText variant="body" color="muted" align="center">
-                    Ces informations permettent de calculer votre thème natal avec précision
+                    {t('birthProfile.screenSubtitle')}
                 </AppText>
             </View>
 
@@ -198,41 +200,41 @@ export default function BirthProfileScreen() {
             {/* Form Card */}
             <AppCard variant="elevated" style={styles.formCard}>
                 <AppInput
-                    label="Prénom"
-                    placeholder="Votre prénom"
+                    label={t('birthProfile.firstName')}
+                    placeholder={t('birthProfile.firstNamePlaceholder')}
                     value={firstName}
                     onChangeText={setFirstName}
                     disabled={isSaving}
-                    hint="Optionnel - utilisé dans les analyses"
+                    hint={t('birthProfile.firstNameHint')}
                 />
 
                 <Spacer size="lg" />
 
                 <AppDatePicker
-                    label="Date de naissance"
+                    label={t('birthProfile.birthDate')}
                     value={birthDate}
                     onChange={setBirthDate}
                     disabled={isSaving}
                     maximumDate={new Date()}
-                    placeholder="Sélectionner une date"
+                    placeholder={t('birthProfile.birthDatePlaceholder')}
                 />
 
                 <Spacer size="lg" />
 
                 <AppTimePicker
-                    label="Heure de naissance"
+                    label={t('birthProfile.birthTime')}
                     value={birthTime}
                     onChange={setBirthTime}
                     disabled={isSaving}
-                    hint="Optionnel - plus précis si connu"
-                    placeholder="Sélectionner l'heure"
+                    hint={t('birthProfile.birthTimeHint')}
+                    placeholder={t('birthProfile.birthTimePlaceholder')}
                 />
 
                 <Spacer size="lg" />
 
                 <View>
                     <AppText variant="label" color="secondary" style={styles.label}>
-                        Lieu de naissance
+                        {t('birthProfile.birthCity')}
                     </AppText>
                     <TouchableOpacity
                         style={[
@@ -249,7 +251,7 @@ export default function BirthProfileScreen() {
                             >
                                 {birthCity
                                     ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}`
-                                    : 'Rechercher une ville...'}
+                                    : t('birthProfile.birthCityPlaceholder')}
                             </AppText>
                             <AppText style={styles.searchIcon}>🔍</AppText>
                         </View>
@@ -282,14 +284,14 @@ export default function BirthProfileScreen() {
 
             {/* Actions */}
             <AppButton
-                title="Enregistrer"
+                title={t('birthProfile.saveBtn')}
                 onPress={handleSave}
                 variant="primary"
                 loading={isSaving}
             />
             <Spacer size="md" />
             <AppButton
-                title="Annuler"
+                title={t('birthProfile.cancelBtn')}
                 onPress={() => router.back()}
                 variant="ghost"
                 disabled={isSaving}
@@ -306,19 +308,19 @@ export default function BirthProfileScreen() {
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalHeader}>
-                        <AppHeading variant="h2">Rechercher une ville</AppHeading>
+                        <AppHeading variant="h2">{t('birthProfile.searchCity')}</AppHeading>
                         <TouchableOpacity
                             onPress={() => setShowCityModal(false)}
                             style={styles.closeButton}
                         >
                             <AppText variant="bodyMedium" color="accent">
-                                Fermer
+                                {t('common.close')}
                             </AppText>
                         </TouchableOpacity>
                     </View>
 
                     <AppInput
-                        placeholder="Tapez le nom de la ville..."
+                        placeholder={t('birthProfile.citySearchPlaceholder')}
                         value={cityQuery}
                         onChangeText={handleCitySearch}
                         autoFocus
@@ -352,11 +354,11 @@ export default function BirthProfileScreen() {
                             cityQuery.length >= 2 && !isSearching ? (
                                 <View style={styles.emptyResults}>
                                     <AppText variant="body" color="muted" align="center">
-                                        Aucun résultat
+                                        {t('birthProfile.noResults')}
                                     </AppText>
                                     <Spacer size="sm" />
                                     <AppText variant="caption" color="muted" align="center">
-                                        Essayez un autre nom de ville
+                                        {t('birthProfile.noResultsHint')}
                                     </AppText>
                                 </View>
                             ) : null

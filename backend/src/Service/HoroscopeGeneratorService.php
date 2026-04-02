@@ -3,8 +3,10 @@
 namespace App\Service;
 
 use App\DTO\DailyHoroscopeDTO;
+use App\Entity\CosmicHeadline;
 use App\Entity\DailyHoroscope;
 use App\Entity\User;
+use App\Repository\CosmicHeadlineRepository;
 use App\Repository\DailyHoroscopeRepository;
 use App\Service\Webservice\OpenAiService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -19,6 +21,7 @@ class HoroscopeGeneratorService
         private AstrologyAnalysisService $astrologyAnalysisService,
         private OpenAiService $openAiService,
         private DailyHoroscopeRepository $dailyHoroscopeRepository,
+        private CosmicHeadlineRepository $cosmicHeadlineRepository,
         private EntityManagerInterface $entityManager,
     ) {
         $this->localeService = new PromptLocaleService();
@@ -102,6 +105,44 @@ class HoroscopeGeneratorService
     }
 
     /**
+     * Get (or generate) the weekly cosmic headline for the current locale.
+     * Shared by all users — cached per locale per week.
+     */
+    public function getCosmicHeadline(): array
+    {
+        $locale = $this->localeService->getLocale();
+
+        // Return cached headline if it exists for this week
+        $cached = $this->cosmicHeadlineRepository->findCurrentWeek($locale);
+        if ($cached) {
+            return ['success' => true, 'headline' => $cached->toArray(), 'cached' => true];
+        }
+
+        // Generate a new one
+        try {
+            $result = $this->openAiService->getCosmicHeadline();
+
+            if (!$result['success']) {
+                return $result;
+            }
+
+            $headline = new CosmicHeadline();
+            $headline->setLocale($locale);
+            $headline->setWeekOf(CosmicHeadlineRepository::getCurrentWeekMonday());
+            $headline->setTitle($result['title']);
+            $headline->setSubtitle($result['subtitle']);
+            $headline->setGeneratedAt(new \DateTime());
+
+            $this->entityManager->persist($headline);
+            $this->entityManager->flush();
+
+            return ['success' => true, 'headline' => $headline->toArray(), 'cached' => false];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => 'Headline generation error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Get 3 most significant upcoming transits for the user
      */
     public function getUpcomingTransits(User $user): array
@@ -128,6 +169,75 @@ class HoroscopeGeneratorService
                 'error' => $isEnglish
                     ? 'Error generating transits: ' . $e->getMessage()
                     : 'Erreur lors de la génération des transits : ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Generate a short AI interpretation for a single transit aspect
+     */
+    public function getTransitInterpretation(User $user, array $aspectData): array
+    {
+        $isEnglish = $this->localeService->getLocale() === 'en';
+
+        if (!$user->getBirthProfile()) {
+            return [
+                'success' => false,
+                'error' => $isEnglish
+                    ? 'Please complete your birth profile first'
+                    : 'Veuillez compléter votre profil de naissance',
+            ];
+        }
+
+        try {
+            // Get user's key chart data for personalization
+            $data = $this->astrologyAnalysisService->prepareHoroscopeData($user);
+
+            return $this->openAiService->getTransitInterpretation(
+                $aspectData['transit_planet'],
+                $aspectData['natal_planet'],
+                $aspectData['aspect_type'],
+                $aspectData['aspect_name'],
+                (float) $aspectData['orb'],
+                $data['sun_sign'],
+                $data['moon_sign'],
+                $data['ascendant']
+            );
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $isEnglish
+                    ? 'Error generating interpretation: ' . $e->getMessage()
+                    : 'Erreur lors de la génération : ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Get transit aspects calendar for a given month
+     */
+    public function getCalendarAspects(User $user, int $year, int $month): array
+    {
+        $isEnglish = $this->localeService->getLocale() === 'en';
+
+        if (!$user->getBirthProfile()) {
+            return [
+                'success' => false,
+                'error' => $isEnglish
+                    ? 'Please complete your birth profile first'
+                    : 'Veuillez compléter votre profil de naissance',
+            ];
+        }
+
+        try {
+            $days = $this->astrologyAnalysisService->getCalendarAspects($user, $year, $month);
+            return ['success' => true, 'days' => $days];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $isEnglish
+                    ? 'Error computing calendar: ' . $e->getMessage()
+                    : 'Erreur lors du calcul du calendrier : ' . $e->getMessage(),
             ];
         }
     }

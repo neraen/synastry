@@ -12,6 +12,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, spacing, fonts } from '@/theme';
 
@@ -22,6 +23,7 @@ interface TabHeaderProps {
 
 export function TabHeader({ onBack }: TabHeaderProps = {}) {
     const router = useRouter();
+    const { t } = useTranslation();
     const { user } = useAuth();
     const name = user?.birthProfile?.firstName || 'Stargazer';
     const initial = name.charAt(0).toUpperCase();
@@ -34,7 +36,7 @@ export function TabHeader({ onBack }: TabHeaderProps = {}) {
                     <Feather name="arrow-left" size={18} color={colors.onSurfaceMuted} />
                 </Pressable>
             ) : (
-                <Pressable style={styles.logoRow} onPress={() => router.push('/transits')} hitSlop={8}>
+                <Pressable style={styles.logoRow} onPress={() => router.push('/(tabs)')} hitSlop={8}>
                     <Text style={styles.logoIcon}>✦</Text>
                     <Text style={styles.logoText}>AstroMatch</Text>
                 </Pressable>
@@ -42,7 +44,7 @@ export function TabHeader({ onBack }: TabHeaderProps = {}) {
 
             {/* Right — greeting + avatar */}
             <Pressable style={styles.userRow} onPress={() => router.push('/(tabs)/profile')} hitSlop={8}>
-                <Text style={styles.hiText}>Hi, {name}</Text>
+                <Text style={styles.hiText}>{t('common.greeting')}, {name}</Text>
                 <View style={styles.avatar}>
                     <Text style={styles.avatarLetter}>{initial}</Text>
                 </View>

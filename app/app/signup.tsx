@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     Screen,
@@ -19,6 +20,7 @@ const LOGO = require('@/assets/images/interface/logo.png');
 
 export default function Signup() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { register, isLoading } = useAuth();
     const [email, setEmail] = useState('');
     const [pwd, setPwd] = useState('');
@@ -30,19 +32,19 @@ export default function Signup() {
 
     async function handleSignup() {
         if (!email || !pwd || !confirm) {
-            setError('Tous les champs sont requis.');
+            setError(t('auth.errors.allFieldsRequired'));
             return;
         }
         if (pwd !== confirm) {
-            setError('Les mots de passe ne correspondent pas.');
+            setError(t('auth.errors.passwordMismatch'));
             return;
         }
         if (pwd.length < 8) {
-            setError('Le mot de passe doit contenir au moins 8 caractères.');
+            setError(t('auth.errors.passwordTooShort'));
             return;
         }
         if (!acceptedTerms) {
-            setError("Vous devez accepter les conditions d'utilisation.");
+            setError(t('auth.errors.acceptTerms'));
             return;
         }
 
@@ -50,9 +52,9 @@ export default function Signup() {
 
         try {
             await register({ email, password: pwd });
-            router.replace('/(tabs)');
+            router.replace('/onboarding');
         } catch (err) {
-            const message = err instanceof Error ? err.message : "Erreur lors de l'inscription";
+            const message = err instanceof Error ? err.message : t('auth.errors.signupFailed');
             setError(message);
         }
     }
@@ -66,11 +68,11 @@ export default function Signup() {
                 <Image source={LOGO} style={styles.logo} resizeMode="contain" />
                 <Spacer size="lg" />
                 <AppHeading variant="h1" align="center">
-                    Créer un compte
+                    {t('auth.signupTitle')}
                 </AppHeading>
                 <Spacer size="sm" />
                 <AppText variant="body" color="muted" align="center">
-                    Commencez votre voyage astrologique
+                    {t('auth.signupSubtitle')}
                 </AppText>
             </View>
 
@@ -79,8 +81,8 @@ export default function Signup() {
             {/* Form Card */}
             <AppCard variant="elevated" style={styles.formCard}>
                 <AppInput
-                    label="Email"
-                    placeholder="vous@exemple.com"
+                    label={t('auth.email')}
+                    placeholder={t('auth.emailPlaceholder')}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -92,20 +94,20 @@ export default function Signup() {
                 <Spacer size="lg" />
 
                 <AppInput
-                    label="Mot de passe"
-                    placeholder="••••••••"
+                    label={t('auth.password')}
+                    placeholder={t('auth.passwordPlaceholder')}
                     secureTextEntry
                     value={pwd}
                     onChangeText={setPwd}
                     disabled={isLoading}
-                    hint="Minimum 8 caractères"
+                    hint={t('auth.passwordHint')}
                 />
 
                 <Spacer size="lg" />
 
                 <AppInput
-                    label="Confirmer le mot de passe"
-                    placeholder="••••••••"
+                    label={t('auth.confirmPassword')}
+                    placeholder={t('auth.passwordPlaceholder')}
                     secureTextEntry
                     value={confirm}
                     onChangeText={setConfirm}
@@ -119,7 +121,7 @@ export default function Signup() {
                     style={styles.consentContainer}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: acceptedTerms }}
-                    accessibilityLabel="Accepter les conditions d'utilisation et la politique de confidentialité"
+                    accessibilityLabel={t('auth.errors.acceptTerms')}
                 >
                     <TouchableOpacity
                         onPress={() => setAcceptedTerms(!acceptedTerms)}
@@ -170,13 +172,13 @@ export default function Signup() {
                     <InlineLoading />
                     <Spacer size="md" />
                     <AppText variant="body" color="muted">
-                        Création du compte...
+                        {t('auth.creatingAccount')}
                     </AppText>
                 </View>
             ) : (
                 <>
                     <AppButton
-                        title="Créer mon compte"
+                        title={t('auth.createAccount')}
                         onPress={handleSignup}
                         variant="primary"
                         disabled={!canSubmit}
@@ -184,12 +186,12 @@ export default function Signup() {
                     <Spacer size="lg" />
                     <View style={styles.loginPrompt}>
                         <AppText variant="body" color="muted">
-                            Déjà inscrit ?
+                            {t('auth.hasAccount')}
                         </AppText>
                     </View>
                     <Spacer size="sm" />
                     <AppButton
-                        title="Se connecter"
+                        title={t('auth.login')}
                         onPress={() => router.push('/login')}
                         variant="outline"
                     />

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, CopyableText, TabHeader, FormattedText } from '@/components/ui';
 import {
@@ -75,6 +76,7 @@ function PlanetCard({ planet, data, tint }: { planet: string; data: any; tint: s
 // ─── Screen ────────────────────────────────────────────────────────────────────
 export default function HoroscopeTab() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -97,10 +99,10 @@ export default function HoroscopeTab() {
                 setChart(response.chart);
                 if (response.chart.interpretation) setInterpretation(response.chart.interpretation);
             } else {
-                setError(response.error || 'Erreur lors du chargement du thème');
+                setError(response.error || t('horoscope.chartError'));
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erreur inconnue');
+            setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
         } finally {
             setIsLoading(false);
         }
@@ -114,10 +116,10 @@ export default function HoroscopeTab() {
             if (response.success && response.interpretation) {
                 setInterpretation(response.interpretation);
             } else {
-                setError(response.error || "Erreur lors de l'interprétation");
+                setError(response.error || t('horoscope.chartError'));
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erreur inconnue');
+            setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
         } finally {
             setIsLoadingInterp(false);
         }
@@ -130,7 +132,7 @@ export default function HoroscopeTab() {
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
                     <View style={styles.centered}>
                         <ActivityIndicator color={colors.primary} size="large" />
-                        <Text style={styles.loadingText}>Calcul de votre thème natal…</Text>
+                        <Text style={styles.loadingText}>{t('horoscope.loadingChart')}</Text>
                     </View>
                 </SafeAreaView>
             </View>
@@ -144,8 +146,8 @@ export default function HoroscopeTab() {
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
                     <View style={styles.centered}>
                         <Text style={styles.emptyIcon}>🔮</Text>
-                        <Text style={styles.emptyText}>Connectez-vous pour voir votre thème natal</Text>
-                        <GoldButton label="SE CONNECTER" onPress={() => router.push('/login')} />
+                        <Text style={styles.emptyText}>{t('horoscope.loginPrompt')}</Text>
+                        <GoldButton label={t('horoscope.loginBtn')} onPress={() => router.push('/login')} />
                     </View>
                 </SafeAreaView>
             </View>
@@ -159,8 +161,8 @@ export default function HoroscopeTab() {
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
                     <View style={styles.centered}>
                         <Text style={styles.emptyIcon}>✨</Text>
-                        <Text style={styles.emptyText}>Complétez votre profil pour voir votre thème natal</Text>
-                        <GoldButton label="MON PROFIL" onPress={() => router.push('/birth-profile')} />
+                        <Text style={styles.emptyText}>{t('horoscope.profilePrompt')}</Text>
+                        <GoldButton label={t('horoscope.profileBtn')} onPress={() => router.push('/birth-profile')} />
                     </View>
                 </SafeAreaView>
             </View>
@@ -184,11 +186,11 @@ export default function HoroscopeTab() {
                     <View style={styles.hero}>
                         <View style={styles.badge}>
                             <View style={styles.badgeDot} />
-                            <Text style={styles.badgeText}>THÈME NATAL</Text>
+                            <Text style={styles.badgeText}>{t('horoscope.badge')}</Text>
                         </View>
-                        <Text style={styles.heroTitle}>Votre ADN{'\n'}cosmique</Text>
+                        <Text style={styles.heroTitle}>{t('horoscope.heroTitle')}</Text>
                         <Text style={styles.heroSubtitle}>
-                            Vos positions planétaires au moment exact de votre naissance.
+                            {t('horoscope.heroSubtitle')}
                         </Text>
                     </View>
 
@@ -198,7 +200,7 @@ export default function HoroscopeTab() {
                             <GlassCard opacity="low" radius="xl">
                                 <Text style={styles.errorText}>{error}</Text>
                                 <View style={{ marginTop: spacing.lg }}>
-                                    <GhostButton label="RÉESSAYER" onPress={() => loadChart()} />
+                                    <GhostButton label={t('horoscope.retry')} onPress={() => loadChart()} />
                                 </View>
                             </GlassCard>
                         </View>
@@ -207,7 +209,7 @@ export default function HoroscopeTab() {
                     {/* ── Planets grid ─────────────────────────────────────────── */}
                     {planetEntries.length > 0 && (
                         <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>POSITIONS PLANÉTAIRES</Text>
+                            <Text style={styles.sectionLabel}>{t('horoscope.planetaryPositions')}</Text>
                             <View style={styles.grid}>
                                 {planetEntries.map(([planet, data], index) => (
                                     <PlanetCard
@@ -224,7 +226,7 @@ export default function HoroscopeTab() {
                     {/* ── Interpretation ───────────────────────────────────────── */}
                     {chart && (
                         <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>INTERPRÉTATION</Text>
+                            <Text style={styles.sectionLabel}>{t('horoscope.interpretation')}</Text>
 
                             {interpretation ? (
                                 <GlassCard opacity="low" radius="xl">
@@ -236,20 +238,20 @@ export default function HoroscopeTab() {
                                 <GlassCard opacity="low" radius="xl">
                                     <View style={styles.interpLoading}>
                                         <ActivityIndicator color={colors.primary} size="small" />
-                                        <Text style={styles.interpLoadingText}>Analyse en cours…</Text>
+                                        <Text style={styles.interpLoadingText}>{t('horoscope.interpretationLoading')}</Text>
                                         <Text style={styles.interpLoadingHint}>
-                                            Cela peut prendre quelques secondes
+                                            {t('horoscope.interpretationLoadingHint')}
                                         </Text>
                                     </View>
                                 </GlassCard>
                             ) : (
                                 <GlassCard opacity="low" radius="xl">
                                     <Text style={styles.interpCta}>
-                                        Obtenez une interprétation personnalisée de votre thème natal par l'IA.
+                                        {t('horoscope.interpretationCta')}
                                     </Text>
                                     <View style={{ marginTop: spacing.xl }}>
                                         <GoldButton
-                                            label="OBTENIR L'INTERPRÉTATION"
+                                            label={t('horoscope.getInterpretation')}
                                             onPress={loadInterpretation}
                                             rightIcon
                                         />
@@ -263,8 +265,8 @@ export default function HoroscopeTab() {
                     {chart && (
                         <View style={styles.actions}>
                             <GhostButton
-                                label="ANALYSE DE COMPATIBILITÉ"
-                                onPress={() => router.push('/synastry')}
+                                label={t('horoscope.compatibilityAnalysis')}
+                                onPress={() => router.push('/(tabs)/compatibility')}
                             />
                         </View>
                     )}

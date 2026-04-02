@@ -302,7 +302,7 @@ class AstrologyService
                 ],
                 'analysis' => $aiResult['analysis'],
                 'compatibilityScore' => $aiResult['compatibilityScore'] ?? null,
-                'details' => $aiResult['details'] ?? null,
+                'compatibilityDetails' => $aiResult['details'] ?? null,
             ];
         } catch (\Exception $e) {
             return [

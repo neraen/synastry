@@ -89,21 +89,31 @@ export default function TabsLayout() {
                 }}
             />
             <Tabs.Screen
-                name="history"
+                name="chat"
+                options={{
+                    tabBarIcon: ({ focused }) => (
+                        <TabIcon name="message-circle" focused={focused} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
+                name="transits"
+                options={{
+                    tabBarIcon: ({ focused }) => (
+                        <TabIcon name="zap" focused={focused} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
+                name="mirror"
                 options={{
                     tabBarIcon: ({ focused }) => (
                         <TabIcon name="clock" focused={focused} />
                     ),
                 }}
             />
-            <Tabs.Screen
-                name="profile"
-                options={{
-                    tabBarIcon: ({ focused }) => (
-                        <TabIcon name="user" focused={focused} />
-                    ),
-                }}
-            />
+            <Tabs.Screen name="history" options={{ href: null }} />
+            <Tabs.Screen name="profile" options={{ href: null }} />
         </Tabs>
     );
 }
