@@ -10,12 +10,9 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
     View,
     Text,
+    TextInput,
     StyleSheet,
     ScrollView,
-    TouchableOpacity,
-    FlatList,
-    Modal,
-    ActivityIndicator,
     Animated,
     Platform,
     Dimensions,
@@ -25,14 +22,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Feather } from '@expo/vector-icons';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, AppDatePicker, AppTimePicker } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, AppDatePicker, AppTimePicker, CityAutocomplete } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 import {
     saveBirthProfile,
-    searchCities,
     CitySearchResult,
 } from '@/services/birthProfile';
 
@@ -105,8 +100,8 @@ function Field({
     );
 }
 
-// Alias to avoid naming conflict
-import { TextInput as TextInputRN } from 'react-native';
+// Alias used in the Field component
+const TextInputRN = TextInput;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -129,11 +124,6 @@ export default function OnboardingScreen() {
     const [timezone, setTimezone] = useState<number | null>(null);
     const [timezoneName, setTimezoneName] = useState<string | null>(null);
 
-    // City search
-    const [cityQuery, setCityQuery] = useState('');
-    const [cityResults, setCityResults] = useState<CitySearchResult[]>([]);
-    const [showCityModal, setShowCityModal] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
 
     // Submit state
     const [isSaving, setIsSaving] = useState(false);
@@ -155,19 +145,6 @@ export default function OnboardingScreen() {
 
     // ── City search ──
 
-    const handleCitySearch = useCallback(async (query: string) => {
-        setCityQuery(query);
-        if (query.length < 2) { setCityResults([]); return; }
-        setIsSearching(true);
-        try {
-            setCityResults(await searchCities(query));
-        } catch {
-            setCityResults([]);
-        } finally {
-            setIsSearching(false);
-        }
-    }, []);
-
     const handleSelectCity = useCallback((city: CitySearchResult) => {
         setBirthCity(city.name);
         setBirthCountry(city.country);
@@ -175,9 +152,15 @@ export default function OnboardingScreen() {
         setLongitude(city.longitude);
         setTimezone(city.timezone);
         setTimezoneName(city.timezoneName);
-        setShowCityModal(false);
-        setCityQuery('');
-        setCityResults([]);
+    }, []);
+
+    const handleClearCity = useCallback(() => {
+        setBirthCity('');
+        setBirthCountry('');
+        setLatitude(null);
+        setLongitude(null);
+        setTimezone(null);
+        setTimezoneName(null);
     }, []);
 
     // ── Save birth profile ──
@@ -312,22 +295,14 @@ export default function OnboardingScreen() {
                     <View style={styles.fieldGap} />
 
                     {/* Birth city */}
-                    <View>
-                        <Text style={styles.fieldLabel}>{t('birthProfile.birthCity')}</Text>
-                        <TouchableOpacity
-                            style={[styles.cityBtn, birthCity && styles.cityBtnFilled]}
-                            onPress={() => setShowCityModal(true)}
-                            disabled={isSaving}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={[styles.cityBtnText, !birthCity && styles.cityBtnPlaceholder]}>
-                                {birthCity
-                                    ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}`
-                                    : t('birthProfile.birthCityPlaceholder')}
-                            </Text>
-                            <Feather name="map-pin" size={16} color={colors.onSurfaceMuted} />
-                        </TouchableOpacity>
-                    </View>
+                    <CityAutocomplete
+                        label={t('birthProfile.birthCity')}
+                        placeholder={t('birthProfile.birthCityPlaceholder')}
+                        value={birthCity ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}` : ''}
+                        onSelect={handleSelectCity}
+                        onClear={handleClearCity}
+                        disabled={isSaving}
+                    />
                 </GlassCard>
 
                 {/* Error */}
@@ -413,60 +388,6 @@ export default function OnboardingScreen() {
             </SafeAreaView>
 
             {/* City search modal */}
-            <Modal
-                visible={showCityModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowCityModal(false)}
-            >
-                <View style={styles.cityModal}>
-                    <View style={styles.cityModalHeader}>
-                        <Text style={styles.cityModalTitle}>{t('birthProfile.searchCity')}</Text>
-                        <TouchableOpacity onPress={() => setShowCityModal(false)} hitSlop={12}>
-                            <Feather name="x" size={20} color={colors.onSurfaceMuted} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.citySearchWrap}>
-                        <Feather name="search" size={16} color={colors.onSurfaceMuted} style={styles.citySearchIcon} />
-                        <TextInputRN
-                            style={styles.citySearchInput}
-                            value={cityQuery}
-                            onChangeText={handleCitySearch}
-                            placeholder={t('birthProfile.citySearchPlaceholder')}
-                            placeholderTextColor={`${colors.onSurfaceMuted}60`}
-                            autoFocus
-                        />
-                    </View>
-
-                    {isSearching && (
-                        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
-                    )}
-
-                    <FlatList
-                        data={cityResults}
-                        keyExtractor={(item, i) => `${item.name}-${i}`}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={styles.cityItem}
-                                onPress={() => handleSelectCity(item)}
-                            >
-                                <Feather name="map-pin" size={14} color={colors.primary} style={{ marginRight: spacing.sm }} />
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.cityItemName}>{item.name}</Text>
-                                    <Text style={styles.cityItemCountry}>{item.country}</Text>
-                                </View>
-                                <Feather name="chevron-right" size={14} color={colors.onSurfaceMuted} />
-                            </TouchableOpacity>
-                        )}
-                        ListEmptyComponent={
-                            cityQuery.length >= 2 && !isSearching ? (
-                                <Text style={styles.cityEmpty}>{t('birthProfile.noResults')}</Text>
-                            ) : null
-                        }
-                    />
-                </View>
-            </Modal>
         </View>
     );
 }
@@ -614,29 +535,6 @@ const styles = StyleSheet.create({
         color: colors.onSurfaceMuted,
         marginTop: spacing.xs,
     },
-    cityBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: colors.surfaceContainerHigh,
-        borderRadius: radius.md,
-        minHeight: 52,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
-    },
-    cityBtnFilled: {
-        borderWidth: 1,
-        borderColor: `${colors.primary}40`,
-    },
-    cityBtnText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 15,
-        color: colors.onSurface,
-        flex: 1,
-    },
-    cityBtnPlaceholder: {
-        color: `${colors.onSurfaceMuted}60`,
-    },
     errorBox: {
         backgroundColor: `${colors.error}15`,
         borderRadius: radius.md,
@@ -720,63 +618,4 @@ const styles = StyleSheet.create({
         flex: 1,
     },
 
-    // ── City modal ──
-    cityModal: {
-        flex: 1,
-        backgroundColor: colors.surfaceLowest,
-        paddingHorizontal: spacing.xl,
-        paddingTop: Platform.OS === 'ios' ? 60 : spacing.xxl,
-    },
-    cityModalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: spacing.xl,
-    },
-    cityModalTitle: {
-        fontFamily: fonts.display.medium,
-        fontSize: 18,
-        color: colors.onSurface,
-    },
-    citySearchWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.surfaceContainerHigh,
-        borderRadius: radius.md,
-        paddingHorizontal: spacing.lg,
-        marginBottom: spacing.lg,
-    },
-    citySearchIcon: { marginRight: spacing.sm },
-    citySearchInput: {
-        flex: 1,
-        fontFamily: fonts.body.regular,
-        fontSize: 15,
-        color: colors.onSurface,
-        height: 52,
-    },
-    cityItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: spacing.lg,
-        borderBottomWidth: 1,
-        borderBottomColor: `${colors.onSurfaceMuted}12`,
-    },
-    cityItemName: {
-        fontFamily: fonts.body.medium,
-        fontSize: 15,
-        color: colors.onSurface,
-    },
-    cityItemCountry: {
-        fontFamily: fonts.body.regular,
-        fontSize: 12,
-        color: colors.onSurfaceMuted,
-        marginTop: 2,
-    },
-    cityEmpty: {
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
-        color: colors.onSurfaceMuted,
-        textAlign: 'center',
-        marginTop: spacing.xxxl,
-    },
 });

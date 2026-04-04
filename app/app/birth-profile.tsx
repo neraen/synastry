@@ -2,11 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     StyleSheet,
-    TouchableOpacity,
-    FlatList,
-    Modal,
-    Platform,
-    ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -22,15 +17,15 @@ import {
     LoadingState,
     AppDatePicker,
     AppTimePicker,
+    CityAutocomplete,
 } from '@/components/ui';
 import {
     BirthProfile,
     getBirthProfile,
     saveBirthProfile,
-    searchCities,
     CitySearchResult,
 } from '@/services/birthProfile';
-import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { colors, spacing } from '@/theme';
 
 
 export default function BirthProfileScreen() {
@@ -53,11 +48,6 @@ export default function BirthProfileScreen() {
     const [timezone, setTimezone] = useState<number | null>(null);
     const [timezoneName, setTimezoneName] = useState<string | null>(null); // IANA timezone name
 
-    // City search
-    const [cityQuery, setCityQuery] = useState('');
-    const [cityResults, setCityResults] = useState<CitySearchResult[]>([]);
-    const [showCityModal, setShowCityModal] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
 
     // Redirect if not authenticated
     useEffect(() => {
@@ -95,37 +85,23 @@ export default function BirthProfileScreen() {
         }
     }, [isAuthenticated]);
 
-    // Search cities with debounce
-    const handleCitySearch = useCallback(async (query: string) => {
-        setCityQuery(query);
-        if (query.length < 2) {
-            setCityResults([]);
-            return;
-        }
-
-        setIsSearching(true);
-        try {
-            const results = await searchCities(query);
-            setCityResults(results);
-        } catch {
-            setCityResults([]);
-        } finally {
-            setIsSearching(false);
-        }
-    }, []);
-
-    // Select a city
-    const handleSelectCity = (city: CitySearchResult) => {
+    const handleSelectCity = useCallback((city: CitySearchResult) => {
         setBirthCity(city.name);
         setBirthCountry(city.country);
         setLatitude(city.latitude);
         setLongitude(city.longitude);
         setTimezone(city.timezone);
-        setTimezoneName(city.timezoneName); // Store timezone name for accurate calculation
-        setShowCityModal(false);
-        setCityQuery('');
-        setCityResults([]);
-    };
+        setTimezoneName(city.timezoneName);
+    }, []);
+
+    const handleClearCity = useCallback(() => {
+        setBirthCity('');
+        setBirthCountry('');
+        setLatitude(null);
+        setLongitude(null);
+        setTimezone(null);
+        setTimezoneName(null);
+    }, []);
 
     // Save profile
     async function handleSave() {
@@ -232,41 +208,14 @@ export default function BirthProfileScreen() {
 
                 <Spacer size="lg" />
 
-                <View>
-                    <AppText variant="label" color="secondary" style={styles.label}>
-                        {t('birthProfile.birthCity')}
-                    </AppText>
-                    <TouchableOpacity
-                        style={[
-                            styles.citySelector,
-                            birthCity && styles.citySelectorFilled,
-                        ]}
-                        onPress={() => setShowCityModal(true)}
-                        disabled={isSaving}
-                    >
-                        <View style={styles.citySelectorContent}>
-                            <AppText
-                                variant="input"
-                                color={birthCity ? 'primary' : 'muted'}
-                            >
-                                {birthCity
-                                    ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}`
-                                    : t('birthProfile.birthCityPlaceholder')}
-                            </AppText>
-                            <AppText style={styles.searchIcon}>🔍</AppText>
-                        </View>
-                    </TouchableOpacity>
-                </View>
-
-                {latitude !== null && longitude !== null && (
-                    <View style={styles.coordinatesContainer}>
-                        <View style={styles.coordinatesBadge}>
-                            <AppText variant="caption" color="muted">
-                                📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                            </AppText>
-                        </View>
-                    </View>
-                )}
+                <CityAutocomplete
+                    label={t('birthProfile.birthCity')}
+                    placeholder={t('birthProfile.birthCityPlaceholder')}
+                    value={birthCity ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}` : ''}
+                    onSelect={handleSelectCity}
+                    onClear={handleClearCity}
+                    disabled={isSaving}
+                />
             </AppCard>
 
             {!!error && (
@@ -299,73 +248,6 @@ export default function BirthProfileScreen() {
 
             <Spacer size="3xl" />
 
-            {/* City Search Modal */}
-            <Modal
-                visible={showCityModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowCityModal(false)}
-            >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <AppHeading variant="h2">{t('birthProfile.searchCity')}</AppHeading>
-                        <TouchableOpacity
-                            onPress={() => setShowCityModal(false)}
-                            style={styles.closeButton}
-                        >
-                            <AppText variant="bodyMedium" color="accent">
-                                {t('common.close')}
-                            </AppText>
-                        </TouchableOpacity>
-                    </View>
-
-                    <AppInput
-                        placeholder={t('birthProfile.citySearchPlaceholder')}
-                        value={cityQuery}
-                        onChangeText={handleCitySearch}
-                        autoFocus
-                    />
-
-                    {isSearching && (
-                        <View style={styles.searchingIndicator}>
-                            <ActivityIndicator color={colors.brand.primary} />
-                        </View>
-                    )}
-
-                    <FlatList
-                        data={cityResults}
-                        keyExtractor={(item, index) => `${item.name}-${item.latitude}-${index}`}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={styles.cityItem}
-                                onPress={() => handleSelectCity(item)}
-                            >
-                                <View style={styles.cityItemContent}>
-                                    <AppText variant="bodyMedium">{item.name}</AppText>
-                                    <AppText variant="caption" color="muted">
-                                        {item.country}
-                                    </AppText>
-                                </View>
-                                <AppText style={styles.cityArrow}>→</AppText>
-                            </TouchableOpacity>
-                        )}
-                        style={styles.cityList}
-                        ListEmptyComponent={
-                            cityQuery.length >= 2 && !isSearching ? (
-                                <View style={styles.emptyResults}>
-                                    <AppText variant="body" color="muted" align="center">
-                                        {t('birthProfile.noResults')}
-                                    </AppText>
-                                    <Spacer size="sm" />
-                                    <AppText variant="caption" color="muted" align="center">
-                                        {t('birthProfile.noResultsHint')}
-                                    </AppText>
-                                </View>
-                            ) : null
-                        }
-                    />
-                </View>
-            </Modal>
         </Screen>
     );
 }
@@ -384,82 +266,8 @@ const styles = StyleSheet.create({
     label: {
         marginBottom: spacing.sm,
     },
-    citySelector: {
-        backgroundColor: colors.input.background,
-        borderWidth: 1,
-        borderColor: colors.input.border,
-        borderRadius: borderRadius.input,
-        minHeight: 52,
-        justifyContent: 'center',
-    },
-    citySelectorFilled: {
-        borderColor: colors.border.focus,
-    },
-    citySelectorContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: spacing.inputPadding,
-        paddingVertical: spacing.inputPadding,
-    },
-    searchIcon: {
-        fontSize: 16,
-    },
-    coordinatesContainer: {
-        marginTop: spacing.sm,
-        alignItems: 'flex-start',
-    },
-    coordinatesBadge: {
-        backgroundColor: colors.surface.elevated,
-        borderRadius: borderRadius.tag,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xxs,
-    },
     errorCard: {
         borderColor: colors.status.error,
         padding: spacing.lg,
-    },
-    modalContainer: {
-        flex: 1,
-        backgroundColor: colors.background.primary,
-        paddingHorizontal: spacing.screenPadding,
-        paddingTop: Platform.OS === 'ios' ? 60 : spacing['2xl'],
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.xl,
-    },
-    closeButton: {
-        padding: spacing.sm,
-    },
-    searchingIndicator: {
-        paddingVertical: spacing.xl,
-        alignItems: 'center',
-    },
-    cityList: {
-        marginTop: spacing.lg,
-    },
-    cityItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: spacing.lg,
-        paddingHorizontal: spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border.subtle,
-    },
-    cityItemContent: {
-        flex: 1,
-    },
-    cityArrow: {
-        color: colors.brand.primary,
-        fontSize: 18,
-        marginLeft: spacing.md,
-    },
-    emptyResults: {
-        marginTop: spacing['3xl'],
-        alignItems: 'center',
     },
 });

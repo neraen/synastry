@@ -17,6 +17,7 @@ export { TabHeader } from './TabHeader';
 export { FormattedText } from './FormattedText';
 export { PremiumGate } from './PremiumGate';
 export { PremiumLockedButton } from './PremiumLockedButton';
+export { CityAutocomplete } from './CityAutocomplete';
 
 // === LEGACY COMPONENTS (to be migrated) ===
 

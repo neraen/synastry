@@ -1,14 +1,9 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'; // useRef used in FormView
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
     ScrollView,
-    Pressable,
     StyleSheet,
-    TouchableOpacity,
-    FlatList,
-    Modal,
-    Platform,
     ActivityIndicator,
 } from 'react-native';
 import { usePremium } from '@/hooks/usePremium';
@@ -20,17 +15,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     GlassCard,
     GoldButton,
-    AppInput,
     AppDatePicker,
     AppTimePicker,
+    AppInput,
     CopyableText,
     TabHeader,
     FormattedText,
     ScoreRow,
     PremiumLockedButton,
+    CityAutocomplete,
 } from '@/components/ui';
 import { calculateSynastry, getSynastryHistoryDetail, SynastryResponse } from '@/services/astrology';
-import { searchCities, CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
+import { CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
 import { aiDisclaimerText } from '@/constants/legalTexts';
 import { colors, spacing, radius, fonts } from '@/theme';
 
@@ -150,24 +146,18 @@ function ResultView({
 
 // ─── Form view ─────────────────────────────────────────────────────────────────
 function FormView({
-    userName,
     partnerName, setPartnerName,
     birthDate, setBirthDate,
     birthTime, setBirthTime,
-    birthCity, setBirthCity,
-    cityQuery, setCityQuery,
-    cityResults, setCityResults,
-    showCityModal, setShowCityModal,
-    isSearching,
+    birthCity,
     isLoading,
     error,
-    handleCitySearch,
     handleSelectCity,
+    handleClearCity,
     handleSubmit,
     freeLimitReached,
 }: any) {
     const { t } = useTranslation();
-    const cityInputRef = useRef<any>(null);
     return (
         <View style={styles.screen}>
             <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -217,20 +207,14 @@ function FormView({
                                 hint={t('synastry.birthTimeHint')}
                             />
                             <View style={{ height: spacing.lg }} />
-                            {/* City selector */}
-                            <View>
-                                <Text style={styles.inputLabel}>{t('synastry.birthCityLabel')}</Text>
-                                <TouchableOpacity
-                                    style={[styles.citySelector, birthCity && styles.citySelectorFilled]}
-                                    onPress={() => setShowCityModal(true)}
-                                    disabled={isLoading}
-                                >
-                                    <Text style={[styles.citySelectorText, !birthCity && styles.citySelectorPlaceholder]}>
-                                        {birthCity || t('synastry.birthCityPlaceholder')}
-                                    </Text>
-                                    <Feather name="search" size={16} color={colors.onSurfaceMuted} />
-                                </TouchableOpacity>
-                            </View>
+                            <CityAutocomplete
+                                label={t('synastry.birthCityLabel')}
+                                placeholder={t('synastry.birthCityPlaceholder')}
+                                value={birthCity}
+                                onSelect={handleSelectCity}
+                                onClear={handleClearCity}
+                                disabled={isLoading}
+                            />
                         </GlassCard>
                     </View>
 
@@ -264,55 +248,6 @@ function FormView({
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
-
-            {/* City modal */}
-            <Modal
-                visible={showCityModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowCityModal(false)}
-                onShow={() => {
-                    // Delay focus until after the modal slide animation completes
-                    setTimeout(() => cityInputRef.current?.focus(), 100);
-                }}
-            >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>{t('synastry.searchCityTitle')}</Text>
-                        <Pressable onPress={() => setShowCityModal(false)}>
-                            <Text style={styles.modalClose}>{t('common.close')}</Text>
-                        </Pressable>
-                    </View>
-                    <AppInput
-                        ref={cityInputRef}
-                        placeholder={t('birthProfile.citySearchPlaceholder')}
-                        value={cityQuery}
-                        onChangeText={handleCitySearch}
-                    />
-                    {isSearching && (
-                        <View style={styles.searchingRow}>
-                            <ActivityIndicator color={colors.primary} />
-                        </View>
-                    )}
-                    <FlatList
-                        data={cityResults}
-                        keyExtractor={(item, index) => `${item.name}-${index}`}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={styles.cityItem}
-                                onPress={() => handleSelectCity(item)}
-                            >
-                                <View>
-                                    <Text style={styles.cityName}>{item.name}</Text>
-                                    <Text style={styles.cityCountry}>{item.country}</Text>
-                                </View>
-                                <Text style={styles.cityArrow}>→</Text>
-                            </TouchableOpacity>
-                        )}
-                        style={{ marginTop: spacing.lg }}
-                    />
-                </View>
-            </Modal>
         </View>
     );
 }
@@ -360,40 +295,27 @@ export default function CompatibilityTab() {
     const [longitude, setLongitude] = useState<number | null>(null);
     const [timezone, setTimezone] = useState<number | null>(null);
     const [timezoneName, setTimezoneName] = useState<string | null>(null);
-    const [cityQuery, setCityQuery] = useState('');
-    const [cityResults, setCityResults] = useState<CitySearchResult[]>([]);
-    const [showCityModal, setShowCityModal] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
-
-    const handleCitySearch = useCallback(async (query: string) => {
-        setCityQuery(query);
-        if (query.length < 2) { setCityResults([]); return; }
-        setIsSearching(true);
-        try {
-            setCityResults(await searchCities(query));
-        } catch {
-            setCityResults([]);
-        } finally {
-            setIsSearching(false);
-        }
-    }, []);
-
-    const handleSelectCity = (city: CitySearchResult) => {
+    const handleSelectCity = useCallback((city: CitySearchResult) => {
         setBirthCity(city.name);
         setLatitude(city.latitude);
         setLongitude(city.longitude);
         setTimezone(city.timezone);
         setTimezoneName(city.timezoneName);
-        setShowCityModal(false);
-        setCityQuery('');
-        setCityResults([]);
-    };
+    }, []);
 
-    const resetForm = () => {
+    const handleClearCity = useCallback(() => {
+        setBirthCity('');
+        setLatitude(null);
+        setLongitude(null);
+        setTimezone(null);
+        setTimezoneName(null);
+    }, []);
+
+    const resetForm = useCallback(() => {
         setPartnerName(''); setBirthDate(''); setBirthTime(''); setBirthCity('');
         setLatitude(null); setLongitude(null); setTimezone(null); setTimezoneName(null);
         setResult(null); setError(undefined);
-    };
+    }, []);
 
     async function handleSubmit() {
         setError(undefined);
@@ -464,19 +386,14 @@ export default function CompatibilityTab() {
 
     return (
         <FormView
-            userName={userName}
             partnerName={partnerName} setPartnerName={setPartnerName}
             birthDate={birthDate} setBirthDate={setBirthDate}
             birthTime={birthTime} setBirthTime={setBirthTime}
-            birthCity={birthCity} setBirthCity={setBirthCity}
-            cityQuery={cityQuery} setCityQuery={setCityQuery}
-            cityResults={cityResults} setCityResults={setCityResults}
-            showCityModal={showCityModal} setShowCityModal={setShowCityModal}
-            isSearching={isSearching}
+            birthCity={birthCity}
             isLoading={isLoading}
             error={error}
-            handleCitySearch={handleCitySearch}
             handleSelectCity={handleSelectCity}
+            handleClearCity={handleClearCity}
             handleSubmit={handleSubmit}
             freeLimitReached={freeLimitReached}
         />
@@ -533,19 +450,6 @@ const styles = StyleSheet.create({
     formSubtitle: {
         fontFamily: fonts.body.regular, fontSize: 15, lineHeight: 24, color: colors.onSurfaceMuted,
     },
-    inputLabel: {
-        fontFamily: fonts.body.medium, fontSize: 13, color: colors.onSurfaceMuted,
-        marginBottom: spacing.sm, letterSpacing: 0.3,
-    },
-    citySelector: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: colors.surfaceContainer,
-        borderRadius: radius.md, minHeight: 52, paddingHorizontal: spacing.lg,
-        borderWidth: 1, borderColor: `${colors.outline}66`,
-    },
-    citySelectorFilled: { borderColor: colors.primary },
-    citySelectorText: { fontFamily: fonts.body.regular, fontSize: 16, color: colors.onSurface },
-    citySelectorPlaceholder: { color: colors.onSurfaceMuted },
 
     // Result hero
     heroPct: {
@@ -608,25 +512,4 @@ const styles = StyleSheet.create({
 
     errorText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.error, textAlign: 'center' },
 
-    // Modal
-    modalContainer: {
-        flex: 1, backgroundColor: colors.surfaceLowest,
-        paddingHorizontal: spacing.xl,
-        paddingTop: Platform.OS === 'ios' ? 60 : spacing.xxl,
-    },
-    modalHeader: {
-        flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: spacing.xl,
-    },
-    modalTitle: { fontFamily: fonts.display.regular, fontSize: 20, color: colors.onSurface },
-    modalClose: { fontFamily: fonts.body.medium, fontSize: 14, color: colors.primary },
-    searchingRow: { paddingVertical: spacing.xl, alignItems: 'center' },
-    cityItem: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingVertical: spacing.lg, paddingHorizontal: spacing.md,
-        borderBottomWidth: 1, borderBottomColor: `${colors.outline}33`,
-    },
-    cityName: { fontFamily: fonts.body.medium, fontSize: 15, color: colors.onSurface },
-    cityCountry: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
-    cityArrow: { fontFamily: fonts.body.regular, fontSize: 20, color: colors.primary },
 });
