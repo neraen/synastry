@@ -8,6 +8,7 @@ import {
     Text,
     TextInput,
     Pressable,
+    TouchableOpacity,
     FlatList,
     StyleSheet,
     KeyboardAvoidingView,
@@ -26,6 +27,8 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, radius, fonts } from '@/theme';
+import { router } from 'expo-router';
+import { usePremium } from '@/hooks/usePremium';
 import {
     sendChatMessage,
     getChatPartners,
@@ -213,6 +216,7 @@ const WELCOME_ID = '__welcome__';
 
 export default function ChatScreen() {
     const { t } = useTranslation();
+    const { isPremium } = usePremium();
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
             id: WELCOME_ID,
@@ -225,6 +229,8 @@ export default function ChatScreen() {
     const [isTyping, setIsTyping] = useState(false);
     const [activePartner, setActivePartner] = useState<ChatPartner | null>(null);
     const [pickerVisible, setPickerVisible] = useState(false);
+    const [remainingMessages, setRemainingMessages] = useState<number | null>(null);
+    const [dailyLimitReached, setDailyLimitReached] = useState(false);
     const listRef = useRef<FlatList>(null);
 
     const scrollToBottom = useCallback(() => {
@@ -252,12 +258,20 @@ export default function ChatScreen() {
 
         try {
             const res = await sendChatMessage(history, activePartner?.id);
+
+            if (res.remaining_messages !== undefined) setRemainingMessages(res.remaining_messages);
+            if (res.daily_limit_reached) setDailyLimitReached(true);
+
             const replyContent = res.success && res.message ? res.message : t('chat.errorMessage');
             setMessages((prev) => [
                 ...prev,
                 { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, createdAt: new Date() },
             ]);
-        } catch {
+        } catch (err: any) {
+            if (err?.status === 403 && err?.payload?.error === 'daily_limit_reached') {
+                setDailyLimitReached(true);
+                setRemainingMessages(0);
+            }
             setMessages((prev) => [
                 ...prev,
                 { id: (Date.now() + 1).toString(), role: 'assistant', content: t('chat.errorMessage'), createdAt: new Date() },
@@ -317,23 +331,53 @@ export default function ChatScreen() {
                     </View>
                 )}
 
+                {/* Daily limit banner / counter */}
+                {!isPremium && dailyLimitReached && (
+                    <View style={styles.limitBanner}>
+                        <Text style={styles.limitBannerText}>{t('premium.chatLimitReached')}</Text>
+                        <TouchableOpacity onPress={() => router.push('/premium')} activeOpacity={0.8}>
+                            <Text style={styles.limitBannerCta}>{t('premium.chatLimitCta')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                {!isPremium && !dailyLimitReached && remainingMessages !== null && remainingMessages >= 0 && (
+                    <View style={styles.limitCounter}>
+                        <Text style={styles.limitCounterText}>
+                            {t('premium.chatRemaining', { count: remainingMessages })}
+                        </Text>
+                        <TouchableOpacity onPress={() => router.push('/premium')} hitSlop={8}>
+                            <Text style={styles.limitCounterCta}>{t('premium.trialCta')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
                 {/* Input bar */}
                 <View style={styles.inputBar}>
-                    {/* Add partner button */}
-                    <Pressable
-                        onPress={() => setPickerVisible(true)}
-                        style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.7 }]}
-                        hitSlop={8}
-                    >
-                        <Feather
-                            name={activePartner ? 'users' : 'user-plus'}
-                            size={18}
-                            color={activePartner ? colors.primary : colors.onSurfaceMuted}
-                        />
-                    </Pressable>
+                    {/* Add partner button — premium only */}
+                    {isPremium ? (
+                        <Pressable
+                            onPress={() => setPickerVisible(true)}
+                            style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.7 }]}
+                            hitSlop={8}
+                        >
+                            <Feather
+                                name={activePartner ? 'users' : 'user-plus'}
+                                size={18}
+                                color={activePartner ? colors.primary : colors.onSurfaceMuted}
+                            />
+                        </Pressable>
+                    ) : (
+                        <Pressable
+                            onPress={() => router.push({ pathname: '/premium', params: { source: 'chat_partner_context' } })}
+                            style={[styles.addBtn, { opacity: 0.5 }]}
+                            hitSlop={8}
+                        >
+                            <Feather name="lock" size={18} color={colors.onSurfaceMuted} />
+                        </Pressable>
+                    )}
 
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, (!isPremium && dailyLimitReached) && styles.inputDisabled]}
                         value={inputText}
                         onChangeText={setInputText}
                         placeholder={t('chat.inputPlaceholder')}
@@ -343,14 +387,15 @@ export default function ChatScreen() {
                         onSubmitEditing={handleSend}
                         blurOnSubmit={false}
                         returnKeyType="send"
+                        editable={isPremium || !dailyLimitReached}
                     />
 
                     <Pressable
                         onPress={handleSend}
-                        disabled={!inputText.trim() || isTyping}
+                        disabled={!inputText.trim() || isTyping || (!isPremium && dailyLimitReached)}
                         style={({ pressed }) => [
                             styles.sendBtn,
-                            (!inputText.trim() || isTyping) && styles.sendBtnDisabled,
+                            (!inputText.trim() || isTyping || (!isPremium && dailyLimitReached)) && styles.sendBtnDisabled,
                             pressed && styles.sendBtnPressed,
                         ]}
                     >
@@ -495,6 +540,47 @@ const styles = StyleSheet.create({
     },
     sendBtnDisabled: { backgroundColor: `${colors.primary}40` },
     sendBtnPressed: { opacity: 0.8, transform: [{ scale: 0.95 }] },
+    inputDisabled: { opacity: 0.5 },
+
+    // Limit banner / counter
+    limitBanner: {
+        backgroundColor: `${colors.primary}15`,
+        borderTopWidth: 1,
+        borderTopColor: `${colors.primary}25`,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.md,
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    limitBannerText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 13,
+        color: colors.onSurface,
+        textAlign: 'center',
+    },
+    limitBannerCta: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 13,
+        color: colors.primary,
+    },
+    limitCounter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.md,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.sm,
+    },
+    limitCounterText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: colors.onSurfaceMuted,
+    },
+    limitCounterCta: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 12,
+        color: colors.primary,
+    },
 
     // Partner picker modal
     modalContainer: {

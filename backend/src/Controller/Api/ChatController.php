@@ -12,10 +12,13 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 #[Route('/api/chat')]
 class ChatController extends AbstractController
 {
+    private const DAILY_FREE_LIMIT = 5;
     // Key planets to include in the context (most astrologically significant)
     private const CONTEXT_PLANETS = ['Sun', 'Moon', 'Ascendant', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'];
 
@@ -23,6 +26,7 @@ class ChatController extends AbstractController
         private OpenAiService $openAiService,
         private NatalChartRepository $natalChartRepository,
         private SynastryHistoryRepository $synastryHistoryRepository,
+        private CacheInterface $cache,
     ) {}
 
     /**
@@ -88,6 +92,40 @@ class ChatController extends AbstractController
             $messages = array_slice($messages, -20);
         }
 
+        // ── Daily message limit (free users) ────────────────────────────────────
+        $remainingMessages = -1; // -1 = unlimited (premium)
+        if (!$user->isPremium()) {
+            $today = (new \DateTime())->format('Y-m-d');
+            $cacheKey = sprintf('chat_usage_%d_%s', $user->getId(), $today);
+
+            // Get current count (0 if not yet set today)
+            $count = $this->cache->get($cacheKey, function (ItemInterface $item) {
+                $tomorrow = new \DateTime('tomorrow midnight');
+                $item->expiresAt($tomorrow);
+                return 0;
+            });
+
+            if ($count >= self::DAILY_FREE_LIMIT) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'daily_limit_reached',
+                    'remaining_messages' => 0,
+                    'daily_limit_reached' => true,
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            // Increment: delete and re-store with new count
+            $newCount = $count + 1;
+            $this->cache->delete($cacheKey);
+            $this->cache->get($cacheKey, function (ItemInterface $item) use ($newCount) {
+                $tomorrow = new \DateTime('tomorrow midnight');
+                $item->expiresAt($tomorrow);
+                return $newCount;
+            });
+
+            $remainingMessages = self::DAILY_FREE_LIMIT - $newCount;
+        }
+
         // ── User context ────────────────────────────────────────────────────────
         $userContext = [];
 
@@ -125,6 +163,9 @@ class ChatController extends AbstractController
         if (!$result['success']) {
             return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+
+        $result['remaining_messages'] = $remainingMessages;
+        $result['daily_limit_reached'] = false;
 
         return $this->json($result);
     }

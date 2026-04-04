@@ -15,6 +15,8 @@ export { TransitCard } from './TransitCard';
 export { NavBar } from './NavBar';
 export { TabHeader } from './TabHeader';
 export { FormattedText } from './FormattedText';
+export { PremiumGate } from './PremiumGate';
+export { PremiumLockedButton } from './PremiumLockedButton';
 
 // === LEGACY COMPONENTS (to be migrated) ===
 

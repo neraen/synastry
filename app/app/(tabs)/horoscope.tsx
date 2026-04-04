@@ -11,7 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, CopyableText, TabHeader, FormattedText } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, CopyableText, TabHeader, FormattedText, PremiumLockedButton } from '@/components/ui';
+import { usePremium } from '@/hooks/usePremium';
 import {
     getNatalChart,
     getNatalChartInterpretation,
@@ -79,11 +80,13 @@ export default function HoroscopeTab() {
     const { t } = useTranslation();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
+    const { isPremium } = usePremium();
     const [isLoading, setIsLoading] = useState(true);
     const [isLoadingInterp, setIsLoadingInterp] = useState(false);
     const [error, setError] = useState<string>();
     const [chart, setChart] = useState<NatalChart | null>(null);
     const [interpretation, setInterpretation] = useState<string | null>(null);
+    const [interpretationLocked, setInterpretationLocked] = useState(false);
 
     useEffect(() => {
         if (isAuthLoading) return;
@@ -118,8 +121,12 @@ export default function HoroscopeTab() {
             } else {
                 setError(response.error || t('horoscope.chartError'));
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
+        } catch (err: any) {
+            if (err?.status === 403 && err?.payload?.error === 'interpretation_already_used') {
+                setInterpretationLocked(true);
+            } else {
+                setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
+            }
         } finally {
             setIsLoadingInterp(false);
         }
@@ -243,6 +250,14 @@ export default function HoroscopeTab() {
                                             {t('horoscope.interpretationLoadingHint')}
                                         </Text>
                                     </View>
+                                </GlassCard>
+                            ) : interpretationLocked && !isPremium ? (
+                                <GlassCard opacity="low" radius="xl">
+                                    <PremiumLockedButton
+                                        label={t('premium.natalLimitTitle')}
+                                        reason={t('premium.natalLimitReason')}
+                                        source="natal_interpretation"
+                                    />
                                 </GlassCard>
                             ) : (
                                 <GlassCard opacity="low" radius="xl">

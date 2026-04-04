@@ -470,5 +470,24 @@
       "feature4": "Chat avec l'astrologue IA Lyra",
       "cta": "Entrer dans l'app"
     }
+  },
+  "premium": {
+    "chatLimitReached": "Tu as atteint ta limite de 5 messages aujourd'hui",
+    "chatLimitCta": "Essayer Premium 7 jours gratuitement",
+    "chatRemaining_one": "{{count}} message restant aujourd'hui",
+    "chatRemaining_other": "{{count}} messages restants aujourd'hui",
+    "chatPartnerLocked": "Ajouter un partenaire est une fonctionnalité Premium",
+    "synastryLimitTitle": "Analyse gratuite utilisée",
+    "synastryLimitReason": "Tu as utilisé ton analyse gratuite",
+    "synastryLimitBtn": "Nouvelle analyse",
+    "historyLockedTitle": "{{count}} analyses supplémentaires",
+    "historyLockedSubtitle": "Débloquez l'historique complet",
+    "historyLockedCta": "Essayer Premium",
+    "natalLimitTitle": "Voir l'interprétation complète",
+    "natalLimitReason": "Fonctionnalité Premium",
+    "calendarLockedTitle": "Calendrier des transits",
+    "calendarLockedSubtitle": "Planifie tes mois selon les aspects planétaires. Vue complète mois par mois, code couleur, interprétations IA.",
+    "calendarLockedCta": "Essayer Premium 7 jours",
+    "trialCta": "Essayer Premium gratuitement"
   }
 }

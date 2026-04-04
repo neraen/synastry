@@ -3,6 +3,8 @@
 namespace App\Controller\Api;
 
 use App\Entity\User;
+use App\Repository\NatalChartRepository;
+use App\Repository\SynastryHistoryRepository;
 use App\Service\AstrologyService;
 use App\Service\PromptLocaleService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,6 +18,8 @@ class AstrologyController extends AbstractController
 {
     public function __construct(
         private AstrologyService $astrologyService,
+        private NatalChartRepository $natalChartRepository,
+        private SynastryHistoryRepository $synastryHistoryRepository,
     ) {}
 
     /**
@@ -77,6 +81,20 @@ class AstrologyController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
+        // Free users: 1 free interpretation — gate if already generated
+        if (!$user->isPremium()) {
+            $chart = $this->natalChartRepository->findByUser($user);
+            if ($chart && $chart->getInterpretation()) {
+                return $this->json([
+                    'error' => 'interpretation_already_used',
+                    'message' => $locale === 'en'
+                        ? 'Your free interpretation has already been generated. Upgrade to Premium for unlimited access.'
+                        : 'Votre interprétation gratuite a déjà été générée. Passez en Premium pour un accès illimité.',
+                    'generated_at' => $chart->getCreatedAt()?->format(\DateTime::ATOM),
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
+
         $result = $this->astrologyService->getNatalChartInterpretation($user);
 
         if (!$result['success']) {
@@ -108,6 +126,20 @@ class AstrologyController extends AbstractController
             return $this->json([
                 'error' => $errorMessage
             ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Free users: limit to 1 analysis
+        if (!$user->isPremium()) {
+            $existingCount = $this->synastryHistoryRepository->countByUser($user);
+            if ($existingCount >= 1) {
+                return $this->json([
+                    'error' => 'free_limit_reached',
+                    'message' => $locale === 'en'
+                        ? 'You have used your free analysis. Upgrade to Premium for unlimited analyses.'
+                        : 'Vous avez utilisé votre analyse gratuite. Passez en Premium pour des analyses illimitées.',
+                    'analyses_count' => $existingCount,
+                ], Response::HTTP_FORBIDDEN);
+            }
         }
 
         $data = json_decode($request->getContent(), true);
@@ -192,7 +224,17 @@ class AstrologyController extends AbstractController
         $user = $this->getUser();
 
         $limit = $request->query->getInt('limit', 50);
-        $result = $this->astrologyService->getSynastryHistory($user, $limit);
+        $totalCount = $this->synastryHistoryRepository->countByUser($user);
+
+        if (!$user->isPremium()) {
+            $result = $this->astrologyService->getSynastryHistory($user, 1);
+            $result['is_limited'] = true;
+            $result['total_count'] = $totalCount;
+        } else {
+            $result = $this->astrologyService->getSynastryHistory($user, $limit);
+            $result['is_limited'] = false;
+            $result['total_count'] = $totalCount;
+        }
 
         return $this->json($result);
     }

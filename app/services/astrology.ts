@@ -107,6 +107,8 @@ export interface SynastryHistoryListResponse {
     success: boolean;
     histories?: SynastryHistorySummary[];
     count?: number;
+    is_limited?: boolean;
+    total_count?: number;
     error?: string;
 }
 
@@ -415,6 +417,8 @@ export interface ChatResponse {
     success: boolean;
     message?: string;
     error?: string;
+    remaining_messages?: number; // -1 = unlimited (premium)
+    daily_limit_reached?: boolean;
 }
 
 export interface ChatPartner {

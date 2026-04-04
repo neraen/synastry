@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, TabHeader, PremiumLockedButton } from '@/components/ui';
 import {
     getSynastryHistory,
     deleteSynastryHistoryEntry,
@@ -103,6 +103,8 @@ export default function HistoryTab() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string>();
     const [histories, setHistories] = useState<SynastryHistorySummary[]>([]);
+    const [isLimited, setIsLimited] = useState(false);
+    const [totalCount, setTotalCount] = useState(0);
 
     const loadHistory = useCallback(async (showRefresh = false) => {
         if (showRefresh) setIsRefreshing(true);
@@ -111,6 +113,8 @@ export default function HistoryTab() {
             const response = await getSynastryHistory();
             if (response.success && response.histories) {
                 setHistories(response.histories);
+                setIsLimited(response.is_limited ?? false);
+                setTotalCount(response.total_count ?? response.histories.length);
             } else {
                 setError(response.error || t('history.loadError'));
             }
@@ -253,6 +257,15 @@ export default function HistoryTab() {
                                     onDelete={() => handleDelete(item)}
                                 />
                             ))}
+
+                            {/* Locked entries card for free users */}
+                            {isLimited && totalCount > histories.length && (
+                                <PremiumLockedButton
+                                    label={t('premium.historyLockedTitle', { count: totalCount - histories.length })}
+                                    reason={t('premium.historyLockedSubtitle')}
+                                    source="synastry_history"
+                                />
+                            )}
 
                             <View style={styles.bottomActions}>
                                 <GhostButton

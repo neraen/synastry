@@ -470,5 +470,24 @@
       "feature4": "Chat with AI astrologer Lyra",
       "cta": "Enter the app"
     }
+  },
+  "premium": {
+    "chatLimitReached": "You've reached your 5-message daily limit",
+    "chatLimitCta": "Try Premium free for 7 days",
+    "chatRemaining_one": "{{count}} message left today",
+    "chatRemaining_other": "{{count}} messages left today",
+    "chatPartnerLocked": "Adding a partner is a Premium feature",
+    "synastryLimitTitle": "Free analysis used",
+    "synastryLimitReason": "You've used your free analysis",
+    "synastryLimitBtn": "New analysis",
+    "historyLockedTitle": "{{count}} additional analyses",
+    "historyLockedSubtitle": "Unlock your full history",
+    "historyLockedCta": "Try Premium",
+    "natalLimitTitle": "View full interpretation",
+    "natalLimitReason": "Premium feature",
+    "calendarLockedTitle": "Transit calendar",
+    "calendarLockedSubtitle": "Plan your months by planetary aspects. Full month view, color-coded, AI interpretations.",
+    "calendarLockedCta": "Try Premium free for 7 days",
+    "trialCta": "Try Premium for free"
   }
 }

@@ -11,6 +11,7 @@ import {
     Platform,
     ActivityIndicator,
 } from 'react-native';
+import { usePremium } from '@/hooks/usePremium';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -26,6 +27,7 @@ import {
     TabHeader,
     FormattedText,
     ScoreRow,
+    PremiumLockedButton,
 } from '@/components/ui';
 import { calculateSynastry, getSynastryHistoryDetail, SynastryResponse } from '@/services/astrology';
 import { searchCities, CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
@@ -162,6 +164,7 @@ function FormView({
     handleCitySearch,
     handleSelectCity,
     handleSubmit,
+    freeLimitReached,
 }: any) {
     const { t } = useTranslation();
     const cityInputRef = useRef<any>(null);
@@ -247,6 +250,12 @@ function FormView({
                                 <ActivityIndicator color={colors.primary} />
                                 <Text style={styles.loadingText}>{t('synastry.calculatingLabel')}</Text>
                             </View>
+                        ) : freeLimitReached ? (
+                            <PremiumLockedButton
+                                label={t('premium.synastryLimitBtn')}
+                                reason={t('premium.synastryLimitReason')}
+                                source="synastry_second_analysis"
+                            />
                         ) : (
                             <GoldButton label={t('synastry.analyzeBtn')} onPress={handleSubmit} rightIcon />
                         )}
@@ -313,12 +322,14 @@ export default function CompatibilityTab() {
     const router = useRouter();
     const { t } = useTranslation();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+    const { isPremium } = usePremium();
     const { id: historyId } = useLocalSearchParams<{ id?: string }>();
     const userName = user?.firstName || 'Stargazer';
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>();
     const [result, setResult] = useState<SynastryResponse | null>(null);
+    const [freeLimitReached, setFreeLimitReached] = useState(false);
 
     // Load from history if id param is present
     useEffect(() => {
@@ -402,8 +413,12 @@ export default function CompatibilityTab() {
             });
             if (response.success) setResult(response);
             else setError(response.error || t('synastry.calcError'));
-        } catch (err) {
-            setError(err instanceof Error ? err.message : t('synastry.calcError'));
+        } catch (err: any) {
+            if (err?.status === 403 && err?.payload?.error === 'free_limit_reached') {
+                setFreeLimitReached(true);
+            } else {
+                setError(err instanceof Error ? err.message : t('synastry.calcError'));
+            }
         } finally {
             setIsLoading(false);
         }
@@ -463,6 +478,7 @@ export default function CompatibilityTab() {
             handleCitySearch={handleCitySearch}
             handleSelectCity={handleSelectCity}
             handleSubmit={handleSubmit}
+            freeLimitReached={freeLimitReached}
         />
     );
 }

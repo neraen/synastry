@@ -23,7 +23,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
-import { GlassCard, TabHeader } from '@/components/ui';
+import { GlassCard, GoldButton, TabHeader } from '@/components/ui';
+import { usePremium } from '@/hooks/usePremium';
+import { router } from 'expo-router';
 import {
     getUpcomingTransits,
     getCalendarTransits,
@@ -476,6 +478,7 @@ function HelpModal({ visible, onClose, locale }: { visible: boolean; onClose: ()
 
 export default function TransitsScreen() {
     const { t, i18n } = useTranslation();
+    const { isPremium } = usePremium();
     const locale = i18n.language?.startsWith('fr') ? 'fr' : 'en';
 
     // Tab state
@@ -693,7 +696,19 @@ export default function TransitsScreen() {
                     )}
 
                     {/* ── Calendar tab ── */}
-                    {activeTab === 'calendar' && (
+                    {activeTab === 'calendar' && !isPremium && (
+                        <View style={styles.calendarLockedWrap}>
+                            <Feather name="lock" size={32} color={colors.primary} style={{ opacity: 0.8 }} />
+                            <Text style={styles.calendarLockedTitle}>{t('premium.calendarLockedTitle')}</Text>
+                            <Text style={styles.calendarLockedSubtitle}>{t('premium.calendarLockedSubtitle')}</Text>
+                            <GoldButton
+                                label={t('premium.calendarLockedCta')}
+                                onPress={() => router.push({ pathname: '/premium', params: { source: 'transit_calendar' } })}
+                            />
+                        </View>
+                    )}
+
+                    {activeTab === 'calendar' && isPremium && (
                         <View style={styles.calendarSection}>
 
                             {/* Month navigation */}
@@ -1068,6 +1083,26 @@ const styles = StyleSheet.create({
     calendarSection: {
         paddingHorizontal: spacing.xl,
         gap: spacing.lg,
+    },
+    calendarLockedWrap: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.xxl * 2,
+        alignItems: 'center',
+        gap: spacing.lg,
+    },
+    calendarLockedTitle: {
+        fontFamily: fonts.display.bold,
+        fontSize: 20,
+        color: colors.onSurface,
+        textAlign: 'center',
+    },
+    calendarLockedSubtitle: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: spacing.md,
     },
 
     // Month nav
