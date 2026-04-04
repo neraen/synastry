@@ -1,8 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     View,
     Text,
     ScrollView,
+    KeyboardAvoidingView,
+    Platform,
     StyleSheet,
     ActivityIndicator,
 } from 'react-native';
@@ -156,12 +158,19 @@ function FormView({
     handleClearCity,
     handleSubmit,
     freeLimitReached,
+    scrollRef,
 }: any) {
     const { t } = useTranslation();
     return (
         <View style={styles.screen}>
             <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <KeyboardAvoidingView
+                    style={styles.flex}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+                >
                 <ScrollView
+                    ref={scrollRef}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
@@ -214,6 +223,7 @@ function FormView({
                                 onSelect={handleSelectCity}
                                 onClear={handleClearCity}
                                 disabled={isLoading}
+                                scrollRef={scrollRef}
                             />
                         </GlassCard>
                     </View>
@@ -247,6 +257,7 @@ function FormView({
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </View>
     );
@@ -261,6 +272,7 @@ export default function CompatibilityTab() {
     const { id: historyId } = useLocalSearchParams<{ id?: string }>();
     const userName = user?.firstName || 'Stargazer';
 
+    const scrollRef = useRef<ScrollView>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>();
     const [result, setResult] = useState<SynastryResponse | null>(null);
@@ -396,6 +408,7 @@ export default function CompatibilityTab() {
             handleClearCity={handleClearCity}
             handleSubmit={handleSubmit}
             freeLimitReached={freeLimitReached}
+            scrollRef={scrollRef}
         />
     );
 }
@@ -404,6 +417,7 @@ export default function CompatibilityTab() {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.surfaceLowest },
     safeArea: { flex: 1 },
+    flex: { flex: 1 },
     scrollContent: { flexGrow: 1 },
 
     header: {

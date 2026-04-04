@@ -112,6 +112,7 @@ export default function OnboardingScreen() {
 
     const [step, setStep] = useState(0);
     const fadeAnim = useRef(new Animated.Value(1)).current;
+    const scrollRef = useRef<ScrollView>(null);
 
     // Birth profile form state
     const [firstName, setFirstName] = useState('');
@@ -246,10 +247,11 @@ export default function OnboardingScreen() {
 
     const stepBirthProfile = (
         <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
         >
             <ScrollView
+                ref={scrollRef}
                 contentContainerStyle={styles.stepScroll}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
@@ -302,6 +304,7 @@ export default function OnboardingScreen() {
                         onSelect={handleSelectCity}
                         onClear={handleClearCity}
                         disabled={isSaving}
+                        scrollRef={scrollRef}
                     />
                 </GlassCard>
 

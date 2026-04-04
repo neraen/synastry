@@ -3,9 +3,10 @@
  * Replaces the Modal-based city picker: single tap to select, no context switch.
  *
  * Parent ScrollView MUST have keyboardShouldPersistTaps="handled".
+ * Pass scrollRef to enable auto-scroll so the dropdown is never hidden by the keyboard.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -14,10 +15,15 @@ import {
     ActivityIndicator,
     StyleSheet,
     ViewStyle,
+    ScrollView,
+    Keyboard,
+    Dimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { searchCities, CitySearchResult } from '@/services/birthProfile';
 import { colors, spacing, radius, fonts } from '@/theme';
+
+const ROW_HEIGHT = 68; // approximate height of one result row
 
 interface CityAutocompleteProps {
     label?: string;
@@ -29,6 +35,11 @@ interface CityAutocompleteProps {
     onClear?: () => void;
     disabled?: boolean;
     style?: ViewStyle;
+    /**
+     * Ref to the ancestor ScrollView.
+     * Required to auto-scroll so the dropdown appears above the keyboard.
+     */
+    scrollRef?: React.RefObject<ScrollView>;
 }
 
 export function CityAutocomplete({
@@ -39,7 +50,9 @@ export function CityAutocomplete({
     onClear,
     disabled = false,
     style,
+    scrollRef,
 }: CityAutocompleteProps) {
+    const wrapperRef = useRef<View>(null);
     const [query, setQuery] = useState(value || '');
     const [results, setResults] = useState<CitySearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -53,6 +66,45 @@ export function CityAutocomplete({
             setShowResults(false);
         }
     }, [value]);
+
+    /**
+     * Scroll so the full dropdown (input + results) is above the keyboard.
+     * Uses measureLayout relative to the ScrollView to get the content offset.
+     */
+    const scrollToShowDropdown = useCallback((numResults: number) => {
+        if (!scrollRef?.current || !wrapperRef.current) return;
+        const INPUT_HEIGHT = 52;
+        const dropdownHeight = numResults > 0 ? Math.min(numResults * ROW_HEIGHT, ROW_HEIGHT * 3 + 8) : 0;
+        const keyboardHeight = Keyboard.metrics?.()?.height ?? 320;
+        const screenHeight = Dimensions.get('window').height;
+        const visibleHeight = screenHeight - keyboardHeight;
+
+        wrapperRef.current.measureLayout(
+            scrollRef.current as any,
+            (x, y) => {
+                const bottomNeeded = y + INPUT_HEIGHT + dropdownHeight + 24;
+                const targetScrollY = bottomNeeded - visibleHeight;
+                if (targetScrollY > 0) {
+                    scrollRef.current?.scrollTo({ y: targetScrollY, animated: true });
+                }
+            },
+            () => {} // noop on failure
+        );
+    }, [scrollRef]);
+
+    // Auto-scroll when results appear
+    useEffect(() => {
+        if (showResults && results.length > 0) {
+            const timer = setTimeout(() => scrollToShowDropdown(results.length), 100);
+            return () => clearTimeout(timer);
+        }
+    }, [showResults, results.length, scrollToShowDropdown]);
+
+    const handleFocus = useCallback(() => {
+        // Wait for keyboard slide-in animation before measuring
+        const timer = setTimeout(() => scrollToShowDropdown(results.length), 350);
+        return () => clearTimeout(timer);
+    }, [scrollToShowDropdown, results.length]);
 
     const handleChangeText = useCallback(async (text: string) => {
         setQuery(text);
@@ -82,7 +134,7 @@ export function CityAutocomplete({
     }, [onSelect]);
 
     return (
-        <View style={[styles.wrapper, style]}>
+        <View ref={wrapperRef} style={[styles.wrapper, style]}>
             {label && <Text style={styles.label}>{label}</Text>}
 
             <View style={[styles.inputRow, !!value && styles.inputRowFilled]}>
@@ -90,6 +142,7 @@ export function CityAutocomplete({
                     style={styles.input}
                     value={query}
                     onChangeText={handleChangeText}
+                    onFocus={handleFocus}
                     placeholder={placeholder}
                     placeholderTextColor={`${colors.onSurfaceMuted}80`}
                     editable={!disabled}

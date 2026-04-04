@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     StyleSheet,
+    ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +34,7 @@ export default function BirthProfileScreen() {
     const { t } = useTranslation();
     const { isAuthenticated, refreshUser } = useAuth();
 
+    const scrollRef = useRef<ScrollView>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string>();
@@ -156,7 +158,7 @@ export default function BirthProfileScreen() {
     }
 
     return (
-        <Screen variant="form" backgroundColor={colors.surfaceLowest}>
+        <Screen variant="form" backgroundColor={colors.surfaceLowest} scrollRef={scrollRef}>
             <Spacer size="xl" />
 
             {/* Header */}
@@ -215,6 +217,7 @@ export default function BirthProfileScreen() {
                     onSelect={handleSelectCity}
                     onClear={handleClearCity}
                     disabled={isSaving}
+                    scrollRef={scrollRef}
                 />
             </AppCard>
 

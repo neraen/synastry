@@ -37,6 +37,8 @@ interface ScreenProps {
     noPadding?: boolean;
     statusBarStyle?: 'light-content' | 'dark-content';
     showStars?: boolean;
+    /** Forward ref to the inner ScrollView (form variant only). */
+    scrollRef?: React.Ref<ScrollView>;
 }
 
 const BACKGROUND_GRADIENTS = {
@@ -59,6 +61,7 @@ export function Screen({
     noPadding = false,
     statusBarStyle = 'light-content',
     showStars = false,
+    scrollRef,
 }: ScreenProps) {
     const insets = useSafeAreaInsets();
 
@@ -82,10 +85,11 @@ export function Screen({
                 return (
                     <KeyboardAvoidingView
                         style={styles.flex}
-                        behavior="padding"
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
                     >
                         <ScrollView
+                            ref={scrollRef}
                             style={styles.flex}
                             contentContainerStyle={contentContainerStyle}
                             showsVerticalScrollIndicator={false}
