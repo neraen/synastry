@@ -12,7 +12,10 @@ class OpenAiService
     private string $apiKey;
     private string $apiUrl;
     private PromptLocaleService $localeService;
-    private const MODEL = 'gpt-4.1-mini';
+    private const MODEL_DEFAULT  = 'gpt-4.1-mini';
+    private const ALLOWED_MODELS = ['gpt-4.1-mini', 'gpt-4o'];
+
+    private string $model = self::MODEL_DEFAULT;
 
     /**
      * Shared astrologer persona injected into every interpretation prompt.
@@ -68,6 +71,22 @@ PERSONA;
     }
 
     /**
+     * Override the OpenAI model for this request.
+     * Only accepted values from ALLOWED_MODELS are applied.
+     */
+    public function setModel(string $model): void
+    {
+        if (in_array($model, self::ALLOWED_MODELS, true)) {
+            $this->model = $model;
+        }
+    }
+
+    public function getModel(): string
+    {
+        return $this->model;
+    }
+
+    /**
      * Set the locale for prompts
      */
     public function setLocale(string $locale): self
@@ -90,7 +109,7 @@ PERSONA;
     private function callResponsesApi(string $input, ?string $instructions = null): array
     {
         $payload = [
-            'model' => self::MODEL,
+            'model' => $this->model,
             'input' => $input,
         ];
 
@@ -123,7 +142,7 @@ PERSONA;
             return [
                 'success' => true,
                 'content' => $outputText,
-                'model' => $data['model'] ?? self::MODEL,
+                'model' => $data['model'] ?? $this->model,
                 'usage' => $data['usage'] ?? null,
             ];
 
@@ -649,7 +668,7 @@ PROMPT;
                     'Content-Type'  => 'application/json',
                 ],
                 'json' => [
-                    'model'    => self::MODEL,
+                    'model'    => $this->model,
                     'messages' => $chatMessages,
                 ],
             ]);

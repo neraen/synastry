@@ -4,6 +4,7 @@
 
 import i18n from '@/i18n';
 import { getApiUrl } from './apiConfig';
+import { getAiModelHeader } from './aiModelConfig';
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
     body?: Record<string, unknown>;
@@ -37,6 +38,7 @@ async function request<T = unknown>(path: string, options: RequestOptions = {}):
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'Accept-Language': currentLanguage,
+        'X-Ai-Model': getAiModelHeader(),
         ...customHeaders,
     };
 

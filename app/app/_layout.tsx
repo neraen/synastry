@@ -8,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import { configurePurchases, identifyPurchasesUser, resetPurchasesUser } from '@/services/purchases';
 import { initApiConfig } from '@/services/apiConfig';
+import { initAiModelConfig } from '@/services/aiModelConfig';
 
 // Fonts
 import {
@@ -122,6 +123,7 @@ export default function RootLayout() {
     // Initialize API config once at startup
     useEffect(() => {
         initApiConfig();
+        initAiModelConfig();
 
         // Catch unhandled promise rejections so they don't silently crash the app
         const handler = (event: { reason?: unknown }) => {

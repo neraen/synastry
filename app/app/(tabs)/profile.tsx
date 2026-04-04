@@ -20,6 +20,7 @@ import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
 import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
+import { getAiModel, setAiModel, MODEL_MINI, MODEL_PRO } from '@/services/aiModelConfig';
 
 // ─── Preference Row ────────────────────────────────────────────────────────────
 interface PrefRowProps {
@@ -118,14 +119,21 @@ export default function ProfileTab() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isLocal, setIsLocal] = useState(getApiEnv() === 'local');
+    const [isProModel, setIsProModel] = useState(getAiModel() === 'pro');
 
     useEffect(() => {
         setIsLocal(getApiEnv() === 'local');
+        setIsProModel(getAiModel() === 'pro');
     }, []);
 
     async function toggleApiEnv(value: boolean) {
         setIsLocal(value);
         await setApiEnv(value ? 'local' : 'prod');
+    }
+
+    async function toggleAiModel(value: boolean) {
+        setIsProModel(value);
+        await setAiModel(value ? 'pro' : 'mini');
     }
 
     const handleDeleteAccount = async () => {
@@ -329,6 +337,25 @@ export default function ProfileTab() {
                                     onValueChange={toggleApiEnv}
                                     trackColor={{ false: `${colors.primary}40`, true: `${colors.secondary}60` }}
                                     thumbColor={isLocal ? colors.secondary : colors.primary}
+                                />
+                            </View>
+
+                            <View style={styles.devDivider} />
+
+                            <View style={styles.devRow}>
+                                <View style={styles.devInfo}>
+                                    <Text style={styles.devTitle}>
+                                        {isProModel ? MODEL_PRO : MODEL_MINI}
+                                    </Text>
+                                    <Text style={styles.devUrl}>
+                                        {isProModel ? 'Qualité max — plus lent' : 'Rapide — défaut'}
+                                    </Text>
+                                </View>
+                                <Switch
+                                    value={isProModel}
+                                    onValueChange={toggleAiModel}
+                                    trackColor={{ false: `${colors.primary}40`, true: `${colors.primary}80` }}
+                                    thumbColor={colors.primary}
                                 />
                             </View>
                         </GlassCard>
@@ -688,6 +715,11 @@ const styles = StyleSheet.create({
         gap: spacing.md,
     },
     devInfo: { flex: 1 },
+    devDivider: {
+        height: 1,
+        backgroundColor: `${colors.onSurfaceMuted}15`,
+        marginVertical: spacing.md,
+    },
     devTitle: {
         fontFamily: fonts.body.medium,
         fontSize: 14,
