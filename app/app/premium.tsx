@@ -162,7 +162,7 @@ export default function PremiumScreen() {
         {
             id: 'annual',
             label: t('premium.planAnnualLabel'),
-            price: '$19.99',
+            price: '49,99 €',
             period: t('premium.planPeriodYear'),
             badge: t('premium.planBestValue'),
             features: [t('premium.annualFeature1'), t('premium.annualFeature2')],
@@ -170,7 +170,7 @@ export default function PremiumScreen() {
         {
             id: 'monthly',
             label: t('premium.planMonthlyLabel'),
-            price: '$9.99',
+            price: '7,99 €',
             period: t('premium.planPeriodMonth'),
             features: [
                 t('premium.monthlyFeature1'),
@@ -201,8 +201,8 @@ export default function PremiumScreen() {
             return { price: priceString, period };
         }
         return planId === 'annual'
-            ? { price: '$19.99', period: t('premium.planPeriodYear') }
-            : { price: '$9.99', period: t('premium.planPeriodMonth') };
+            ? { price: '49,99 €', period: t('premium.planPeriodYear') }
+            : { price: '7,99 €', period: t('premium.planPeriodMonth') };
     }, [getPackageForPlan, t]);
 
     const handleStartPremium = useCallback(async () => {
