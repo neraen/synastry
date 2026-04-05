@@ -35,6 +35,7 @@ export default function BirthProfileScreen() {
     const { isAuthenticated, refreshUser } = useAuth();
 
     const scrollRef = useRef<ScrollView>(null);
+    const scrollYRef = useRef(0);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string>();
@@ -158,7 +159,7 @@ export default function BirthProfileScreen() {
     }
 
     return (
-        <Screen variant="form" backgroundColor={colors.surfaceLowest} scrollRef={scrollRef}>
+        <Screen variant="form" backgroundColor={colors.surfaceLowest} scrollRef={scrollRef} scrollYRef={scrollYRef}>
             <Spacer size="xl" />
 
             {/* Header */}
@@ -218,6 +219,7 @@ export default function BirthProfileScreen() {
                     onClear={handleClearCity}
                     disabled={isSaving}
                     scrollRef={scrollRef}
+                    scrollYRef={scrollYRef}
                 />
             </AppCard>
 

@@ -3,7 +3,7 @@
  * Replaces the Modal-based city picker: single tap to select, no context switch.
  *
  * Parent ScrollView MUST have keyboardShouldPersistTaps="handled".
- * Pass scrollRef to enable auto-scroll so the dropdown is never hidden by the keyboard.
+ * Pass scrollRef + scrollYRef to enable auto-scroll above the keyboard.
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
@@ -23,7 +23,7 @@ import { Feather } from '@expo/vector-icons';
 import { searchCities, CitySearchResult } from '@/services/birthProfile';
 import { colors, spacing, radius, fonts } from '@/theme';
 
-const ROW_HEIGHT = 68; // approximate height of one result row
+const ROW_HEIGHT = 68;
 
 interface CityAutocompleteProps {
     label?: string;
@@ -35,11 +35,10 @@ interface CityAutocompleteProps {
     onClear?: () => void;
     disabled?: boolean;
     style?: ViewStyle;
-    /**
-     * Ref to the ancestor ScrollView.
-     * Required to auto-scroll so the dropdown appears above the keyboard.
-     */
+    /** Ref to the ancestor ScrollView — required for auto-scroll. */
     scrollRef?: React.RefObject<ScrollView>;
+    /** Current scroll offset of the ancestor ScrollView (updated via onScroll). */
+    scrollYRef?: React.MutableRefObject<number>;
 }
 
 export function CityAutocomplete({
@@ -51,12 +50,25 @@ export function CityAutocomplete({
     disabled = false,
     style,
     scrollRef,
+    scrollYRef,
 }: CityAutocompleteProps) {
     const wrapperRef = useRef<View>(null);
     const [query, setQuery] = useState(value || '');
     const [results, setResults] = useState<CitySearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    // Track keyboard height reliably
+    useEffect(() => {
+        const show = Keyboard.addListener('keyboardDidShow', (e) => {
+            setKeyboardHeight(e.endCoordinates.height);
+        });
+        const hide = Keyboard.addListener('keyboardDidHide', () => {
+            setKeyboardHeight(0);
+        });
+        return () => { show.remove(); hide.remove(); };
+    }, []);
 
     // Sync when value changes from parent (city selected or form reset)
     useEffect(() => {
@@ -68,43 +80,55 @@ export function CityAutocomplete({
     }, [value]);
 
     /**
-     * Scroll so the full dropdown (input + results) is above the keyboard.
-     * Uses measureLayout relative to the ScrollView to get the content offset.
+     * Scroll so the full dropdown is visible above the keyboard.
+     *
+     * Uses measureInWindow (real screen coordinates) + current scroll offset
+     * to compute the exact delta needed.
      */
-    const scrollToShowDropdown = useCallback((numResults: number) => {
+    const scrollToShowDropdown = useCallback((numResults: number, kbHeight?: number) => {
         if (!scrollRef?.current || !wrapperRef.current) return;
-        const INPUT_HEIGHT = 52;
-        const dropdownHeight = numResults > 0 ? Math.min(numResults * ROW_HEIGHT, ROW_HEIGHT * 3 + 8) : 0;
-        const keyboardHeight = Keyboard.metrics?.()?.height ?? 320;
-        const screenHeight = Dimensions.get('window').height;
-        const visibleHeight = screenHeight - keyboardHeight;
 
-        wrapperRef.current.measureLayout(
-            scrollRef.current as any,
-            (x, y) => {
-                const bottomNeeded = y + INPUT_HEIGHT + dropdownHeight + 24;
-                const targetScrollY = bottomNeeded - visibleHeight;
-                if (targetScrollY > 0) {
-                    scrollRef.current?.scrollTo({ y: targetScrollY, animated: true });
-                }
-            },
-            () => {} // noop on failure
-        );
-    }, [scrollRef]);
+        const effectiveKbHeight = kbHeight ?? keyboardHeight;
+        if (effectiveKbHeight === 0) return; // keyboard not visible, nothing to do
+
+        const INPUT_HEIGHT = label ? 28 + 4 + 52 : 52; // label + gap + input
+        const dropdownH = numResults > 0 ? Math.min(numResults * ROW_HEIGHT, ROW_HEIGHT * 3 + 8) : 0;
+        const MARGIN = 24;
+        const screenHeight = Dimensions.get('window').height;
+        const visibleBottom = screenHeight - effectiveKbHeight - MARGIN;
+
+        wrapperRef.current.measureInWindow((x, y, width, height) => {
+            const dropdownBottom = y + INPUT_HEIGHT + dropdownH;
+            if (dropdownBottom > visibleBottom) {
+                const delta = dropdownBottom - visibleBottom;
+                const currentScrollY = scrollYRef?.current ?? 0;
+                scrollRef.current?.scrollTo({
+                    y: currentScrollY + delta,
+                    animated: true,
+                });
+            }
+        });
+    }, [scrollRef, scrollYRef, keyboardHeight, label]);
 
     // Auto-scroll when results appear
     useEffect(() => {
         if (showResults && results.length > 0) {
-            const timer = setTimeout(() => scrollToShowDropdown(results.length), 100);
-            return () => clearTimeout(timer);
+            // Wait one frame for the dropdown to be laid out
+            const id = requestAnimationFrame(() => {
+                scrollToShowDropdown(results.length);
+            });
+            return () => cancelAnimationFrame(id);
         }
     }, [showResults, results.length, scrollToShowDropdown]);
 
     const handleFocus = useCallback(() => {
-        // Wait for keyboard slide-in animation before measuring
-        const timer = setTimeout(() => scrollToShowDropdown(results.length), 350);
+        // Wait for keyboard slide-in, then scroll so at least the input is visible
+        const timer = setTimeout(() => {
+            const kbHeight = Keyboard.metrics?.()?.height ?? keyboardHeight;
+            scrollToShowDropdown(results.length, kbHeight || keyboardHeight);
+        }, 400);
         return () => clearTimeout(timer);
-    }, [scrollToShowDropdown, results.length]);
+    }, [scrollToShowDropdown, results.length, keyboardHeight]);
 
     const handleChangeText = useCallback(async (text: string) => {
         setQuery(text);
@@ -130,7 +154,6 @@ export function CityAutocomplete({
         setShowResults(false);
         setResults([]);
         onSelect(city);
-        // query will sync via useEffect when value prop updates
     }, [onSelect]);
 
     return (

@@ -113,6 +113,7 @@ export default function OnboardingScreen() {
     const [step, setStep] = useState(0);
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const scrollRef = useRef<ScrollView>(null);
+    const scrollYRef = useRef(0);
 
     // Birth profile form state
     const [firstName, setFirstName] = useState('');
@@ -255,6 +256,8 @@ export default function OnboardingScreen() {
                 contentContainerStyle={styles.stepScroll}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+                scrollEventThrottle={16}
             >
                 <Text style={styles.stepTitle}>{t('onboarding.birth.title')}</Text>
                 <Text style={styles.stepSubtitle}>{t('onboarding.birth.subtitle')}</Text>
@@ -305,6 +308,7 @@ export default function OnboardingScreen() {
                         onClear={handleClearCity}
                         disabled={isSaving}
                         scrollRef={scrollRef}
+                        scrollYRef={scrollYRef}
                     />
                 </GlassCard>
 

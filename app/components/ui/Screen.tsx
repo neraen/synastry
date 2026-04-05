@@ -39,6 +39,8 @@ interface ScreenProps {
     showStars?: boolean;
     /** Forward ref to the inner ScrollView (form variant only). */
     scrollRef?: React.Ref<ScrollView>;
+    /** Mutable ref updated with the current scroll offset (form variant only). */
+    scrollYRef?: React.MutableRefObject<number>;
 }
 
 const BACKGROUND_GRADIENTS = {
@@ -62,6 +64,7 @@ export function Screen({
     statusBarStyle = 'light-content',
     showStars = false,
     scrollRef,
+    scrollYRef,
 }: ScreenProps) {
     const insets = useSafeAreaInsets();
 
@@ -95,6 +98,8 @@ export function Screen({
                             showsVerticalScrollIndicator={false}
                             keyboardShouldPersistTaps="handled"
                             bounces={true}
+                            onScroll={scrollYRef ? (e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; } : undefined}
+                            scrollEventThrottle={scrollYRef ? 16 : undefined}
                         >
                             {children}
                         </ScrollView>

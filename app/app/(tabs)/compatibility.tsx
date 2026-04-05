@@ -159,6 +159,7 @@ function FormView({
     handleSubmit,
     freeLimitReached,
     scrollRef,
+    scrollYRef,
 }: any) {
     const { t } = useTranslation();
     return (
@@ -174,6 +175,8 @@ function FormView({
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
+                    onScroll={(e) => { if (scrollYRef) scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+                    scrollEventThrottle={16}
                 >
                     <TabHeader />
 
@@ -224,6 +227,7 @@ function FormView({
                                 onClear={handleClearCity}
                                 disabled={isLoading}
                                 scrollRef={scrollRef}
+                                scrollYRef={scrollYRef}
                             />
                         </GlassCard>
                     </View>
@@ -273,6 +277,7 @@ export default function CompatibilityTab() {
     const userName = user?.firstName || 'Stargazer';
 
     const scrollRef = useRef<ScrollView>(null);
+    const scrollYRef = useRef(0);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>();
     const [result, setResult] = useState<SynastryResponse | null>(null);
@@ -409,6 +414,7 @@ export default function CompatibilityTab() {
             handleSubmit={handleSubmit}
             freeLimitReached={freeLimitReached}
             scrollRef={scrollRef}
+            scrollYRef={scrollYRef}
         />
     );
 }
