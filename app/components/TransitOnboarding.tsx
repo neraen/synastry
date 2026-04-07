@@ -82,9 +82,9 @@ interface Props {
 
 const STEPS: Step[] = [
     { refKey: 'timeline', tab: 'timeline', titleKey: 'transitsOnboarding.step2Title', bodyKey: 'transitsOnboarding.step2Body' },
-    { refKey: 'calendar', tab: 'calendar', titleKey: 'transitsOnboarding.step3Title', bodyKey: 'transitsOnboarding.step3Body' },
-    { refKey: 'mirror',   tab: 'mirror',   titleKey: 'transitsOnboarding.step4Title', bodyKey: 'transitsOnboarding.step4Body' },
-    { refKey: 'help',     tab: 'mirror',   titleKey: 'transitsOnboarding.step5Title', bodyKey: 'transitsOnboarding.step5Body' },
+    { refKey: 'tabs',     tab: 'timeline', titleKey: 'transitsOnboarding.step3Title', bodyKey: 'transitsOnboarding.step3Body' },
+    { refKey: 'tabs',     tab: 'timeline', titleKey: 'transitsOnboarding.step4Title', bodyKey: 'transitsOnboarding.step4Body' },
+    { refKey: 'help',     tab: 'timeline', titleKey: 'transitsOnboarding.step5Title', bodyKey: 'transitsOnboarding.step5Body' },
 ];
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -135,15 +135,13 @@ export function TransitOnboarding({ refs, activeTab, onTabChange, scrollRef, onD
         });
     }, [refs, animateTooltipIn]);
 
-    // ── Re-measure when activeTab matches current step ───────────────────────
+    // ── Measure on step change (tab never changes during onboarding) ─────────
     useEffect(() => {
-        if (activeTab !== currentStep.tab) return;
-        // Give the new tab content one frame to mount
         const id = requestAnimationFrame(() => {
-            setTimeout(() => measureStep(currentStep), 80);
+            setTimeout(() => measureStep(currentStep), 120);
         });
         return () => cancelAnimationFrame(id);
-    }, [activeTab, stepIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [stepIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Navigation ───────────────────────────────────────────────────────────
     const goNext = useCallback(() => {
@@ -152,19 +150,9 @@ export function TransitOnboarding({ refs, activeTab, onTabChange, scrollRef, onD
             Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(onDone);
             return;
         }
-        const next = STEPS[stepIdx + 1];
-        setSpot(null); // clear while transitioning
+        setSpot(null);
         setStepIdx(stepIdx + 1);
-
-        if (next.tab !== activeTab) {
-            // Switch tab — measure will happen in the useEffect above once activeTab updates
-            scrollRef.current?.scrollTo({ y: 0, animated: false });
-            onTabChange(next.tab);
-        } else {
-            // Same tab — measure immediately
-            setTimeout(() => measureStep(next), 80);
-        }
-    }, [stepIdx, activeTab, onTabChange, scrollRef, measureStep, overlayOpacity, onDone]);
+    }, [stepIdx, overlayOpacity, onDone]);
 
     const goSkip = useCallback(() => {
         markDone();
