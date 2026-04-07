@@ -1163,8 +1163,10 @@ export default function TransitsScreen() {
                                 </Text>
                             </Pressable>
                         </View>
-                        <Pressable ref={helpBtnRef} onPress={() => setHelpVisible(true)} hitSlop={12} style={styles.helpBtn}>
-                            <Feather name="help-circle" size={18} color={colors.onSurfaceMuted} />
+                        <Pressable onPress={() => setHelpVisible(true)} hitSlop={12} style={styles.helpBtn}>
+                            <View ref={helpBtnRef} collapsable={false}>
+                                <Feather name="help-circle" size={18} color={colors.onSurfaceMuted} />
+                            </View>
                         </Pressable>
                     </View>
 
