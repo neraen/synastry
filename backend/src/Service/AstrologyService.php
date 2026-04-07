@@ -10,16 +10,22 @@ use App\Repository\NatalChartRepository;
 use App\Repository\SynastryHistoryRepository;
 use App\Service\Webservice\OpenAiService;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 class AstrologyService
 {
     private string $locale = 'fr';
+
+    /** 90 days — natal positions never change unless birth profile is updated */
+    private const PLANET_INTERP_TTL = 7776000;
 
     public function __construct(
         private OpenAiService $openAiService,
         private NatalChartRepository $natalChartRepository,
         private SynastryHistoryRepository $synastryHistoryRepository,
         private EntityManagerInterface $entityManager,
+        private CacheInterface $cache,
     ) {}
 
     /**
@@ -141,6 +147,58 @@ class AstrologyService
             'interpretation' => $aiResult['interpretation'],
             'chart' => $chart?->toArray(),
             'cached' => false,
+        ];
+    }
+
+    /**
+     * Get AI explanation for a single natal planet placement.
+     * Cached 90 days — natal positions don't change.
+     * Cache key includes sign so it auto-invalidates if birth data changes.
+     */
+    public function getPlanetInterpretation(User $user, string $planet): array
+    {
+        $chart = $this->natalChartRepository->findByUser($user);
+
+        if (!$chart) {
+            return ['success' => false, 'error' => 'Natal chart not calculated yet'];
+        }
+
+        $positions = $chart->getPlanetaryPositions();
+
+        if (!isset($positions[$planet])) {
+            return ['success' => false, 'error' => "Planet '{$planet}' not found in chart"];
+        }
+
+        $sign   = $positions[$planet]['Sign'] ?? 'Unknown';
+        $degree = (float) ($positions[$planet]['Position'] ?? 0.0);
+        // Degree within sign (0–30)
+        $degreeInSign = fmod($degree, 30);
+
+        $safeLocale = preg_replace('/[^a-z]/', '', $this->locale);
+        $safePlanet = preg_replace('/[^a-zA-Z]/', '', $planet);
+        $safeSign   = preg_replace('/[^a-zA-Z]/', '', $sign);
+        $cacheKey   = sprintf('planet_interp_%d_%s_%s_%s', $user->getId(), $safePlanet, $safeSign, $safeLocale);
+
+        $interpretation = $this->cache->get($cacheKey, function (ItemInterface $item) use ($planet, $sign, $degreeInSign) {
+            $item->expiresAfter(self::PLANET_INTERP_TTL);
+            $result = $this->openAiService->getPlanetInterpretation($planet, $sign, $degreeInSign);
+            if (!$result['success']) {
+                $item->expiresAfter(0); // don't cache failures
+                return null;
+            }
+            return $result['interpretation'];
+        });
+
+        if ($interpretation === null) {
+            return ['success' => false, 'error' => 'AI interpretation failed'];
+        }
+
+        return [
+            'success'        => true,
+            'planet'         => $planet,
+            'sign'           => $sign,
+            'degree'         => round($degreeInSign, 1),
+            'interpretation' => $interpretation,
         ];
     }
 

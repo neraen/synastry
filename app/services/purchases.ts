@@ -10,9 +10,9 @@
  *   4. Configure products in App Store Connect + Google Play Console
  *   5. Configure offerings in RevenueCat dashboard (https://app.revenuecat.com)
  *
- * RevenueCat product IDs to create:
- *   - astromatch_premium_monthly   (1 month, auto-renewing)
- *   - astromatch_premium_annual    (12 months, auto-renewing)
+ * RevenueCat product IDs:
+ *   - monthly_subscription:premium   (1 month, auto-renewing)
+ *   - annual_subscription:premium    (12 months, auto-renewing)
  *
  * RevenueCat entitlement to create:
  *   - premium  (attach both products to it)
@@ -22,6 +22,7 @@
  */
 
 import { Platform } from 'react-native';
+import { api } from './api';
 
 // Lazy import to prevent native module crash if billing is unavailable
 let Purchases: typeof import('react-native-purchases').default | null = null;
@@ -61,6 +62,9 @@ export interface PurchaseResult {
 
 // ─── Initialisation ──────────────────────────────────────────────────────────
 
+/** Tracks whether configure() succeeded — false in Expo Go */
+let configured = false;
+
 /**
  * Call once at app startup (before any purchase call).
  * Safe to call multiple times.
@@ -74,8 +78,14 @@ export function configurePurchases(): void {
 
     const apiKey = Platform.OS === 'ios' ? RC_API_KEY_IOS : RC_API_KEY_ANDROID;
 
-    if (LOG_LEVEL) Purchases.setLogLevel(LOG_LEVEL.ERROR);
-    Purchases.configure({ apiKey });
+    try {
+        if (LOG_LEVEL) Purchases.setLogLevel(LOG_LEVEL.ERROR);
+        Purchases.configure({ apiKey });
+        configured = true;
+    } catch {
+        // Expo Go doesn't support native IAP — silently skip.
+        // Purchases will be unavailable until running a real dev/prod build.
+    }
 }
 
 /**
@@ -83,9 +93,9 @@ export function configurePurchases(): void {
  * RevenueCat uses this ID to sync entitlements across devices.
  */
 export async function identifyPurchasesUser(userId: string): Promise<void> {
-    if (!Purchases) return;
+    if (!configured) return;
     try {
-        await Purchases.logIn(userId);
+        await Purchases!.logIn(userId);
     } catch (e) {
         console.warn('[Purchases] identifyUser failed:', e);
     }
@@ -95,10 +105,10 @@ export async function identifyPurchasesUser(userId: string): Promise<void> {
  * Call after logout so the next user starts with a clean anonymous session.
  */
 export async function resetPurchasesUser(): Promise<void> {
-    if (!Purchases) return;
+    if (!configured) return;
     try {
-        await Purchases.logOut();
-    } catch (e) {
+        await Purchases!.logOut();
+    } catch {
         // logOut throws if already anonymous, safe to ignore
     }
 }
@@ -110,7 +120,7 @@ export async function resetPurchasesUser(): Promise<void> {
  * Returns null if RC is not configured or network fails.
  */
 export async function getOffering(): Promise<Offering | null> {
-    if (!Purchases) return null;
+    if (!configured) return null;
     try {
         const offerings = await Purchases.getOfferings();
         const current = offerings.current;
@@ -138,7 +148,7 @@ export async function getOffering(): Promise<Offering | null> {
  * Initiates the native purchase sheet for a given package.
  */
 export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
-    if (!Purchases) return { success: false, isPremium: false, error: 'Purchases not available' };
+    if (!configured) return { success: false, isPremium: false, error: 'Purchases not available' };
     try {
         const { customerInfo } = await Purchases.purchasePackage(pkg);
         return {
@@ -163,7 +173,7 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseRe
  * Restores previous purchases (required by App Store / Google Play guidelines).
  */
 export async function restorePurchases(): Promise<PurchaseResult> {
-    if (!Purchases) return { success: false, isPremium: false, error: 'Purchases not available' };
+    if (!configured) return { success: false, isPremium: false, error: 'Purchases not available' };
     try {
         const customerInfo = await Purchases.restorePurchases();
         const isPremium = isPremiumFromCustomerInfo(customerInfo);
@@ -187,12 +197,27 @@ export async function restorePurchases(): Promise<PurchaseResult> {
  * Checks the current premium status from RevenueCat (network call).
  */
 export async function checkPremiumStatus(): Promise<boolean> {
-    if (!Purchases) return false;
+    if (!configured) return false;
     try {
         const customerInfo = await Purchases.getCustomerInfo();
         return isPremiumFromCustomerInfo(customerInfo);
     } catch {
         return false;
+    }
+}
+
+// ─── Backend sync ─────────────────────────────────────────────────────────────
+
+/**
+ * Call the backend verify endpoint after a successful purchase.
+ * The backend confirms the entitlement with the RC REST API and updates isPremium.
+ * Must be called before refreshUser() so the profile fetch returns the updated status.
+ */
+export async function verifyPremiumWithBackend(): Promise<void> {
+    try {
+        await api.post('/api/purchases/verify', {});
+    } catch (e) {
+        console.warn('[Purchases] verifyPremiumWithBackend failed:', e);
     }
 }
 

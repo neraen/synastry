@@ -107,6 +107,34 @@ class AstrologyController extends AbstractController
     }
 
     /**
+     * Get AI explanation for a single natal planet placement (cached 90 days)
+     */
+    #[Route('/natal-chart/planet-interpretation/{planet}', name: 'api_natal_planet_interpretation', methods: ['GET'])]
+    public function getPlanetInterpretation(Request $request, string $planet): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $locale = $this->getLocaleFromRequest($request);
+        $this->astrologyService->setLocale($locale);
+
+        if (!$user->hasBirthProfile()) {
+            return $this->json(['success' => false, 'error' => 'No birth profile'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Sanitize planet name
+        $planet = preg_replace('/[^a-zA-Z]/', '', $planet);
+
+        $result = $this->astrologyService->getPlanetInterpretation($user, $planet);
+
+        if (!$result['success']) {
+            return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return $this->json($result);
+    }
+
+    /**
      * Calculate synastry with partner's birth data
      */
     #[Route('/synastry', name: 'api_synastry', methods: ['POST'])]

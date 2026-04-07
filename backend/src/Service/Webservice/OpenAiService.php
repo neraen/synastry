@@ -239,6 +239,47 @@ IMPORTANT : Ne pose pas de questions, ne demande pas d'informations supplémenta
     }
 
     /**
+     * Generate a short factual explanation for a single natal planet placement.
+     * Non-conversational — reads like a reference card, not a consultation.
+     */
+    public function getPlanetInterpretation(string $planet, string $sign, float $degree): array
+    {
+        $isEnglish = $this->localeService->getLocale() === 'en';
+        $degreeStr = number_format($degree, 1, '.', '');
+
+        if ($isEnglish) {
+            $instructions = <<<INST
+You are an expert astrologer writing concise reference entries.
+Write in plain text, no markdown. No greeting, no sign-off.
+Third-person present tense: "The Sun in Aquarius...", "Mars here...".
+4 to 5 sentences. One idea per sentence. Factual and precise — psychological astrology in the tradition of Liz Greene and Robert Hand.
+Forbidden: "may", "might", "can sometimes", "potential", "invitation", "journey", New Age language.
+INST;
+            $input = "Natal placement: {$planet} in {$sign} at {$degreeStr}°\n\nWrite the reference explanation for this natal placement.";
+        } else {
+            $instructions = <<<INST
+Tu es un astrologue expert qui rédige des fiches de référence concises.
+Texte brut uniquement, pas de markdown. Pas de salutation, pas de formule de clôture.
+Troisième personne du singulier au présent : « Le Soleil en Verseau... », « Mars ici... ».
+4 à 5 phrases. Une seule idée par phrase. Factuel et précis — astrologie psychologique dans la tradition de Liz Greene et Robert Hand.
+Interdit : « peut », « pourrait », « parfois », « potentiel », « invitation », « chemin », langage New Age.
+INST;
+            $input = "Position natale : {$planet} en {$sign} à {$degreeStr}°\n\nRédige la fiche d'explication de cette position natale.";
+        }
+
+        $result = $this->callResponsesApi($input, $instructions);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        return [
+            'success'        => true,
+            'interpretation' => $result['content'],
+        ];
+    }
+
+    /**
      * Get a single natal chart interpretation
      */
     public function getNatalChartInterpretation(string $name, array $theme): array
@@ -579,8 +620,8 @@ PROMPT;
         $isEnglish = $this->localeService->getLocale() === 'en';
 
         $systemPrompt = $isEnglish
-            ? "You are Lyra, a wise and empathetic AI astrologer in a premium astrology app called AstroMatch. You speak with elegance, warmth, and deep astrological knowledge. You provide personalized, insightful guidance grounded in real astrological principles. Keep responses concise (2–4 sentences) unless a deeper exploration is genuinely warranted. Never be vague or generic — always root your answer in real astrological symbolism or planetary dynamics."
-            : "Tu es Lyra, une astrologue IA sage et empathique dans une application astrologique premium appelée AstroMatch. Tu parles avec élégance, chaleur et une connaissance astrologique profonde. Tu fournis des conseils personnalisés et perspicaces ancrés dans de vrais principes astrologiques. Garde tes réponses concises (2 à 4 phrases) sauf si une exploration plus profonde est vraiment nécessaire. Ne sois jamais vague ou générique — ancre toujours ta réponse dans le symbolisme astrologique ou les dynamiques planétaires réels.";
+            ? "You are Lyra, a straight-talking and warm astrologer in the AstroMatch app. You speak like a knowledgeable friend — direct, natural, no unnecessary flourish. Not a solemn oracle.\n\nStrict rules:\n- ALWAYS ground your answer in the exact natal positions provided below. Name the specific placement (e.g. \"your Moon in Scorpio\"). Never speak in generalities.\n- For questions about the future or upcoming periods, use the upcoming transit data provided below — real computed aspects for the next 12 months. Only reference transits that are actually listed there.\n- NEVER use technical astrological jargon: no \"trine\", \"square\", \"conjunction\", \"opposition\", \"sextile\", \"quincunx\", \"transit\", \"aspect\", \"orb\". Instead, translate the meaning into plain human impact — e.g. instead of \"Saturn squares your Moon\" say \"Saturn is putting pressure on your emotional world right now\".\n- Avoid vague spiritual filler like \"the universe is guiding you\" — be concrete.\n- Default to 2–4 sentences. Go longer only if the question genuinely calls for it.\n- Warm and direct. Skip the ceremonial tone."
+            : "Tu es Lyra, une astrologue directe et chaleureuse dans l'app AstroMatch. Tu parles comme une amie qui maîtrise vraiment l'astrologie — naturelle, sans chichi, pas du tout solennelle.\n\nRègles strictes :\n- Appuie TOUJOURS tes propos sur les positions natales exactes fournies ci-dessous. Cite-les nommément (ex : \"ton Soleil en Taureau\", \"ta Lune en Scorpion\"). Pas de généralités.\n- Pour les questions sur l'avenir ou les prochaines périodes, utilise les données de transits à venir fournies ci-dessous — de vrais aspects calculés pour les 12 prochains mois. Ne cite que les transits qui y figurent réellement.\n- N'utilise JAMAIS de jargon astrologique technique : pas de \"trigone\", \"carré\", \"conjonction\", \"opposition\", \"sextile\", \"quinconce\", \"transit\", \"aspect\", \"orbe\". Traduis toujours en impact humain concret — ex : au lieu de \"Saturne en carré avec ta Lune\" dis \"Saturne met de la pression sur ta vie émotionnelle en ce moment\".\n- Évite les formulations creuses du style \"l'univers vous guide\" — sois concrète.\n- Par défaut 2 à 4 phrases. Plus long seulement si la question le justifie vraiment.\n- Ton chaleureux et direct. Pas de style oracle.";
 
         // ── User identity ────────────────────────────────────────────────────────
         $identityLines = [];
@@ -620,6 +661,14 @@ PROMPT;
             }
         }
 
+        // ── Upcoming transits (next 12 months) ──────────────────────────────────
+        if (!empty($userContext['upcoming_transits'])) {
+            $label = $isEnglish
+                ? "\n\n— Upcoming transits (next 12 months, computed) —"
+                : "\n\n— Transits à venir (12 prochains mois, calculés) —";
+            $systemPrompt .= $label . "\n" . $this->formatUpcomingTransits($userContext['upcoming_transits'], $isEnglish);
+        }
+
         $inputMessages = array_values(array_map(fn($m) => [
             'role'    => $m['role'],
             'content' => trim((string) $m['content']),
@@ -632,6 +681,27 @@ PROMPT;
         }
 
         return ['success' => true, 'message' => $result['content']];
+    }
+
+    /**
+     * Format the upcoming transit summary into a compact, readable string for the prompt.
+     * e.g. "2026-05: Saturn Square Moon (2.3°), Jupiter Trine Sun (1.1°)"
+     */
+    private function formatUpcomingTransits(array $upcomingTransits, bool $isEnglish): string
+    {
+        $lines = [];
+        foreach ($upcomingTransits as $entry) {
+            $month = $entry['month'] ?? '';
+            $aspects = $entry['aspects'] ?? [];
+            if (empty($aspects)) continue;
+
+            $parts = array_map(function (array $a) {
+                return sprintf('%s %s %s (%.1f°)', $a['transit'], $a['type'], $a['natal'], $a['orb']);
+            }, $aspects);
+
+            $lines[] = $month . ': ' . implode(', ', $parts);
+        }
+        return implode("\n", $lines);
     }
 
     /**

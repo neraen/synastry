@@ -382,6 +382,7 @@
     "loadError": "Unable to fetch transits.",
     "timelineTab": "Upcoming",
     "calendarTab": "Calendar",
+    "mirrorTab": "Mirror",
     "calendarNoAspects": "No major aspects today",
     "calendarLoadError": "Unable to load calendar.",
     "orbLabel": "orb"
@@ -465,7 +466,7 @@
   },
   "onboarding": {
     "welcome": {
-      "title": "Welcome to AstroMatch",
+      "title": "Welcome to Lunestia",
       "subtitle": "Your personal astrology guide. Understand your transits, explore compatibility, navigate through time.",
       "feature1": "Daily horoscope based on your real transits",
       "feature2": "Astrological compatibility with anyone",
@@ -487,5 +488,20 @@
       "feature4": "Chat with AI astrologer Lyra",
       "cta": "Enter the app"
     }
+  },
+  "transitsOnboarding": {
+    "step1Title": "3 ways to explore your transits",
+    "step1Body": "The Transits page is divided into 3 tabs. Navigate between them to discover your astral influences from different angles.",
+    "step2Title": "Upcoming transits",
+    "step2Body": "Your 3 next significant transits, ranked by intensity. Each shows a date, theme, and its influence on your natal chart.",
+    "step3Title": "Astral calendar",
+    "step3Body": "Visualize your planetary aspects day by day. Colored dots indicate the type of active aspect. Tap a day to see details and get an interpretation.",
+    "step4Title": "Temporal Mirror",
+    "step4Body": "Slide the cursor to explore your transits at any age — past or future. Perfect for understanding the key periods of your life.",
+    "step5Title": "Astrological guide",
+    "step5Body": "Don't know a term? This button opens a complete guide with explanations for every aspect and planet.",
+    "next": "Next",
+    "skip": "Skip",
+    "finish": "Let's go!"
   }
 }

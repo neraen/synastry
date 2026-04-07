@@ -11,23 +11,35 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/contexts/AuthContext';
+import { loginWithGoogle } from '@/services/oauth';
 import { AppInput, InlineLoading } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function Login() {
     const router = useRouter();
     const { t } = useTranslation();
-    const { login, isLoading } = useAuth();
+    const { login, refreshUser, isLoading } = useAuth();
     const [email, setEmail] = useState('');
     const [pwd, setPwd] = useState('');
     const [error, setError] = useState<string | undefined>();
+    const [googleLoading, setGoogleLoading] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
+
+    const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+    const [request, response, promptAsync] = Google.useAuthRequest({
+        androidClientId: GOOGLE_CLIENT_ID,
+        scopes: ['openid', 'profile', 'email'],
+    });
 
     useEffect(() => {
         Animated.parallel([
@@ -35,6 +47,33 @@ export default function Login() {
             Animated.spring(slideAnim, { toValue: 0, friction: 8, useNativeDriver: true }),
         ]).start();
     }, []);
+
+    useEffect(() => {
+        if (response?.type === 'success') {
+            const idToken = response.authentication?.idToken ?? response.params?.id_token;
+            if (idToken) {
+                handleGoogleLogin(idToken);
+            } else {
+                setError(t('auth.errors.loginFailed'));
+            }
+        } else if (response?.type === 'error') {
+            setError(t('auth.errors.loginFailed'));
+        }
+    }, [response]);
+
+    async function handleGoogleLogin(idToken: string) {
+        setGoogleLoading(true);
+        setError(undefined);
+        try {
+            await loginWithGoogle(idToken);
+            await refreshUser();
+            router.replace('/(tabs)');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
+        } finally {
+            setGoogleLoading(false);
+        }
+    }
 
     async function handleLogin() {
         if (!email || !pwd) {
@@ -75,7 +114,7 @@ export default function Login() {
                             {/* Logo */}
                             <View style={styles.logo}>
                                 <Text style={styles.logoIcon}>✦</Text>
-                                <Text style={styles.logoText}>AstroMatch</Text>
+                                <Text style={styles.logoText}>Lunestia</Text>
                             </View>
 
                             {/* Badge */}
@@ -184,6 +223,29 @@ export default function Login() {
                                         <Text style={styles.dividerText}>{t('login.divider')}</Text>
                                         <View style={styles.dividerLine} />
                                     </View>
+
+                                    {/* Google Sign-In (Android only) */}
+                                    {Platform.OS === 'android' && (
+                                        <Pressable
+                                            style={[styles.googleBtn, (!request || googleLoading) && { opacity: 0.5 }]}
+                                            onPress={() => promptAsync()}
+                                            disabled={!request || googleLoading}
+                                        >
+                                            {googleLoading ? (
+                                                <InlineLoading />
+                                            ) : (
+                                                <>
+                                                    <View style={styles.googleIconWrap}>
+                                                        <MaterialCommunityIcons name="google" size={18} color={colors.primary} />
+                                                    </View>
+                                                    <Text style={styles.googleBtnText}>{t('auth.continueWithGoogle')}</Text>
+                                                </>
+                                            )}
+                                        </Pressable>
+                                    )}
+
+                                    {/* Spacing before signup */}
+                                    {Platform.OS === 'android' && <View style={{ height: spacing.lg }} />}
 
                                     {/* Secondary */}
                                     <Pressable
@@ -414,6 +476,31 @@ const styles = StyleSheet.create({
         borderColor: `${colors.outline}1A`,
         paddingVertical: spacing.lg,
         alignItems: 'center',
+    },
+    googleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.md,
+        borderRadius: radius.full,
+        backgroundColor: `${colors.primary}18`,
+        borderWidth: 1,
+        borderColor: `${colors.primary}30`,
+        paddingVertical: spacing.lg,
+    },
+    googleIconWrap: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: `${colors.primary}25`,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    googleBtnText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 15,
+        color: colors.onSurface,
+        letterSpacing: 0.2,
     },
     secondaryBtnText: {
         fontFamily: fonts.body.semiBold,

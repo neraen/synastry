@@ -26,6 +26,7 @@ import {
     getOffering,
     purchasePackage,
     restorePurchases,
+    verifyPremiumWithBackend,
     type Offering,
 } from '@/services/purchases';
 import type { PurchasesPackage } from 'react-native-purchases';
@@ -65,33 +66,52 @@ function FeatureRow({ feature }: { feature: Feature }) {
     );
 }
 
+function PlanCardInner({ plan, dark }: { plan: Plan; dark: boolean }) {
+    return (
+        <View style={styles.planContent}>
+            <View style={styles.planHeaderRow}>
+                <Text style={dark ? styles.planLabelDark : styles.planLabel}>{plan.label}</Text>
+                {plan.badge && (
+                    <View style={styles.bestValueBadge}>
+                        <Text style={styles.bestValueText}>{plan.badge}</Text>
+                    </View>
+                )}
+            </View>
+            <View style={styles.priceRow}>
+                <Text style={dark ? styles.priceAmountDark : styles.priceAmount}>{plan.price}</Text>
+                <Text style={dark ? styles.pricePeriodDark : styles.pricePeriod}>{plan.period}</Text>
+            </View>
+            <View style={styles.checkList}>
+                {plan.features.map((f) => (
+                    <View key={f} style={styles.checkRow}>
+                        <Text style={dark ? styles.checkIconDark : styles.checkIconLight}>✓</Text>
+                        <Text style={dark ? styles.checkTextDark : styles.checkTextLight}>{f}</Text>
+                    </View>
+                ))}
+            </View>
+        </View>
+    );
+}
+
 function AnnualCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean; onSelect: (id: PlanId) => void }) {
     return (
         <Pressable onPress={() => onSelect(plan.id)}>
-            <GlassCard opacity={selected ? 'medium' : 'low'} radius="xl" padding="none">
-                <View style={styles.planContent}>
-                    <View style={styles.planHeaderRow}>
-                        <Text style={styles.planLabel}>{plan.label}</Text>
-                        {plan.badge && (
-                            <View style={styles.bestValueBadge}>
-                                <Text style={styles.bestValueText}>{plan.badge}</Text>
-                            </View>
-                        )}
+            {selected ? (
+                <LinearGradient
+                    colors={['#e9c349', '#c09a2a']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.monthlyBorder}
+                >
+                    <View style={[styles.monthlyInner, { backgroundColor: colors.surfaceContainerHigh }]}>
+                        <PlanCardInner plan={plan} dark={false} />
                     </View>
-                    <View style={styles.priceRow}>
-                        <Text style={styles.priceAmount}>{plan.price}</Text>
-                        <Text style={styles.pricePeriod}>{plan.period}</Text>
-                    </View>
-                    <View style={styles.checkList}>
-                        {plan.features.map((f) => (
-                            <View key={f} style={styles.checkRow}>
-                                <Text style={styles.checkIconLight}>✓</Text>
-                                <Text style={styles.checkTextLight}>{f}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-            </GlassCard>
+                </LinearGradient>
+            ) : (
+                <GlassCard opacity="low" radius="xl" padding="none">
+                    <PlanCardInner plan={plan} dark={false} />
+                </GlassCard>
+            )}
         </Pressable>
     );
 }
@@ -99,32 +119,22 @@ function AnnualCard({ plan, selected, onSelect }: { plan: Plan; selected: boolea
 function MonthlyCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean; onSelect: (id: PlanId) => void }) {
     return (
         <Pressable onPress={() => onSelect(plan.id)}>
-            <LinearGradient
-                colors={['#e9c349', '#c09a2a']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.monthlyBorder}
-            >
-                <View style={styles.monthlyInner}>
-                    <View style={styles.planContent}>
-                        <View style={styles.planHeaderRow}>
-                            <Text style={styles.planLabelDark}>{plan.label}</Text>
-                        </View>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceAmountDark}>{plan.price}</Text>
-                            <Text style={styles.pricePeriodDark}>{plan.period}</Text>
-                        </View>
-                        <View style={styles.checkList}>
-                            {plan.features.map((f) => (
-                                <View key={f} style={styles.checkRow}>
-                                    <Text style={styles.checkIconDark}>✓</Text>
-                                    <Text style={styles.checkTextDark}>{f}</Text>
-                                </View>
-                            ))}
-                        </View>
+            {selected ? (
+                <LinearGradient
+                    colors={['#e9c349', '#c09a2a']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.monthlyBorder}
+                >
+                    <View style={styles.monthlyInner}>
+                        <PlanCardInner plan={plan} dark={true} />
                     </View>
-                </View>
-            </LinearGradient>
+                </LinearGradient>
+            ) : (
+                <GlassCard opacity="low" radius="xl" padding="none">
+                    <PlanCardInner plan={plan} dark={false} />
+                </GlassCard>
+            )}
         </Pressable>
     );
 }
@@ -221,6 +231,7 @@ export default function PremiumScreen() {
             const result = await purchasePackage(pkg);
             if (result.cancelled) return;
             if (result.success && result.isPremium) {
+                await verifyPremiumWithBackend();
                 await refreshUser();
                 router.back();
             } else if (result.error) {
@@ -236,6 +247,7 @@ export default function PremiumScreen() {
         try {
             const result = await restorePurchases();
             if (result.isPremium) {
+                await verifyPremiumWithBackend();
                 await refreshUser();
                 Alert.alert(t('premium.restoreSuccess'), t('premium.restoreSuccessMsg'));
                 router.back();
@@ -256,10 +268,6 @@ export default function PremiumScreen() {
             />
 
             <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-                {/* Close */}
-                <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} hitSlop={12}>
-                    <Text style={styles.closeIcon}>✕</Text>
-                </TouchableOpacity>
 
                 <ScrollView
                     contentContainerStyle={styles.scroll}

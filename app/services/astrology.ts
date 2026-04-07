@@ -151,6 +151,22 @@ export async function getNatalChartInterpretation(): Promise<InterpretationRespo
     return authApi.get<InterpretationResponse>('/api/astrology/natal-chart/interpretation');
 }
 
+export interface PlanetInterpretationResponse {
+    success: boolean;
+    planet?: string;
+    sign?: string;
+    degree?: number;
+    interpretation?: string;
+    error?: string;
+}
+
+/**
+ * Get AI explanation for a single natal planet placement (cached 90 days on backend)
+ */
+export async function getPlanetInterpretation(planet: string): Promise<PlanetInterpretationResponse> {
+    return authApi.get<PlanetInterpretationResponse>(`/api/astrology/natal-chart/planet-interpretation/${encodeURIComponent(planet)}`);
+}
+
 /**
  * Calculate synastry with partner
  */

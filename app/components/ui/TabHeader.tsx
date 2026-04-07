@@ -38,7 +38,7 @@ export function TabHeader({ onBack }: TabHeaderProps = {}) {
             ) : (
                 <Pressable style={styles.logoRow} onPress={() => router.push('/(tabs)')} hitSlop={8}>
                     <Text style={styles.logoIcon}>✦</Text>
-                    <Text style={styles.logoText}>AstroMatch</Text>
+                    <Text style={styles.logoText}>Lunestia</Text>
                 </Pressable>
             )}
 

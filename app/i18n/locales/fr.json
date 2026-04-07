@@ -382,6 +382,7 @@
     "loadError": "Impossible de récupérer les transits.",
     "timelineTab": "Prochains",
     "calendarTab": "Calendrier",
+    "mirrorTab": "Miroir",
     "calendarNoAspects": "Aucun aspect majeur ce jour",
     "calendarLoadError": "Impossible de charger le calendrier.",
     "orbLabel": "orbe"
@@ -465,7 +466,7 @@
   },
   "onboarding": {
     "welcome": {
-      "title": "Bienvenue sur AstroMatch",
+      "title": "Bienvenue sur Lunestia",
       "subtitle": "Ton guide astrologique personnel. Comprends tes transits, explore tes compatibilités, navigue dans le temps.",
       "feature1": "Horoscope quotidien basé sur tes transits réels",
       "feature2": "Compatibilité astrologique avec qui tu veux",
@@ -487,5 +488,20 @@
       "feature4": "Chat avec l'astrologue IA Lyra",
       "cta": "Entrer dans l'app"
     }
+  },
+  "transitsOnboarding": {
+    "step1Title": "3 façons d'explorer vos transits",
+    "step1Body": "La page Transits se divise en 3 onglets. Naviguez entre eux pour découvrir vos influences astrales sous différents angles.",
+    "step2Title": "Prochains transits",
+    "step2Body": "Vos 3 prochains transits significatifs, classés par intensité. Chacun indique une date, une thématique et son influence sur votre thème natal.",
+    "step3Title": "Calendrier astral",
+    "step3Body": "Visualisez vos aspects planétaires jour par jour. Les points colorés indiquent le type d'aspect actif. Touchez un jour pour voir le détail et obtenir une interprétation.",
+    "step4Title": "Miroir Temporel",
+    "step4Body": "Glissez le curseur pour explorer vos transits à n'importe quel âge — passé ou futur. Idéal pour comprendre les périodes marquantes de votre vie.",
+    "step5Title": "Guide astrologique",
+    "step5Body": "Vous ne connaissez pas un terme ? Ce bouton ouvre un guide complet avec l'explication de chaque aspect et planète.",
+    "next": "Suivant",
+    "skip": "Passer",
+    "finish": "C'est parti !"
   }
 }

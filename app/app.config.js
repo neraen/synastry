@@ -15,9 +15,9 @@ const getUniqueIdentifier = () => {
 };
 
 const getAppName = () => {
-  if (IS_DEV) return 'AstroMatch (Dev)';
-  if (IS_PREVIEW) return 'AstroMatch (Preview)';
-  return 'AstroMatch';
+  if (IS_DEV) return 'Lunestia (Dev)';
+  if (IS_PREVIEW) return 'Lunestia (Preview)';
+  return 'Lunestia';
 };
 
 export default {

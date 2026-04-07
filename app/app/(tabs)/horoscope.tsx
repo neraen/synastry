@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -6,6 +6,9 @@ import {
     Pressable,
     StyleSheet,
     ActivityIndicator,
+    Modal,
+    TouchableOpacity,
+    Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -16,6 +19,7 @@ import { usePremium } from '@/hooks/usePremium';
 import {
     getNatalChart,
     getNatalChartInterpretation,
+    getPlanetInterpretation,
     NatalChart,
     getMainPlanets,
     getPlanetNameFr,
@@ -48,29 +52,144 @@ const PLANET_TINTS = [
 ];
 
 // ─── Planet Card ───────────────────────────────────────────────────────────────
-function PlanetCard({ planet, data, tint }: { planet: string; data: any; tint: string }) {
+function PlanetCard({
+    planet,
+    data,
+    tint,
+    onPress,
+}: {
+    planet: string;
+    data: any;
+    tint: string;
+    onPress: () => void;
+}) {
     const symbol = PLANET_SYMBOLS[planet] || '✦';
     const isRetrograde = data.Retrograde === 'Yes';
 
     return (
-        <GlassCard opacity="low" radius="xl" style={styles.planetCard}>
-            <View style={[styles.symbolBubble, { backgroundColor: `${tint}1A` }]}>
-                <Text style={[styles.planetSymbol, { color: tint }]}>{symbol}</Text>
-            </View>
-            <View style={styles.planetContent}>
-                <View style={styles.planetNameRow}>
-                    <Text style={styles.planetName}>{getPlanetNameFr(planet)}</Text>
-                    {isRetrograde && (
-                        <View style={styles.retroBadge}>
-                            <Text style={styles.retroText}>℞</Text>
-                        </View>
-                    )}
+        <Pressable onPress={onPress} style={styles.planetCardWrap}>
+            <GlassCard opacity="low" radius="xl" style={styles.planetCard}>
+                <View style={[styles.symbolBubble, { backgroundColor: `${tint}1A` }]}>
+                    <Text style={[styles.planetSymbol, { color: tint }]}>{symbol}</Text>
                 </View>
-                <Text style={styles.planetPosition} numberOfLines={1}>
-                    {formatDegree(data.Position, data.Sign)}
-                </Text>
-            </View>
-        </GlassCard>
+                <View style={styles.planetContent}>
+                    <View style={styles.planetNameRow}>
+                        <Text style={styles.planetName}>{getPlanetNameFr(planet)}</Text>
+                        {isRetrograde && (
+                            <View style={styles.retroBadge}>
+                                <Text style={styles.retroText}>℞</Text>
+                            </View>
+                        )}
+                    </View>
+                    <Text style={styles.planetPosition} numberOfLines={1}>
+                        {formatDegree(data.Position, data.Sign)}
+                    </Text>
+                </View>
+            </GlassCard>
+        </Pressable>
+    );
+}
+
+// ─── Planet Detail Modal ────────────────────────────────────────────────────────
+function PlanetDetailModal({
+    visible,
+    planet,
+    data,
+    tint,
+    onClose,
+}: {
+    visible: boolean;
+    planet: string | null;
+    data: any | null;
+    tint: string;
+    onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const [interpretation, setInterpretation] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const slideY = useRef(new Animated.Value(300)).current;
+
+    useEffect(() => {
+        if (visible) {
+            Animated.spring(slideY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }).start();
+        } else {
+            slideY.setValue(300);
+            setInterpretation(null);
+            setError(null);
+        }
+    }, [visible]);
+
+    useEffect(() => {
+        if (!visible || !planet) return;
+        setLoading(true);
+        setError(null);
+        getPlanetInterpretation(planet)
+            .then((res) => {
+                if (res.success && res.interpretation) {
+                    setInterpretation(res.interpretation);
+                } else {
+                    setError(res.error ?? 'Erreur');
+                }
+            })
+            .catch(() => setError('Erreur réseau'))
+            .finally(() => setLoading(false));
+    }, [visible, planet]);
+
+    if (!planet || !data) return null;
+
+    const symbol = PLANET_SYMBOLS[planet] || '✦';
+    const isRetrograde = data.Retrograde === 'Yes';
+
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+            statusBarTranslucent
+        >
+            <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onClose} />
+            <Animated.View style={[modalStyles.sheet, { transform: [{ translateY: slideY }] }]}>
+                {/* Handle */}
+                <View style={modalStyles.handle} />
+
+                {/* Header */}
+                <View style={modalStyles.header}>
+                    <View style={[modalStyles.symbolBubble, { backgroundColor: `${tint}20` }]}>
+                        <Text style={[modalStyles.symbol, { color: tint }]}>{symbol}</Text>
+                    </View>
+                    <View style={modalStyles.headerText}>
+                        <View style={modalStyles.nameRow}>
+                            <Text style={modalStyles.planetName}>{getPlanetNameFr(planet)}</Text>
+                            {isRetrograde && (
+                                <View style={modalStyles.retroBadge}>
+                                    <Text style={modalStyles.retroText}>℞</Text>
+                                </View>
+                            )}
+                        </View>
+                        <Text style={modalStyles.position}>{formatDegree(data.Position, data.Sign)}</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} hitSlop={12} style={modalStyles.closeBtn}>
+                        <Text style={modalStyles.closeIcon}>✕</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Content */}
+                <ScrollView style={modalStyles.content} showsVerticalScrollIndicator={false}>
+                    {loading ? (
+                        <View style={modalStyles.centered}>
+                            <ActivityIndicator color={colors.primary} />
+                        </View>
+                    ) : error ? (
+                        <Text style={modalStyles.errorText}>{error}</Text>
+                    ) : interpretation ? (
+                        <FormattedText text={interpretation} style={modalStyles.interpText} />
+                    ) : null}
+                    <View style={{ height: 32 }} />
+                </ScrollView>
+            </Animated.View>
+        </Modal>
     );
 }
 
@@ -87,6 +206,22 @@ export default function HoroscopeTab() {
     const [chart, setChart] = useState<NatalChart | null>(null);
     const [interpretation, setInterpretation] = useState<string | null>(null);
     const [interpretationLocked, setInterpretationLocked] = useState(false);
+
+    // Planet detail modal
+    const [selectedPlanet, setSelectedPlanet] = useState<string | null>(null);
+    const [selectedData, setSelectedData] = useState<any | null>(null);
+    const [selectedTint, setSelectedTint] = useState<string>(colors.primary);
+
+    const openPlanetDetail = useCallback((planet: string, data: any, tint: string) => {
+        setSelectedPlanet(planet);
+        setSelectedData(data);
+        setSelectedTint(tint);
+    }, []);
+
+    const closePlanetDetail = useCallback(() => {
+        setSelectedPlanet(null);
+        setSelectedData(null);
+    }, []);
 
     useEffect(() => {
         if (isAuthLoading) return;
@@ -218,14 +353,18 @@ export default function HoroscopeTab() {
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>{t('horoscope.planetaryPositions')}</Text>
                             <View style={styles.grid}>
-                                {planetEntries.map(([planet, data], index) => (
-                                    <PlanetCard
-                                        key={planet}
-                                        planet={planet}
-                                        data={data}
-                                        tint={PLANET_TINTS[index % PLANET_TINTS.length]}
-                                    />
-                                ))}
+                                {planetEntries.map(([planet, data], index) => {
+                                    const tint = PLANET_TINTS[index % PLANET_TINTS.length];
+                                    return (
+                                        <PlanetCard
+                                            key={planet}
+                                            planet={planet}
+                                            data={data}
+                                            tint={tint}
+                                            onPress={() => openPlanetDetail(planet, data, tint)}
+                                        />
+                                    );
+                                })}
                             </View>
                         </View>
                     )}
@@ -289,6 +428,14 @@ export default function HoroscopeTab() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
+
+            <PlanetDetailModal
+                visible={!!selectedPlanet}
+                planet={selectedPlanet}
+                data={selectedData}
+                tint={selectedTint}
+                onClose={closePlanetDetail}
+            />
         </View>
     );
 }
@@ -388,8 +535,10 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         gap: spacing.md,
     },
-    planetCard: {
+    planetCardWrap: {
         width: '47.5%',
+    },
+    planetCard: {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
@@ -483,5 +632,114 @@ const styles = StyleSheet.create({
         color: colors.error,
         textAlign: 'center',
         lineHeight: 20,
+    },
+});
+
+// ─── Modal Styles ──────────────────────────────────────────────────────────────
+const modalStyles = StyleSheet.create({
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(10, 6, 22, 0.72)',
+    },
+    sheet: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: colors.surfaceContainerHigh,
+        borderTopLeftRadius: radius.xl,
+        borderTopRightRadius: radius.xl,
+        paddingBottom: 40,
+        maxHeight: '75%',
+    },
+    handle: {
+        width: 36,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: `${colors.onSurfaceMuted}40`,
+        alignSelf: 'center',
+        marginTop: spacing.md,
+        marginBottom: spacing.lg,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.xl,
+        paddingBottom: spacing.lg,
+        gap: spacing.md,
+    },
+    symbolBubble: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    symbol: {
+        fontFamily: fonts.display.bold,
+        fontSize: 20,
+        lineHeight: 24,
+    },
+    headerText: {
+        flex: 1,
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    planetName: {
+        fontFamily: fonts.display.semiBold,
+        fontSize: 18,
+        color: colors.onSurface,
+    },
+    retroBadge: {
+        backgroundColor: `${colors.error}20`,
+        borderRadius: radius.full,
+        paddingHorizontal: 5,
+        paddingVertical: 1,
+    },
+    retroText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 11,
+        color: colors.error,
+    },
+    position: {
+        fontFamily: fonts.body.regular,
+        fontSize: 13,
+        color: colors.onSurfaceMuted,
+        marginTop: 2,
+    },
+    closeBtn: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: `${colors.onSurfaceMuted}18`,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    closeIcon: {
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: colors.onSurfaceMuted,
+    },
+    content: {
+        paddingHorizontal: spacing.xl,
+    },
+    centered: {
+        paddingVertical: spacing.xxl,
+        alignItems: 'center',
+    },
+    interpText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        lineHeight: 26,
+        color: colors.onSurface,
+    },
+    errorText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.error,
+        lineHeight: 22,
     },
 });
