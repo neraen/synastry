@@ -218,6 +218,8 @@ class PromptLocaleService
                     'Maximum 180 words total.',
                     'Do NOT default to positive language — challenging days deserve honest advice (rest, caution, avoid conflict, etc.).',
                     'Give concrete and actionable advice adapted to the actual energy.',
+                    'NEVER use technical astrological terms: no "trine", "square", "sextile", "opposition", "conjunction", "orb", "transit", "natal". Translate these into everyday language — a trine becomes "a harmonious influence", a square becomes "a tension", an opposition becomes "a pull in opposite directions".',
+                    'Each section (overview, love, energy, advice) must feel distinct — do NOT repeat the same planetary influence across multiple sections.',
                 ],
                 'format' => [
                     'title' => 'Inspiring title (max 8 words)',
@@ -248,6 +250,8 @@ class PromptLocaleService
                 'Maximum 180 mots au total.',
                 'N\'utilise PAS systématiquement un langage positif — les jours difficiles méritent des conseils adaptés (repos, prudence, évite les conflits, etc.).',
                 'Donne des conseils concrets adaptés à l\'énergie réelle de la journée.',
+                'N\'utilise JAMAIS de termes astrologiques techniques : interdiction d\'écrire "trigone", "carré", "sextile", "opposition", "conjonction", "orbe", "transit natal". Traduis-les en langage courant — un trigone devient "une influence harmonieuse", un carré devient "une tension", une opposition devient "un tiraillement entre deux forces".',
+                'Chaque section (overview, love, energy, advice) doit aborder un angle distinct — ne répète PAS la même influence planétaire dans plusieurs sections.',
             ],
             'format' => [
                 'title' => 'Titre reflétant l\'énergie réelle du jour (max 8 mots)',
