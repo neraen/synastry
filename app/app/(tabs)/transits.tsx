@@ -4,7 +4,7 @@
  * - "Calendar" tab: month calendar with color-coded aspect dots per day
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
     View,
     Text,
@@ -16,22 +16,33 @@ import {
     Modal,
     Dimensions,
     TouchableWithoutFeedback,
+    TextInput,
 } from 'react-native';
 
-const WINDOW_HEIGHT = Dimensions.get('window').height;
+const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as FileSystem from 'expo-file-system';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
-import { GlassCard, GoldButton, TabHeader } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader } from '@/components/ui';
+import { TransitOnboarding, hasSeenTransitOnboarding } from '@/components/TransitOnboarding';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import { router } from 'expo-router';
 import {
     getUpcomingTransits,
     getCalendarTransits,
     getTransitInterpretation,
+    getMirrorTransits,
+    getMirrorInterpretation,
+    getPlanetNameFr,
+    getZodiacSignFr,
     UpcomingTransit,
     CalendarAspect,
+    type MirrorAspect,
+    type MirrorTransitsData,
+    type UnlockedRange,
 } from '@/services/astrology';
 
 // ─── Aspect color config ──────────────────────────────────────────────────────
@@ -474,6 +485,459 @@ function HelpModal({ visible, onClose, locale }: { visible: boolean; onClose: ()
     );
 }
 
+// ─── Mirror: Constants & types ────────────────────────────────────────────────
+
+const MAX_AGE = 80;
+const MIRROR_H_PADDING = 24;
+const PINS_FILE = `${FileSystem.documentDirectory}mirror_pins.json`;
+
+const MIRROR_ASPECT_COLORS: Record<string, string> = {
+    conjunction: '#2dd4bf',
+    trine:       '#a78bfa',
+    sextile:     '#9ca3af',
+    square:      '#fb923c',
+    opposition:  '#fbbf24',
+};
+
+interface PinnedEvent {
+    age: number;
+    label: string;
+}
+
+async function loadPins(): Promise<PinnedEvent[]> {
+    try {
+        const info = await FileSystem.getInfoAsync(PINS_FILE);
+        if (!info.exists) return [];
+        const raw = await FileSystem.readAsStringAsync(PINS_FILE);
+        return JSON.parse(raw) as PinnedEvent[];
+    } catch {
+        return [];
+    }
+}
+
+async function savePins(pins: PinnedEvent[]): Promise<void> {
+    await FileSystem.writeAsStringAsync(PINS_FILE, JSON.stringify(pins));
+}
+
+// ─── Mirror: Age Slider ───────────────────────────────────────────────────────
+
+function AgeSlider({
+    age,
+    onAgeChange,
+    onSlidingComplete,
+    unlockedRanges,
+}: {
+    age: number;
+    onAgeChange: (age: number) => void;
+    onSlidingComplete: (age: number) => void;
+    unlockedRanges: UnlockedRange[] | null;
+}) {
+    const trackRef = useRef<View>(null);
+    const trackWidth = useRef(SCREEN_WIDTH - MIRROR_H_PADDING * 2 - 24);
+    const trackPageX = useRef(0);
+    const [trackWidthState, setTrackWidthState] = useState(trackWidth.current);
+
+    const thumbLeft = (age / MAX_AGE) * trackWidthState;
+
+    const pageXToAge = (pageX: number): number => {
+        const localX = pageX - trackPageX.current;
+        const clamped = Math.max(0, Math.min(trackWidth.current, localX));
+        return Math.round((clamped / trackWidth.current) * MAX_AGE);
+    };
+
+    const isCurrentAgeLocked = (): boolean => {
+        if (!unlockedRanges) return false;
+        return !unlockedRanges.some((r) => age >= r.min && age <= r.max);
+    };
+
+    const trackColor = isCurrentAgeLocked() ? colors.onSurfaceMuted : colors.primary;
+
+    return (
+        <View style={sliderStyles.container}>
+            <View
+                ref={trackRef}
+                style={sliderStyles.track}
+                onLayout={() => {
+                    trackRef.current?.measure((_x, _y, width, _h, pageX) => {
+                        trackWidth.current = width;
+                        trackPageX.current = pageX;
+                        setTrackWidthState(width);
+                    });
+                }}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+                onResponderGrant={(e) => { onAgeChange(pageXToAge(e.nativeEvent.pageX)); }}
+                onResponderMove={(e) => { onAgeChange(pageXToAge(e.nativeEvent.pageX)); }}
+                onResponderRelease={(e) => {
+                    const finalAge = pageXToAge(e.nativeEvent.pageX);
+                    onAgeChange(finalAge);
+                    onSlidingComplete(finalAge);
+                }}
+                onResponderTerminate={(e) => {
+                    const finalAge = pageXToAge(e.nativeEvent.pageX);
+                    onSlidingComplete(finalAge);
+                }}
+            >
+                <View style={[sliderStyles.fill, { width: thumbLeft, backgroundColor: trackColor }]} />
+                {unlockedRanges && (
+                    <LockedZones trackWidth={trackWidthState} unlockedRanges={unlockedRanges} />
+                )}
+                <View style={[sliderStyles.thumb, { left: thumbLeft - 12, backgroundColor: trackColor }]} />
+            </View>
+            <View style={sliderStyles.ticks}>
+                {([0, 10, 20, 30, 40, 50, 60, 70, 80] as const).map((tick) => (
+                    <Text key={tick} style={[sliderStyles.tick, tick === age && sliderStyles.tickActive]}>
+                        {tick}
+                    </Text>
+                ))}
+            </View>
+        </View>
+    );
+}
+
+function LockedZones({ trackWidth, unlockedRanges }: { trackWidth: number; unlockedRanges: UnlockedRange[] }) {
+    const locked: Array<{ start: number; end: number }> = [];
+    const sorted = [...unlockedRanges].sort((a, b) => a.min - b.min);
+    let cursor = 0;
+    for (const r of sorted) {
+        if (r.min > cursor) locked.push({ start: cursor, end: r.min });
+        cursor = r.max + 1;
+    }
+    if (cursor <= MAX_AGE) locked.push({ start: cursor, end: MAX_AGE });
+    return (
+        <>
+            {locked.map((zone, i) => (
+                <View
+                    key={i}
+                    style={[
+                        sliderStyles.lockedZone,
+                        { left: (zone.start / MAX_AGE) * trackWidth, width: ((zone.end - zone.start) / MAX_AGE) * trackWidth },
+                    ]}
+                />
+            ))}
+        </>
+    );
+}
+
+const sliderStyles = StyleSheet.create({
+    container: { paddingVertical: 8 },
+    track: {
+        height: 6,
+        backgroundColor: colors.surfaceVariant,
+        borderRadius: radius.full,
+        position: 'relative',
+        marginHorizontal: 12,
+        overflow: 'visible',
+    },
+    fill: { position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: radius.full },
+    thumb: {
+        width: 24, height: 24, borderRadius: 12, position: 'absolute', top: -9,
+        shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 4,
+    },
+    lockedZone: { position: 'absolute', top: 0, height: '100%', backgroundColor: 'rgba(255,255,255,0.12)' },
+    ticks: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, marginHorizontal: 12 },
+    tick: { fontFamily: fonts.body.regular, fontSize: 10, color: colors.onSurfaceMuted },
+    tickActive: { color: colors.primary, fontFamily: fonts.body.bold },
+});
+
+// ─── Mirror: Active Aspects ───────────────────────────────────────────────────
+
+function MirrorActiveAspects({ aspects }: { aspects: MirrorAspect[] }) {
+    const { t, i18n } = useTranslation();
+    const isFr = i18n.language.startsWith('fr');
+
+    return (
+        <GlassCard style={mirrorStyles.card}>
+            <Text style={mirrorStyles.sectionTitle}>{t('mirror.activeAspectsTitle')}</Text>
+            {aspects.length === 0 ? (
+                <Text style={mirrorStyles.emptyText}>{t('mirror.noAspects')}</Text>
+            ) : (
+                aspects.map((aspect, i) => {
+                    const color = MIRROR_ASPECT_COLORS[aspect.aspect_type] ?? '#9ca3af';
+                    const transit = isFr ? getPlanetNameFr(aspect.transit_planet) : aspect.transit_planet;
+                    const natal = isFr ? getPlanetNameFr(aspect.natal_planet) : aspect.natal_planet;
+                    const type = t(`mirror.aspectTypes.${aspect.aspect_type}`, { defaultValue: aspect.aspect_type });
+                    return (
+                        <View key={i} style={mirrorStyles.aspectRow}>
+                            <View style={mirrorStyles.intensityBarBg}>
+                                <View style={[mirrorStyles.intensityBarFill, { width: `${Math.round(aspect.intensity * 100)}%`, backgroundColor: color }]} />
+                            </View>
+                            <View style={mirrorStyles.aspectInfoRow}>
+                                <Text style={mirrorStyles.aspectSymbol}>{aspect.symbol}</Text>
+                                <Text style={mirrorStyles.planetLabel}>{transit}</Text>
+                                <Text style={mirrorStyles.aspectTypeLabel}>{type}</Text>
+                                <Text style={mirrorStyles.planetLabel}>{natal}</Text>
+                                <View style={[mirrorStyles.badge, { backgroundColor: color + '22', borderColor: color }]}>
+                                    <Text style={[mirrorStyles.badgeText, { color }]}>{aspect.orb_exact.toFixed(1)}°</Text>
+                                </View>
+                            </View>
+                        </View>
+                    );
+                })
+            )}
+        </GlassCard>
+    );
+}
+
+// ─── Mirror: Transit Grid ─────────────────────────────────────────────────────
+
+const MIRROR_MAIN_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+
+function MirrorTransitGrid({ positions }: { positions: Record<string, { Position: number; Sign: string; Retrograde: string }> }) {
+    const { t, i18n } = useTranslation();
+    const isFr = i18n.language.startsWith('fr');
+    return (
+        <GlassCard style={mirrorStyles.card}>
+            <Text style={mirrorStyles.sectionTitle}>{t('mirror.transitPositionsTitle')}</Text>
+            <View style={mirrorStyles.planetGrid}>
+                {MIRROR_MAIN_PLANETS.map((planet) => {
+                    const data = positions[planet];
+                    if (!data) return null;
+                    return (
+                        <View key={planet} style={mirrorStyles.planetCell}>
+                            <Text style={mirrorStyles.planetCellName}>{isFr ? getPlanetNameFr(planet) : planet}</Text>
+                            <Text style={mirrorStyles.planetCellSign}>
+                                {isFr ? getZodiacSignFr(data.Sign) : data.Sign}
+                                {data.Retrograde === 'Yes' ? ' ℞' : ''}
+                            </Text>
+                        </View>
+                    );
+                })}
+            </View>
+        </GlassCard>
+    );
+}
+
+// ─── Mirror: Pin Modal ────────────────────────────────────────────────────────
+
+function MirrorPinModal({ visible, initialValue, onSave, onClose }: {
+    visible: boolean; initialValue: string; onSave: (label: string) => void; onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const [text, setText] = useState(initialValue);
+    useEffect(() => { if (visible) setText(initialValue); }, [visible, initialValue]);
+    return (
+        <Modal visible={visible} transparent animationType="fade">
+            <View style={mirrorStyles.modalOverlay}>
+                <TouchableWithoutFeedback onPress={onClose}>
+                    <View style={StyleSheet.absoluteFill} />
+                </TouchableWithoutFeedback>
+                <View style={mirrorStyles.modalSheet}>
+                    <Text style={mirrorStyles.modalTitle}>{t('mirror.pinModalTitle')}</Text>
+                    <TextInput
+                        style={mirrorStyles.pinInput}
+                        value={text}
+                        onChangeText={setText}
+                        placeholder={t('mirror.pinModalPlaceholder')}
+                        placeholderTextColor={colors.onSurfaceMuted}
+                        multiline
+                        autoFocus
+                    />
+                    <GoldButton label={t('mirror.pinModalSave')} onPress={() => { onSave(text); onClose(); }} />
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+// ─── Mirror: Premium Modal ────────────────────────────────────────────────────
+
+function MirrorPremiumModal({ visible, unlockedRanges, onClose }: {
+    visible: boolean; unlockedRanges: UnlockedRange[]; onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    return (
+        <Modal visible={visible} transparent animationType="fade">
+            <View style={mirrorStyles.modalOverlay}>
+                <TouchableWithoutFeedback onPress={onClose}>
+                    <View style={StyleSheet.absoluteFill} />
+                </TouchableWithoutFeedback>
+                <View style={mirrorStyles.modalSheet}>
+                    <Feather name="lock" size={32} color={colors.primary} style={mirrorStyles.lockIcon} />
+                    <Text style={mirrorStyles.premiumTitle}>{t('mirror.premiumTitle')}</Text>
+                    <Text style={mirrorStyles.premiumSubtitle}>{t('mirror.premiumSubtitle')}</Text>
+                    <Text style={mirrorStyles.unlockedLabel}>{t('mirror.premiumUnlocked')}</Text>
+                    {unlockedRanges.map((r, i) => (
+                        <Text key={i} style={mirrorStyles.unlockedRange}>{'  '}• {r.min}–{r.max} ans</Text>
+                    ))}
+                    <View style={mirrorStyles.premiumActions}>
+                        <GoldButton label={t('mirror.premiumCta')} onPress={() => { onClose(); router.push('/premium'); }} />
+                        <GhostButton label={t('common.cancel')} onPress={onClose} />
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+// ─── Mirror: Tab Content ──────────────────────────────────────────────────────
+
+function MirrorTabContent() {
+    const { user } = useAuth();
+    const { t } = useTranslation();
+
+    const initialAge = useMemo<number>(() => {
+        const bd = user?.birthProfile?.birthDate;
+        if (!bd) return 30;
+        const years = (Date.now() - new Date(bd).getTime()) / (365.25 * 24 * 3600 * 1000);
+        return Math.max(0, Math.min(MAX_AGE, Math.floor(years)));
+    }, [user?.birthProfile?.birthDate]);
+
+    const [age, setAge] = useState<number>(initialAge);
+    const [mirrorTransits, setMirrorTransits] = useState<MirrorTransitsData | null>(null);
+    const [interpretation, setInterpretation] = useState<string>('');
+    const [isLoadingTransits, setIsLoadingTransits] = useState(false);
+    const [isLoadingInterp, setIsLoadingInterp] = useState(false);
+    const [unlockedRanges, setUnlockedRanges] = useState<UnlockedRange[] | null>(null);
+    const [showPremiumModal, setShowPremiumModal] = useState(false);
+    const [pinnedEvents, setPinnedEvents] = useState<PinnedEvent[]>([]);
+    const [showPinModal, setShowPinModal] = useState(false);
+
+    const currentPin = pinnedEvents.find((p) => p.age === age);
+
+    useEffect(() => { loadPins().then(setPinnedEvents); }, []);
+
+    const handlePremiumError = useCallback((err: unknown) => {
+        const payload = (err as any)?.payload;
+        if ((err as any)?.status === 403 && payload?.error === 'premium_required') {
+            setUnlockedRanges(payload.unlocked_ranges ?? []);
+            setShowPremiumModal(true);
+        }
+    }, []);
+
+    const fetchTransits = useCallback(async (targetAge: number) => {
+        setIsLoadingTransits(true);
+        setMirrorTransits(null);
+        setInterpretation('');
+        try {
+            const res = await getMirrorTransits(targetAge);
+            setMirrorTransits({
+                age: res.age!,
+                target_date: res.target_date!,
+                target_year: res.target_year!,
+                natal_positions: res.natal_positions!,
+                transit_positions: res.transit_positions!,
+                aspects: res.aspects,
+                global_intensity: res.global_intensity!,
+            });
+            setUnlockedRanges(null);
+        } catch (err) {
+            handlePremiumError(err);
+        } finally {
+            setIsLoadingTransits(false);
+        }
+    }, [handlePremiumError]);
+
+    const fetchInterpretation = useCallback(async (targetAge: number) => {
+        setIsLoadingInterp(true);
+        setInterpretation('');
+        try {
+            const pin = pinnedEvents.find((p) => p.age === targetAge);
+            const res = await getMirrorInterpretation(targetAge, pin?.label);
+            if (res.interpretation) setInterpretation(res.interpretation);
+        } catch (err) {
+            handlePremiumError(err);
+        } finally {
+            setIsLoadingInterp(false);
+        }
+    }, [pinnedEvents, handlePremiumError]);
+
+    useEffect(() => {
+        setAge(initialAge);
+        fetchTransits(initialAge);
+        fetchInterpretation(initialAge);
+    }, [initialAge]);
+
+    const handleSavePin = useCallback(async (label: string) => {
+        const updated = [
+            ...pinnedEvents.filter((p) => p.age !== age),
+            ...(label.trim() ? [{ age, label: label.trim() }] : []),
+        ];
+        setPinnedEvents(updated);
+        await savePins(updated);
+    }, [age, pinnedEvents]);
+
+    return (
+        <View style={mirrorStyles.tabContent}>
+            {/* Slider card */}
+            <GlassCard style={mirrorStyles.card}>
+                <View style={mirrorStyles.ageRow}>
+                    <Text style={mirrorStyles.ageBig}>{t('mirror.ageLabel', { age })}</Text>
+                    {mirrorTransits && (
+                        <Text style={mirrorStyles.yearBadge}>{t('mirror.yearLabel', { year: mirrorTransits.target_year })}</Text>
+                    )}
+                </View>
+                {mirrorTransits && (
+                    <View style={mirrorStyles.intensityRow}>
+                        <Text style={mirrorStyles.intensityLabel}>{t('mirror.intensityLabel')}</Text>
+                        <View style={mirrorStyles.intensityTrack}>
+                            <View style={[mirrorStyles.intensityFill, { width: `${Math.round(mirrorTransits.global_intensity * 100)}%` }]} />
+                        </View>
+                        <Text style={mirrorStyles.intensityPct}>{Math.round(mirrorTransits.global_intensity * 100)}%</Text>
+                    </View>
+                )}
+                <AgeSlider
+                    age={age}
+                    onAgeChange={setAge}
+                    onSlidingComplete={(a) => { fetchTransits(a); fetchInterpretation(a); }}
+                    unlockedRanges={unlockedRanges}
+                />
+                <Text style={mirrorStyles.sliderHint}>{t('mirror.sliderHint')}</Text>
+                {isLoadingTransits && <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />}
+            </GlassCard>
+
+            {/* Transit positions */}
+            {mirrorTransits && <MirrorTransitGrid positions={mirrorTransits.transit_positions} />}
+
+            {/* Active aspects */}
+            {mirrorTransits && <MirrorActiveAspects aspects={mirrorTransits.aspects} />}
+
+            {/* Interpretation */}
+            <GlassCard style={mirrorStyles.card}>
+                <Text style={mirrorStyles.sectionTitle}>{t('mirror.interpretationTitle')}</Text>
+                {isLoadingInterp ? (
+                    <View style={mirrorStyles.interpRow}>
+                        <ActivityIndicator color={colors.primary} />
+                        <Text style={mirrorStyles.interpLoadingText}>{t('mirror.interpretationLoading')}</Text>
+                    </View>
+                ) : interpretation ? (
+                    <FormattedText text={interpretation} style={mirrorStyles.interpText} />
+                ) : (
+                    <Text style={mirrorStyles.emptyText}>{t('mirror.sliderHint')}</Text>
+                )}
+            </GlassCard>
+
+            {/* Pinned event */}
+            {currentPin && (
+                <GlassCard style={mirrorStyles.card}>
+                    <View style={mirrorStyles.pinCard}>
+                        <Feather name="bookmark" size={14} color={colors.primary} />
+                        <Text style={mirrorStyles.pinText}>{t('mirror.pinnedEventLabel', { label: currentPin.label })}</Text>
+                    </View>
+                </GlassCard>
+            )}
+            <View style={mirrorStyles.pinBtnRow}>
+                <GhostButton label={t('mirror.pinButton')} onPress={() => setShowPinModal(true)} />
+            </View>
+
+            {/* Modals */}
+            <MirrorPinModal
+                visible={showPinModal}
+                initialValue={currentPin?.label ?? ''}
+                onSave={handleSavePin}
+                onClose={() => setShowPinModal(false)}
+            />
+            {unlockedRanges && (
+                <MirrorPremiumModal
+                    visible={showPremiumModal}
+                    unlockedRanges={unlockedRanges}
+                    onClose={() => setShowPremiumModal(false)}
+                />
+            )}
+        </View>
+    );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function TransitsScreen() {
@@ -482,7 +946,28 @@ export default function TransitsScreen() {
     const locale = i18n.language?.startsWith('fr') ? 'fr' : 'en';
 
     // Tab state
-    const [activeTab, setActiveTab] = useState<'timeline' | 'calendar'>('timeline');
+    const [activeTab, setActiveTab] = useState<'timeline' | 'calendar' | 'mirror'>('timeline');
+
+    // Onboarding
+    const [onboardingVisible, setOnboardingVisible] = useState(false);
+    const tabsRef = useRef<View>(null);
+    const helpBtnRef = useRef<View>(null);
+    const tlAreaRef = useRef<View>(null);
+    const calAreaRef = useRef<View>(null);
+    const mirrorAreaRef = useRef<View>(null);
+    const scrollRef = useRef<ScrollView>(null);
+
+    useEffect(() => {
+        hasSeenTransitOnboarding().then((done) => {
+            if (!done) setOnboardingVisible(true);
+        });
+    }, []);
+
+    // Mirror lazy-mount: mount once the user first visits the tab
+    const [mirrorEverVisited, setMirrorEverVisited] = useState(false);
+    useEffect(() => {
+        if (activeTab === 'mirror') setMirrorEverVisited(true);
+    }, [activeTab]);
 
     // Timeline state
     const [transits, setTransits] = useState<UpcomingTransit[]>([]);
@@ -507,6 +992,8 @@ export default function TransitsScreen() {
 
     // ── Load timeline ──
     const loadTimeline = useCallback(async (isRefresh = false) => {
+        // Skip if already loaded and not a manual refresh
+        if (transits.length > 0 && !isRefresh) return;
         if (isRefresh) setTlRefreshing(true);
         else setTlLoading(true);
         setTlError(null);
@@ -520,7 +1007,7 @@ export default function TransitsScreen() {
             setTlLoading(false);
             setTlRefreshing(false);
         }
-    }, [t]);
+    }, [transits.length, t]);
 
     useEffect(() => { loadTimeline(); }, [loadTimeline]);
 
@@ -606,6 +1093,7 @@ export default function TransitsScreen() {
                 <TabHeader />
 
                 <ScrollView
+                    ref={scrollRef}
                     contentContainerStyle={styles.scroll}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
@@ -618,15 +1106,23 @@ export default function TransitsScreen() {
                         ) : undefined
                     }
                 >
-                    {/* Hero */}
+                    {/* Hero — dynamic per tab */}
                     <View style={styles.hero}>
-                        <Text style={styles.heroTitle}>{t('transits.heroTitle')}</Text>
-                        <Text style={styles.heroSubtitle}>{t('transits.heroSubtitle')}</Text>
+                        <Text style={styles.heroTitle}>
+                            {activeTab === 'timeline' ? t('transits.heroTitle')
+                             : activeTab === 'calendar' ? t('transits.calendarHeroTitle')
+                             : t('transits.mirrorHeroTitle')}
+                        </Text>
+                        <Text style={styles.heroSubtitle}>
+                            {activeTab === 'timeline' ? t('transits.heroSubtitle')
+                             : activeTab === 'calendar' ? t('transits.calendarHeroSubtitle')
+                             : t('transits.mirrorHeroSubtitle')}
+                        </Text>
                     </View>
 
                     {/* Tab toggle */}
                     <View style={styles.tabToggleWrap}>
-                        <View style={styles.tabToggle}>
+                        <View ref={tabsRef} style={styles.tabToggle}>
                             <Pressable
                                 style={[styles.tabBtn, activeTab === 'timeline' && styles.tabBtnActive]}
                                 onPress={() => setActiveTab('timeline')}
@@ -653,8 +1149,21 @@ export default function TransitsScreen() {
                                     {t('transits.calendarTab')}
                                 </Text>
                             </Pressable>
+                            <Pressable
+                                style={[styles.tabBtn, activeTab === 'mirror' && styles.tabBtnActive]}
+                                onPress={() => setActiveTab('mirror')}
+                            >
+                                <Feather
+                                    name="clock"
+                                    size={13}
+                                    color={activeTab === 'mirror' ? colors.surfaceLowest : colors.onSurfaceMuted}
+                                />
+                                <Text style={[styles.tabBtnText, activeTab === 'mirror' && styles.tabBtnTextActive]}>
+                                    {t('transits.mirrorTab')}
+                                </Text>
+                            </Pressable>
                         </View>
-                        <Pressable onPress={() => setHelpVisible(true)} hitSlop={12} style={styles.helpBtn}>
+                        <Pressable ref={helpBtnRef} onPress={() => setHelpVisible(true)} hitSlop={12} style={styles.helpBtn}>
                             <Feather name="help-circle" size={18} color={colors.onSurfaceMuted} />
                         </Pressable>
                     </View>
@@ -662,7 +1171,7 @@ export default function TransitsScreen() {
                     {/* ── Timeline tab ── */}
                     {activeTab === 'timeline' && (
                         <>
-                            <View style={styles.aiBadgeWrap}>
+                            <View ref={tlAreaRef} style={styles.aiBadgeWrap}>
                                 <View style={styles.aiBadge}>
                                     <View style={styles.aiBadgeDot} />
                                     <Text style={styles.aiBadgeText}>{t('transits.aiBadge')}</Text>
@@ -709,7 +1218,7 @@ export default function TransitsScreen() {
                     )}
 
                     {activeTab === 'calendar' && isPremium && (
-                        <View style={styles.calendarSection}>
+                        <View ref={calAreaRef} style={styles.calendarSection}>
 
                             {/* Month navigation */}
                             <View style={styles.calNavRow}>
@@ -863,6 +1372,16 @@ export default function TransitsScreen() {
                         </View>
                     )}
 
+                    {/* ── Mirror tab ── mounted once, hidden when not active to preserve state */}
+                    {mirrorEverVisited && (
+                        <View
+                            ref={mirrorAreaRef}
+                            style={[styles.mirrorWrap, { display: activeTab === 'mirror' ? 'flex' : 'none' }]}
+                        >
+                            <MirrorTabContent />
+                        </View>
+                    )}
+
                     <View style={{ height: 80 }} />
                 </ScrollView>
 
@@ -876,7 +1395,18 @@ export default function TransitsScreen() {
                     locale={locale}
                     onClose={() => setHelpVisible(false)}
                 />
+
             </SafeAreaView>
+
+            {onboardingVisible && (
+                <TransitOnboarding
+                    refs={{ tabs: tabsRef, help: helpBtnRef, timeline: tlAreaRef, calendar: calAreaRef, mirror: mirrorAreaRef }}
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    scrollRef={scrollRef}
+                    onDone={() => setOnboardingVisible(false)}
+                />
+            )}
         </View>
     );
 }
@@ -922,13 +1452,15 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surfaceContainerHigh,
         borderRadius: radius.full,
         padding: 3,
-        alignSelf: 'flex-start',
+        flex: 1,
     },
     tabBtn: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: spacing.xs,
-        paddingHorizontal: spacing.lg,
+        paddingHorizontal: spacing.md,
         paddingVertical: 8,
         borderRadius: radius.full,
     },
@@ -1516,4 +2048,56 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingVertical: spacing.xl,
     },
+
+    // Mirror tab wrapper
+    mirrorWrap: {
+        paddingHorizontal: spacing.xl,
+    },
+});
+
+// ─── Mirror Styles ────────────────────────────────────────────────────────────
+
+const mirrorStyles = StyleSheet.create({
+    tabContent: { gap: 0 },
+    card: { marginBottom: 16 },
+    ageRow: { flexDirection: 'row', alignItems: 'baseline', gap: 12, marginBottom: 8 },
+    ageBig: { fontFamily: fonts.display.bold, fontSize: 26, color: colors.onSurface },
+    yearBadge: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
+    intensityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+    intensityLabel: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted },
+    intensityTrack: { flex: 1, height: 4, backgroundColor: colors.surfaceVariant, borderRadius: radius.full, overflow: 'hidden' },
+    intensityFill: { height: '100%', backgroundColor: colors.primary, borderRadius: radius.full },
+    intensityPct: { fontFamily: fonts.body.semiBold, fontSize: 12, color: colors.primary },
+    sliderHint: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted, textAlign: 'center', marginTop: 4 },
+    sectionTitle: { fontFamily: fonts.display.medium, fontSize: 15, color: colors.onSurface, marginBottom: 12 },
+    emptyText: { fontFamily: fonts.body.regular, fontSize: 13, color: colors.onSurfaceMuted, textAlign: 'center', paddingVertical: 8 },
+    planetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    planetCell: { backgroundColor: colors.surfaceVariant, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 6, minWidth: 76 },
+    planetCellName: { fontFamily: fonts.body.regular, fontSize: 10, color: colors.onSurfaceMuted, marginBottom: 2 },
+    planetCellSign: { fontFamily: fonts.body.semiBold, fontSize: 13, color: colors.onSurface },
+    aspectRow: { marginBottom: 12 },
+    intensityBarBg: { height: 3, backgroundColor: colors.surfaceVariant, borderRadius: radius.full, overflow: 'hidden', marginBottom: 6 },
+    intensityBarFill: { height: '100%', borderRadius: radius.full },
+    aspectInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+    aspectSymbol: { fontSize: 16, color: colors.primary },
+    planetLabel: { fontFamily: fonts.body.semiBold, fontSize: 13, color: colors.onSurface },
+    aspectTypeLabel: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted, fontStyle: 'italic' },
+    badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.full, borderWidth: 1, flexShrink: 0 },
+    badgeText: { fontFamily: fonts.body.semiBold, fontSize: 10 },
+    interpRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+    interpLoadingText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
+    interpText: { fontFamily: fonts.body.regular, fontSize: 15, lineHeight: 24, color: colors.onSurface },
+    pinCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    pinText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurface, flex: 1, lineHeight: 20 },
+    pinBtnRow: { marginBottom: 16 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+    modalSheet: { backgroundColor: colors.surfaceContainerHigh, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: 24, paddingBottom: 40, gap: 16 },
+    modalTitle: { fontFamily: fonts.display.bold, fontSize: 18, color: colors.onSurface },
+    pinInput: { backgroundColor: colors.surfaceVariant, borderRadius: radius.md, padding: 12, fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurface, minHeight: 80, textAlignVertical: 'top' },
+    lockIcon: { alignSelf: 'center' },
+    premiumTitle: { fontFamily: fonts.display.bold, fontSize: 20, color: colors.onSurface, textAlign: 'center' },
+    premiumSubtitle: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted, textAlign: 'center', lineHeight: 20 },
+    unlockedLabel: { fontFamily: fonts.body.semiBold, fontSize: 13, color: colors.onSurfaceMuted },
+    unlockedRange: { fontFamily: fonts.body.regular, fontSize: 13, color: colors.onSurface },
+    premiumActions: { gap: 10, marginTop: 4 },
 });
