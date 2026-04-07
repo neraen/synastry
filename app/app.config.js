@@ -26,7 +26,7 @@ export default {
     slug: 'astromatch',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/images/icon.png',
+    icon: './assets/images/lunestia-icon.png',
     scheme: 'astromatch',
     userInterfaceStyle: 'automatic',
     newArchEnabled: true,
@@ -52,9 +52,7 @@ export default {
       versionCode: 1,
       adaptiveIcon: {
         backgroundColor: '#0A0A1A',
-        foregroundImage: './assets/images/android-icon-foreground.png',
-        backgroundImage: './assets/images/android-icon-background.png',
-        monochromeImage: './assets/images/android-icon-monochrome.png',
+        foregroundImage: './assets/images/lunestia-icon.png',
       },
       edgeToEdgeEnabled: true,
       permissions: [
@@ -72,7 +70,7 @@ export default {
 
     // Splash Screen
     splash: {
-      image: './assets/images/splash-icon.png',
+      image: './assets/images/lunestia-icon.png',
       resizeMode: 'contain',
       backgroundColor: '#0A0A1A',
     },
@@ -86,7 +84,7 @@ export default {
       [
         'expo-splash-screen',
         {
-          image: './assets/images/splash-icon.png',
+          image: './assets/images/lunestia-icon.png',
           imageWidth: 200,
           resizeMode: 'contain',
           backgroundColor: '#0A0A1A',
