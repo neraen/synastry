@@ -87,8 +87,13 @@
     "dailyInsightsTitle": "Insights du jour",
     "dailyInsightsDesc": "Horoscopes personnalisés basés sur vos transits actuels et vos maisons astrologiques.",
     "dailyInsightsQuote": "La communication sera essentielle à mesure que Mercure entre dans votre 5e maison.",
-    "upcomingTransits": "Prochains Transits",
-    "viewAllTransits": "TOUT VOIR"
+    "featuresLabel": "EXPLORER L'APP",
+    "mirrorTitle": "Miroir temporel",
+    "lyraTitle": "Lyra",
+    "featureLabelHoroscope": "Quotidien",
+    "featureLabelNatal": "Thème natal",
+    "featureLabelMirror": "0 → 80 ans",
+    "featureLabelLyra": "Astrologue IA"
   },
   "profile": {
     "title": "Mon Profil",
@@ -469,13 +474,41 @@
     "loadError": "Impossible de charger les transits"
   },
   "onboarding": {
-    "welcome": {
-      "title": "Bienvenue sur Lunestia",
-      "subtitle": "Ton guide astrologique personnel. Comprends tes transits, explore tes compatibilités, navigue dans le temps.",
-      "feature1": "Horoscope quotidien basé sur tes transits réels",
-      "feature2": "Compatibilité astrologique avec qui tu veux",
-      "feature3": "Miroir temporel — revisite chaque âge de ta vie",
-      "cta": "Commencer"
+    "hero": {
+      "tagline": "L'astrologie au prisme de ta vie",
+      "value1": "Un horoscope quotidien calculé depuis tes vrais transits",
+      "value2": "Compatibilité astrologique avec n'importe qui",
+      "value3": "Explore ta vie de 0 à 80 ans avec Lyra",
+      "cta": "Découvrir"
+    },
+    "features": {
+      "title": "Tout ce que Lunestia peut faire",
+      "horoscope": {
+        "badge": "Horoscope",
+        "title": "Ton ciel, chaque jour",
+        "description": "Un horoscope personnalisé calculé à partir de tes transits planétaires réels, pas uniquement de ton signe solaire",
+        "mockIntensity": "Intensité",
+        "mockClarity": "Clarté",
+        "mockQuote": "\"Les astres t'invitent à t'exprimer avec clarté et confiance...\""
+      },
+      "synastry": {
+        "badge": "Synastrie",
+        "title": "Explore tes synastries",
+        "description": "Analyse ta compatibilité astrologique avec n'importe qui grâce à l'étude des thèmes natals",
+        "mockPerson1": "Toi",
+        "mockPerson2": "Emma",
+        "mockAspect1": "Amour",
+        "mockAspect2": "Échange",
+        "mockAspect3": "Karma"
+      },
+      "mirror": {
+        "badge": "Exploration",
+        "title": "Voyage dans ta vie",
+        "description": "Explore tes transits de 0 à 80 ans et discute avec Lyra, ton astrologue IA personnelle",
+        "mockAgeUnit": "ans",
+        "mockChatText": "\"À 28 ans, le retour de Saturne ouvre un nouveau chapitre...\""
+      },
+      "cta": "Personnaliser mon expérience"
     },
     "birth": {
       "title": "Ton thème natal",
@@ -485,12 +518,12 @@
     },
     "done": {
       "title": "Tout est prêt",
-      "subtitle": "Ton thème natal est enregistré. Tu peux maintenant accéder à toutes les fonctionnalités.",
-      "feature1": "Horoscope quotidien personnalisé",
-      "feature2": "Analyse de compatibilité en synastrie",
-      "feature3": "Miroir temporel — de 0 à 80 ans",
-      "feature4": "Chat avec l'astrologue IA Lyra",
-      "cta": "Entrer dans l'app"
+      "subtitle": "Ton thème natal est enregistré. Toutes les fonctionnalités sont débloquées.",
+      "feature1": "Horoscope quotidien",
+      "feature2": "Analyse de synastrie",
+      "feature3": "Miroir temporel",
+      "feature4": "Lyra, astrologue IA",
+      "cta": "Entrer dans Lunestia"
     }
   },
   "transitsOnboarding": {

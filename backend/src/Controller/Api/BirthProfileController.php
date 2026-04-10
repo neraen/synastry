@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Repository\NatalChartRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,6 +21,7 @@ class BirthProfileController extends AbstractController
         private EntityManagerInterface $entityManager,
         private ValidatorInterface $validator,
         private NatalChartRepository $natalChartRepository,
+        private CacheInterface $cache,
     ) {}
 
     /**
@@ -171,6 +173,10 @@ class BirthProfileController extends AbstractController
         // Save
         $this->entityManager->persist($profile);
         $this->entityManager->flush();
+
+        // Invalidate chat transit cache so it is recomputed with the new birth data
+        /** @var User $user */
+        $this->cache->delete(sprintf('chat_upcoming_transits_%d', $user->getId()));
 
         return $this->json([
             'message' => $isNew ? 'Birth profile created' : 'Birth profile updated',

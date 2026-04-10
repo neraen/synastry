@@ -198,6 +198,66 @@ class AstrologyAnalysisService
     }
 
     /**
+     * Compute major transit aspects for the next N months (snapshot on the 1st of each month).
+     * Only slow-moving planets are included — these are the ones relevant for a 6–12 month forecast.
+     * Fast planets (Moon, Mercury, Venus, Sun) create aspects lasting days; useless at this horizon.
+     *
+     * Returns a compact array suitable for caching and injecting into the chat prompt:
+     * [
+     *   ['month' => '2026-05', 'aspects' => [['transit' => 'Saturn', 'natal' => 'Moon', 'type' => 'square', 'orb' => 2.3], ...]],
+     *   ...
+     * ]
+     */
+    public function getUpcomingTransitSummary(User $user, int $months = 12): array
+    {
+        $birthProfile = $user->getBirthProfile();
+        if (!$birthProfile) {
+            return [];
+        }
+
+        // Only slow planets matter at a 6–12 month horizon
+        $slowPlanets = ['Saturn', 'Jupiter', 'Uranus', 'Neptune', 'Pluto', 'Mars'];
+
+        $natalCalculator = $this->createCalculatorFromProfile($birthProfile);
+        $result = [];
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+
+        for ($i = 1; $i <= $months; $i++) {
+            $date = (clone $now)->modify("+{$i} months");
+            $monthKey = $date->format('Y-m');
+            $dateStr  = $date->format('Y-m-01'); // 1st of the month at noon UTC
+
+            $transitCalculator = new PlanetaryCalculator($dateStr, '12:00', 0.0, 0.0, 'Transits');
+            $aspects = $natalCalculator->getSynastryAspects($transitCalculator);
+
+            // Keep only major aspects from slow transit planets with tight orb
+            $filtered = array_values(array_filter($aspects, function (array $a) use ($slowPlanets): bool {
+                return in_array($a['planet_b'], $slowPlanets, true)
+                    && $a['type'] !== 'quincunx'
+                    && $a['orb'] < 4.0;
+            }));
+
+            // Sort by orb (most exact first), cap at 5 per month to keep the prompt compact
+            usort($filtered, fn($a, $b) => $a['orb'] <=> $b['orb']);
+            $filtered = array_slice($filtered, 0, 5);
+
+            if (!empty($filtered)) {
+                $result[] = [
+                    'month'   => $monthKey,
+                    'aspects' => array_map(fn($a) => [
+                        'transit' => $a['planet_b'],
+                        'natal'   => $a['planet_a'],
+                        'type'    => $a['name'],   // human-readable: "Trine", "Square", etc.
+                        'orb'     => round($a['orb'], 1),
+                    ], $filtered),
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Build a compact JSON representation of natal data for storage
      */
     public function buildNatalDataJson(array $natalPositions): array

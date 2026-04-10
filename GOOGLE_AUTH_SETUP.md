@@ -1,4 +1,4 @@
-# Configuration Google Sign-In
+r3pa# Configuration Google Sign-In
 
 Guide complet pour configurer Google OAuth sur Google Cloud Console pour AstroMatch (Expo + Symfony).
 

@@ -371,6 +371,7 @@ export default function ProfileTab() {
                                 { label: 'Profile', route: '/demo/profile-view' },
                                 { label: 'Login', route: '/demo/login' },
                                 { label: 'Share', route: '/demo/share' },
+                                { label: 'Onboarding', route: '/onboarding' },
                             ].map((item) => (
                                 <Pressable
                                     key={item.route}

@@ -5,6 +5,7 @@ namespace App\Controller\Api;
 use App\Entity\User;
 use App\Repository\NatalChartRepository;
 use App\Repository\SynastryHistoryRepository;
+use App\Service\AstrologyAnalysisService;
 use App\Service\PromptLocaleService;
 use App\Service\Webservice\OpenAiService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,10 +23,14 @@ class ChatController extends AbstractController
     // Key planets to include in the context (most astrologically significant)
     private const CONTEXT_PLANETS = ['Sun', 'Moon', 'Ascendant', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'];
 
+    /** Cache TTL for upcoming transit summary: 7 days */
+    private const TRANSIT_CACHE_TTL = 604800;
+
     public function __construct(
         private OpenAiService $openAiService,
         private NatalChartRepository $natalChartRepository,
         private SynastryHistoryRepository $synastryHistoryRepository,
+        private AstrologyAnalysisService $astrologyAnalysisService,
         private CacheInterface $cache,
     ) {}
 
@@ -140,6 +145,18 @@ class ChatController extends AbstractController
         $natalChart = $this->natalChartRepository->findByUser($user);
         if ($natalChart) {
             $userContext['positions'] = $this->filterPositions($natalChart->getPlanetaryPositions());
+        }
+
+        // ── Upcoming transit summary (next 12 months, cached 7 days) ────────────
+        if ($user->hasBirthProfile()) {
+            $transitCacheKey = sprintf('chat_upcoming_transits_%d', $user->getId());
+            $upcomingTransits = $this->cache->get($transitCacheKey, function (ItemInterface $item) use ($user) {
+                $item->expiresAfter(self::TRANSIT_CACHE_TTL);
+                return $this->astrologyAnalysisService->getUpcomingTransitSummary($user, 12);
+            });
+            if (!empty($upcomingTransits)) {
+                $userContext['upcoming_transits'] = $upcomingTransits;
+            }
         }
 
         // ── Partner context (optional) ──────────────────────────────────────────

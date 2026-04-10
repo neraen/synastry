@@ -87,8 +87,13 @@
     "dailyInsightsTitle": "Daily insights",
     "dailyInsightsDesc": "Personalized horoscopes based on your current transits and house placements.",
     "dailyInsightsQuote": "Communication will be key as Mercury enters your 5th house.",
-    "upcomingTransits": "Upcoming Transits",
-    "viewAllTransits": "VIEW ALL"
+    "featuresLabel": "EXPLORE THE APP",
+    "mirrorTitle": "Time Mirror",
+    "lyraTitle": "Lyra",
+    "featureLabelHoroscope": "Daily",
+    "featureLabelNatal": "Natal chart",
+    "featureLabelMirror": "0 → 80 yrs",
+    "featureLabelLyra": "AI Astrologer"
   },
   "profile": {
     "title": "My Profile",
@@ -469,13 +474,41 @@
     "loadError": "Unable to load transits"
   },
   "onboarding": {
-    "welcome": {
-      "title": "Welcome to Lunestia",
-      "subtitle": "Your personal astrology guide. Understand your transits, explore compatibility, navigate through time.",
-      "feature1": "Daily horoscope based on your real transits",
-      "feature2": "Astrological compatibility with anyone",
-      "feature3": "Temporal mirror — revisit every age of your life",
-      "cta": "Get started"
+    "hero": {
+      "tagline": "Astrology through the lens of your life",
+      "value1": "A daily horoscope based on your real transits",
+      "value2": "Astrological compatibility with anyone",
+      "value3": "Explore your life from 0 to 80 with Lyra",
+      "cta": "Discover"
+    },
+    "features": {
+      "title": "Everything Lunestia can do",
+      "horoscope": {
+        "badge": "Horoscope",
+        "title": "Your sky, every day",
+        "description": "A personalized horoscope calculated from your real planetary transits, not just your sun sign",
+        "mockIntensity": "Intensity",
+        "mockClarity": "Clarity",
+        "mockQuote": "\"The stars invite you to express yourself with clarity and confidence...\""
+      },
+      "synastry": {
+        "badge": "Synastry",
+        "title": "Explore your synastries",
+        "description": "Analyze your astrological compatibility with anyone based on natal charts",
+        "mockPerson1": "You",
+        "mockPerson2": "Emma",
+        "mockAspect1": "Love",
+        "mockAspect2": "Exchange",
+        "mockAspect3": "Karma"
+      },
+      "mirror": {
+        "badge": "Exploration",
+        "title": "Journey through your life",
+        "description": "Explore your transits from age 0 to 80 and chat with Lyra, your personal AI astrologer",
+        "mockAgeUnit": "yrs",
+        "mockChatText": "\"At 28, Saturn's return opens a new chapter...\""
+      },
+      "cta": "Personalize my experience"
     },
     "birth": {
       "title": "Your natal chart",
@@ -485,12 +518,12 @@
     },
     "done": {
       "title": "You're all set",
-      "subtitle": "Your natal chart is saved. You can now access all features.",
-      "feature1": "Personalized daily horoscope",
-      "feature2": "Synastry compatibility analysis",
-      "feature3": "Temporal mirror — from 0 to 80 years old",
-      "feature4": "Chat with AI astrologer Lyra",
-      "cta": "Enter the app"
+      "subtitle": "Your natal chart is saved. All features are now unlocked.",
+      "feature1": "Daily horoscope",
+      "feature2": "Synastry analysis",
+      "feature3": "Temporal mirror",
+      "feature4": "Lyra, AI astrologer",
+      "cta": "Enter Lunestia"
     }
   },
   "transitsOnboarding": {
