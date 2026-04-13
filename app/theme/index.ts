@@ -122,13 +122,25 @@ const gradients = {
 // =============================================================================
 
 // Font family definitions (exported for direct access)
+// Note: EB Garamond renders visually smaller than sans-serif fonts at the same
+// font size. Components using body fonts should target lineHeight ~1.5× fontSize
+// for comfortable reading (do not change lineHeight values in this theme file).
 const fonts = {
     display: {
         regular: 'NotoSerif_400Regular',
+        italic: 'NotoSerif_400Regular',
         medium: 'NotoSerif_500Medium',
+        semiBold: 'NotoSerif_600SemiBold',
         bold: 'NotoSerif_700Bold',
     },
     body: {
+        regular: 'EBGaramond_400Regular',
+        medium: 'EBGaramond_500Medium',
+        mediumItalic: 'EBGaramond_500Medium_Italic',
+        semiBold: 'EBGaramond_600SemiBold',
+        bold: 'EBGaramond_700Bold',
+    },
+    ui: {
         regular: 'Manrope_400Regular',
         medium: 'Manrope_500Medium',
         semiBold: 'Manrope_600SemiBold',
@@ -141,6 +153,9 @@ const fontDisplayMedium = fonts.display.medium;
 const fontBody = fonts.body.regular;
 const fontBodyMedium = fonts.body.medium;
 const fontBodySemiBold = fonts.body.semiBold;
+const fontUi = fonts.ui.regular;
+const fontUiMedium = fonts.ui.medium;
+const fontUiSemiBold = fonts.ui.semiBold;
 
 const typography = {
     displayLg: {
@@ -188,32 +203,32 @@ const typography = {
     } as TextStyle,
 
     bodyLg: {
+        fontSize: 18,
+        lineHeight: 28,
+        fontFamily: fontBody,
+        fontWeight: '400' as const,
+    } as TextStyle,
+
+    bodyMd: {
         fontSize: 16,
         lineHeight: 24,
         fontFamily: fontBody,
         fontWeight: '400' as const,
     } as TextStyle,
 
-    bodyMd: {
-        fontSize: 14,
-        lineHeight: 20,
-        fontFamily: fontBody,
-        fontWeight: '400' as const,
-    } as TextStyle,
-
     labelMd: {
-        fontSize: 12,
-        lineHeight: 16,
-        fontFamily: fontBodySemiBold,
+        fontSize: 14,
+        lineHeight: 19,
+        fontFamily: fontUiSemiBold,
         fontWeight: '600' as const,
         letterSpacing: 1.5,
         textTransform: 'uppercase' as const,
     } as TextStyle,
 
     labelSm: {
-        fontSize: 11,
-        lineHeight: 16,
-        fontFamily: fontBodyMedium,
+        fontSize: 13,
+        lineHeight: 18,
+        fontFamily: fontUiMedium,
         fontWeight: '500' as const,
         letterSpacing: 1,
     } as TextStyle,
@@ -258,59 +273,59 @@ const typography = {
         fontWeight: '600' as const,
     } as TextStyle,
     body: {
-        fontSize: 16,
-        lineHeight: 24,
+        fontSize: 18,
+        lineHeight: 28,
         fontFamily: fontBody,
         fontWeight: '400' as const,
     } as TextStyle,
     bodyMedium: {
-        fontSize: 14,
-        lineHeight: 20,
+        fontSize: 16,
+        lineHeight: 24,
         fontFamily: fontBodyMedium,
         fontWeight: '500' as const,
     } as TextStyle,
     bodySmall: {
-        fontSize: 14,
-        lineHeight: 20,
-        fontFamily: fontBody,
-        fontWeight: '400' as const,
-    } as TextStyle,
-    caption: {
-        fontSize: 11,
-        lineHeight: 16,
-        fontFamily: fontBody,
-        fontWeight: '400' as const,
-    } as TextStyle,
-    captionMedium: {
-        fontSize: 11,
-        lineHeight: 16,
-        fontFamily: fontBodyMedium,
-        fontWeight: '500' as const,
-    } as TextStyle,
-    label: {
-        fontSize: 12,
-        lineHeight: 16,
-        fontFamily: fontBodySemiBold,
-        fontWeight: '600' as const,
-        letterSpacing: 1.5,
-    } as TextStyle,
-    input: {
         fontSize: 16,
         lineHeight: 24,
         fontFamily: fontBody,
         fontWeight: '400' as const,
     } as TextStyle,
-    button: {
+    caption: {
+        fontSize: 13,
+        lineHeight: 18,
+        fontFamily: fontBody,
+        fontWeight: '400' as const,
+    } as TextStyle,
+    captionMedium: {
+        fontSize: 13,
+        lineHeight: 18,
+        fontFamily: fontBodyMedium,
+        fontWeight: '500' as const,
+    } as TextStyle,
+    label: {
         fontSize: 14,
-        lineHeight: 20,
-        fontFamily: fontBodySemiBold,
+        lineHeight: 19,
+        fontFamily: fontUiSemiBold,
+        fontWeight: '600' as const,
+        letterSpacing: 1.5,
+    } as TextStyle,
+    input: {
+        fontSize: 18,
+        lineHeight: 28,
+        fontFamily: fontUi,
+        fontWeight: '400' as const,
+    } as TextStyle,
+    button: {
+        fontSize: 16,
+        lineHeight: 24,
+        fontFamily: fontUiSemiBold,
         fontWeight: '600' as const,
         letterSpacing: 0.5,
     } as TextStyle,
     buttonSmall: {
-        fontSize: 12,
-        lineHeight: 16,
-        fontFamily: fontBodySemiBold,
+        fontSize: 14,
+        lineHeight: 19,
+        fontFamily: fontUiSemiBold,
         fontWeight: '600' as const,
     } as TextStyle,
     score: {

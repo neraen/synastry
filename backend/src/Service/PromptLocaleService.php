@@ -203,37 +203,72 @@ class PromptLocaleService
     }
 
     /**
+     * Get locale-specific natal chart summary prompt (short personality portrait)
+     */
+    public function getNatalChartSummaryPrompt(): array
+    {
+        if ($this->locale === self::LOCALE_EN) {
+            return [
+                'instruction' => <<<'PROMPT'
+Write a 3-sentence personality portrait based on the Sun, Moon, and Ascendant.
+
+RULES:
+- NEVER write "Sun in X" or "Moon in X" — translate the placement directly into a behavioral trait. Example: instead of "Sun in Aquarius", write "detachment is her natural mode of relating to the world".
+- Each sentence must describe something concrete: how the person acts, what drives them, what they avoid, what they need.
+- No preamble ("this person is..."), no sign names, no planet names — just raw psychological description.
+- Punchy, direct. Like a sharp observation from someone who has known them for years.
+PROMPT,
+                'label' => 'Natal chart of',
+            ];
+        }
+
+        return [
+            'instruction' => <<<'PROMPT'
+Rédige un portrait de personnalité en 3 phrases à partir du Soleil, de la Lune et de l'Ascendant.
+
+RÈGLES :
+- Ne jamais écrire "Soleil en X" ou "Lune en X" — traduis directement le placement en trait comportemental. Exemple : au lieu de "Soleil en Verseau", écris "le détachement est son mode naturel d'être au monde".
+- Chaque phrase doit décrire quelque chose de concret : comment la personne agit, ce qui la motive, ce qu'elle fuit, ce dont elle a besoin.
+- Pas d'introduction ("cette personne est..."), pas de noms de signes, pas de noms de planètes — uniquement une description psychologique brute.
+- Percutant, direct. Comme une observation tranchante de quelqu'un qui la connaît depuis des années.
+PROMPT,
+            'label' => 'Thème natal de',
+        ];
+    }
+
+    /**
      * Get locale-specific horoscope prompt
      */
     public function getHoroscopePromptTemplate(): array
     {
         if ($this->locale === self::LOCALE_EN) {
             return [
-                'intro' => 'You are writing an honest personalized daily horoscope based strictly on the active transits.',
+                'intro' => 'Write a personalized daily horoscope grounded in the tradition of Robert Hand (Planets in Transit) and Liz Greene. Reason EXCLUSIVELY from the astrological data provided below — exact natal positions and today\'s transits. Every sentence must name the planet(s) involved and their concrete effect on this person\'s life.',
                 'rules' => [
                     'Write ONLY in English.',
-                    'ALWAYS use English planet names (Sun, Moon, Mercury, Venus, etc.)',
-                    'ALWAYS use English zodiac signs (Aries, Taurus, Gemini, etc.)',
-                    'Be honest: reflect the real energy of the transits, whether positive or tense.',
+                    'ALWAYS use English planet names (Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto).',
+                    'ALWAYS use English zodiac signs (Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces).',
+                    'SLOW PLANETS in transit (Saturn, Jupiter, Uranus, Neptune, Pluto): describe the background theme of this period by citing the natal planet they are activating. Example: "Saturn is moving through your natal Sun in Pisces — the structures of your life are being tested."',
+                    'FAST PLANETS in transit (Moon, Mercury, Venus, Mars, Sun): describe the specific energy of today. Example: "The Moon in Leo activates your natal Venus — emotions are looking for expression."',
+                    'NEVER name the aspect type (trine, square, sextile, opposition, conjunction, orb) — translate directly into human impact in plain language.',
+                    'Be honest: if the transits are tense (Saturn, Mars activating a sensitive natal point), say so plainly. If the day flows well, show which planets make it so.',
                     'Maximum 180 words total.',
-                    'Do NOT default to positive language — challenging days deserve honest advice (rest, caution, avoid conflict, etc.).',
-                    'Give concrete and actionable advice adapted to the actual energy.',
-                    'NEVER use technical astrological terms: no "trine", "square", "sextile", "opposition", "conjunction", "orb", "transit", "natal". Translate these into everyday language — a trine becomes "a harmonious influence", a square becomes "a tension", an opposition becomes "a pull in opposite directions".',
-                    'Each section (overview, love, energy, advice) must feel distinct — do NOT repeat the same planetary influence across multiple sections.',
+                    'Each section (overview, love, energy, advice) must treat a distinct angle — do NOT repeat the same planet across multiple sections.',
+                    'FORBIDDEN: "a period of transformation", "the energies are favorable", "the universe invites you", "potential", "an invitation to".',
                 ],
                 'format' => [
-                    'title' => 'Inspiring title (max 8 words)',
-                    'overview' => 'Daily overview (2-3 encouraging sentences)',
-                    'love' => 'Love and relationships (1-2 sentences)',
-                    'energy' => 'Energy and well-being (1-2 sentences)',
-                    'advice' => 'Practical advice of the day (1 sentence)',
+                    'title' => 'Title reflecting the real planetary energy of the day (max 8 words, name the planet)',
+                    'overview' => 'Daily overview: 2-3 sentences each grounded in a specific transit. Name the planets.',
+                    'love' => 'Love and relationships (1-2 sentences, cite the relevant planet and its natal position).',
+                    'energy' => 'Energy and well-being (1-2 sentences, cite the relevant planet).',
+                    'advice' => 'One concrete piece of advice derived from today\'s dominant transit.',
                 ],
                 'labels' => [
                     'natal_chart' => 'NATAL CHART',
                     'daily_transits' => 'TODAY\'S TRANSITS',
-                    'important_aspects' => 'IMPORTANT ASPECTS',
-                    'sun_in' => 'Sun in',
-                    'moon_in' => 'Moon in',
+                    'important_aspects' => 'ACTIVE ASPECTS (transit planet → natal planet)',
+                    'sun_in' => 'Natal Sun in',
+                    'moon_in' => 'Natal Moon in',
                     'ascendant' => 'Ascendant',
                 ],
             ];
@@ -241,31 +276,32 @@ class PromptLocaleService
 
         // French (default)
         return [
-            'intro' => 'Tu rédiges un horoscope quotidien personnalisé et honnête, basé strictement sur les transits actifs.',
+            'intro' => 'Rédige un horoscope quotidien personnalisé ancré dans la tradition de Robert Hand (Planets in Transit) et Liz Greene. Raisonne EXCLUSIVEMENT à partir des données astrologiques fournies ci-dessous — positions natales exactes et transits du jour. Chaque phrase doit nommer la ou les planètes impliquées et leur effet concret sur la vie de cette personne.',
             'rules' => [
                 'Écris UNIQUEMENT en français.',
-                'Utilise TOUJOURS les noms français des planètes (Soleil, Lune, Mercure, Vénus, etc.)',
-                'Utilise TOUJOURS les signes en français (Bélier, Taureau, Gémeaux, etc.)',
-                'Sois honnête : reflète la vraie énergie des transits, qu\'elle soit positive ou tendue.',
+                'Utilise TOUJOURS les noms français des planètes (Soleil, Lune, Mercure, Vénus, Mars, Jupiter, Saturne, Uranus, Neptune, Pluton).',
+                'Utilise TOUJOURS les signes en français (Bélier, Taureau, Gémeaux, Cancer, Lion, Vierge, Balance, Scorpion, Sagittaire, Capricorne, Verseau, Poissons).',
+                'PLANÈTES LENTES en transit (Saturne, Jupiter, Uranus, Neptune, Pluton) : décris la tendance de fond de la période en citant la planète natale qu\'elles activent. Exemple : "Saturne traverse ton Soleil natal en Poissons — les structures de ta vie sont éprouvées."',
+                'PLANÈTES RAPIDES en transit (Lune, Mercure, Vénus, Mars, Soleil) : décris l\'énergie spécifique du jour. Exemple : "La Lune en Lion active ta Vénus natale — les émotions cherchent à s\'exprimer."',
+                'NE CITE JAMAIS le type d\'aspect (trigone, carré, sextile, opposition, conjonction, orbe) — traduis directement en impact humain dans un langage courant.',
+                'Sois honnête : si les transits sont tendus (Saturne, Mars activant un point natal sensible), dis-le clairement. Si la journée est fluide, montre quelles planètes la portent.',
                 'Maximum 180 mots au total.',
-                'N\'utilise PAS systématiquement un langage positif — les jours difficiles méritent des conseils adaptés (repos, prudence, évite les conflits, etc.).',
-                'Donne des conseils concrets adaptés à l\'énergie réelle de la journée.',
-                'N\'utilise JAMAIS de termes astrologiques techniques : interdiction d\'écrire "trigone", "carré", "sextile", "opposition", "conjonction", "orbe", "transit natal". Traduis-les en langage courant — un trigone devient "une influence harmonieuse", un carré devient "une tension", une opposition devient "un tiraillement entre deux forces".',
-                'Chaque section (overview, love, energy, advice) doit aborder un angle distinct — ne répète PAS la même influence planétaire dans plusieurs sections.',
+                'Chaque section (overview, love, energy, advice) doit traiter un angle distinct — ne répète PAS la même planète dans plusieurs sections.',
+                'INTERDIT : "une période de transformation", "les énergies sont favorables", "l\'univers t\'invite", "potentiel", "une invitation à".',
             ],
             'format' => [
-                'title' => 'Titre reflétant l\'énergie réelle du jour (max 8 mots)',
-                'overview' => 'Vue d\'ensemble de la journée (2-3 phrases honnêtes)',
-                'love' => 'Amour et relations (1-2 phrases)',
-                'energy' => 'Énergie et bien-être (1-2 phrases)',
-                'advice' => 'Conseil pratique du jour (1 phrase)',
+                'title' => 'Titre reflétant l\'énergie planétaire réelle du jour (max 8 mots, nomme la planète dominante)',
+                'overview' => 'Vue d\'ensemble : 2-3 phrases chacune ancrée dans un transit précis. Nomme les planètes.',
+                'love' => 'Amour et relations (1-2 phrases, cite la planète concernée et sa position natale).',
+                'energy' => 'Énergie et bien-être (1-2 phrases, cite la planète concernée).',
+                'advice' => 'Un conseil concret découlant du transit dominant du jour.',
             ],
             'labels' => [
                 'natal_chart' => 'THÈME NATAL',
                 'daily_transits' => 'TRANSITS DU JOUR',
-                'important_aspects' => 'ASPECTS IMPORTANTS',
-                'sun_in' => 'Soleil en',
-                'moon_in' => 'Lune en',
+                'important_aspects' => 'ASPECTS ACTIFS (planète transit → planète natale)',
+                'sun_in' => 'Soleil natal en',
+                'moon_in' => 'Lune natale en',
                 'ascendant' => 'Ascendant',
             ],
         ];

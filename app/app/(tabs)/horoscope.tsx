@@ -14,10 +14,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, CopyableText, TabHeader, FormattedText, PremiumLockedButton } from '@/components/ui';
-import { usePremium } from '@/hooks/usePremium';
+import { GlassCard, GoldButton, GhostButton, CopyableText, TabHeader, FormattedText } from '@/components/ui';
 import {
     getNatalChart,
+    getNatalChartSummary,
     getNatalChartInterpretation,
     getPlanetInterpretation,
     NatalChart,
@@ -199,13 +199,13 @@ export default function HoroscopeTab() {
     const { t } = useTranslation();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
-    const { isPremium } = usePremium();
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingSummary, setIsLoadingSummary] = useState(false);
     const [isLoadingInterp, setIsLoadingInterp] = useState(false);
     const [error, setError] = useState<string>();
     const [chart, setChart] = useState<NatalChart | null>(null);
+    const [summary, setSummary] = useState<string | null>(null);
     const [interpretation, setInterpretation] = useState<string | null>(null);
-    const [interpretationLocked, setInterpretationLocked] = useState(false);
 
     // Planet detail modal
     const [selectedPlanet, setSelectedPlanet] = useState<string | null>(null);
@@ -235,7 +235,7 @@ export default function HoroscopeTab() {
             const response = await getNatalChart(refresh);
             if (response.success && response.chart) {
                 setChart(response.chart);
-                if (response.chart.interpretation) setInterpretation(response.chart.interpretation);
+                loadSummary();
             } else {
                 setError(response.error || t('horoscope.chartError'));
             }
@@ -243,6 +243,20 @@ export default function HoroscopeTab() {
             setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
         } finally {
             setIsLoading(false);
+        }
+    }
+
+    async function loadSummary() {
+        setIsLoadingSummary(true);
+        try {
+            const response = await getNatalChartSummary();
+            if (response.success && response.summary) {
+                setSummary(response.summary);
+            }
+        } catch {
+            // summary is optional — fail silently
+        } finally {
+            setIsLoadingSummary(false);
         }
     }
 
@@ -257,11 +271,7 @@ export default function HoroscopeTab() {
                 setError(response.error || t('horoscope.chartError'));
             }
         } catch (err: any) {
-            if (err?.status === 403 && err?.payload?.error === 'interpretation_already_used') {
-                setInterpretationLocked(true);
-            } else {
-                setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
-            }
+            setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
         } finally {
             setIsLoadingInterp(false);
         }
@@ -375,6 +385,7 @@ export default function HoroscopeTab() {
                             <Text style={styles.sectionLabel}>{t('horoscope.interpretation')}</Text>
 
                             {interpretation ? (
+                                // Full interpretation (replaces summary after button tap)
                                 <GlassCard opacity="low" radius="xl">
                                     <CopyableText text={interpretation}>
                                         <FormattedText text={interpretation} style={styles.interpText} />
@@ -390,22 +401,20 @@ export default function HoroscopeTab() {
                                         </Text>
                                     </View>
                                 </GlassCard>
-                            ) : interpretationLocked && !isPremium ? (
-                                <GlassCard opacity="low" radius="xl">
-                                    <PremiumLockedButton
-                                        label={t('premium.natalLimitTitle')}
-                                        reason={t('premium.natalLimitReason')}
-                                        source="natal_interpretation"
-                                    />
-                                </GlassCard>
                             ) : (
+                                // Summary card (default state)
                                 <GlassCard opacity="low" radius="xl">
-                                    <Text style={styles.interpCta}>
-                                        {t('horoscope.interpretationCta')}
-                                    </Text>
-                                    <View style={{ marginTop: spacing.xl }}>
+                                    {isLoadingSummary ? (
+                                        <View style={styles.interpLoading}>
+                                            <ActivityIndicator color={colors.primary} size="small" />
+                                        </View>
+                                    ) : summary ? (
+                                        <FormattedText text={summary} style={styles.interpText} />
+                                    ) : null}
+
+                                    <View style={{ marginTop: summary ? spacing.xl : 0 }}>
                                         <GoldButton
-                                            label={t('horoscope.getInterpretation')}
+                                            label={t('horoscope.showDetailedProfile')}
                                             onPress={loadInterpretation}
                                             rightIcon
                                         />
@@ -610,14 +619,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: `${colors.onSurfaceMuted}80`,
     },
-    interpCta: {
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
-        lineHeight: 22,
-        color: colors.onSurfaceMuted,
-        textAlign: 'center',
-    },
-
     // Actions
     actions: {
         paddingHorizontal: spacing.xl,

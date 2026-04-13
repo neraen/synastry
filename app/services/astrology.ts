@@ -145,6 +145,13 @@ export async function getNatalChart(refresh = false): Promise<NatalChartResponse
 }
 
 /**
+ * Get short personality summary (Sun, Moon, Ascendant) — free, cached 90 days
+ */
+export async function getNatalChartSummary(): Promise<{ success: boolean; summary?: string; error?: string }> {
+    return authApi.get<{ success: boolean; summary?: string; error?: string }>('/api/astrology/natal-chart/summary');
+}
+
+/**
  * Get AI interpretation of natal chart
  */
 export async function getNatalChartInterpretation(): Promise<InterpretationResponse> {

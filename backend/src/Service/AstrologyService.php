@@ -151,6 +151,42 @@ class AstrologyService
     }
 
     /**
+     * Get a short personality summary (Sun, Moon, Ascendant).
+     * Free for all users, cached 90 days.
+     */
+    public function getNatalChartSummary(User $user): array
+    {
+        $chartResult = $this->calculateNatalChart($user);
+        if (!$chartResult['success']) {
+            return $chartResult;
+        }
+
+        $birthProfile = $user->getBirthProfile();
+        $name = $birthProfile->getFirstName() ?? ($this->locale === 'en' ? 'the user' : 'l\'utilisateur');
+        $positions = $chartResult['chart']['planetaryPositions'];
+
+        $safeLocale = preg_replace('/[^a-z]/', '', $this->locale);
+        $sun  = preg_replace('/[^a-zA-Z]/', '', $positions['Sun']['Sign'] ?? 'Unknown');
+        $moon = preg_replace('/[^a-zA-Z]/', '', $positions['Moon']['Sign'] ?? 'Unknown');
+        $asc  = preg_replace('/[^a-zA-Z]/', '', $positions['Ascendant']['Sign'] ?? 'Unknown');
+        $cacheKey = sprintf('natal_summary_%d_%s_%s_%s_%s', $user->getId(), $sun, $moon, $asc, $safeLocale);
+
+        $summary = $this->cache->get($cacheKey, function (ItemInterface $item) use ($name, $positions) {
+            $item->expiresAfter(self::PLANET_INTERP_TTL);
+            $result = $this->openAiService->getNatalChartSummary($name, $positions);
+            if (!$result['success']) {
+                throw new \RuntimeException($result['error'] ?? 'AI error');
+            }
+            return $result['summary'];
+        });
+
+        return [
+            'success' => true,
+            'summary' => $summary,
+        ];
+    }
+
+    /**
      * Get AI explanation for a single natal planet placement.
      * Cached 90 days — natal positions don't change.
      * Cache key includes sign so it auto-invalidates if birth data changes.

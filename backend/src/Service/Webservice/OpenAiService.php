@@ -280,6 +280,33 @@ INST;
     }
 
     /**
+     * Get a short personality summary (Sun, Moon, Ascendant — 3-4 sentences)
+     */
+    public function getNatalChartSummary(string $name, array $theme): array
+    {
+        $themeTranslated = $this->translateTheme($theme);
+        $prompt = $this->localeService->getNatalChartSummaryPrompt();
+        $persona = $this->localeService->getLocale() === 'en' ? self::ASTROLOGER_PERSONA_EN : self::ASTROLOGER_PERSONA_FR;
+
+        $instructions = $persona;
+
+        $input = $prompt['label'] . " {$name} :\n\n"
+            . json_encode($themeTranslated, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+            . "\n\n" . $prompt['instruction'];
+
+        $result = $this->callResponsesApi($input, $instructions);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        return [
+            'success' => true,
+            'summary' => $result['content'],
+        ];
+    }
+
+    /**
      * Get a single natal chart interpretation
      */
     public function getNatalChartInterpretation(string $name, array $theme): array
@@ -446,8 +473,8 @@ Rédige une interprétation précise qui couvre :
         $baseInstructions = $this->localeService->getBaseInstructions();
 
         $instructions = $this->localeService->getLocale() === 'en'
-            ? "You are an honest astrologer writing personalized daily horoscopes based strictly on the active transits.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- Reflect the REAL energy of the day: if tense transits are active (Saturn square, Mars opposition, etc.), say so honestly\n- Do NOT systematically use positive language — some days are challenging, and that's valuable information\n- Avoid technical jargon, stay accessible\n- Give concrete advice adapted to the actual energy (rest, caution, seize opportunities, etc.)\n- Respond only in valid JSON, no text before or after"
-            : "Tu es un astrologue honnête qui rédige des horoscopes quotidiens personnalisés basés strictement sur les transits actifs.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Reflète la VRAIE énergie du jour : si des transits tendus sont actifs (carré de Saturne, opposition de Mars, etc.), dis-le honnêtement\n- N'utilise PAS systématiquement un langage positif — certains jours sont difficiles, et c'est une information précieuse\n- Évite le jargon technique, reste accessible\n- Donne des conseils concrets adaptés à l'énergie réelle (repos, prudence, fonce, etc.)\n- Réponds uniquement en JSON valide, sans texte avant ou après";
+            ? "You are a practicing astrologer writing a personalized daily horoscope in the tradition of Robert Hand (Planets in Transit), Liz Greene, and Stephen Arroyo.\n\nCORE RULE: every sentence must be grounded in a specific astrological datum from the prompt — exact planetary position, sign, or computed aspect. Zero generalities.\n\nSLOW PLANETS (Saturn, Jupiter, Uranus, Neptune, Pluto) in transit = background themes of the period. Cite the natal planet they are activating.\nFAST PLANETS (Moon, Mercury, Venus, Mars, Sun) in transit = specific energy of the day.\n\nNEVER name the aspect type (trine, square, conjunction, etc.) — translate directly into plain human language.\n\nFORBIDDEN: \"a period of transformation\", \"the energies are favorable\", \"the universe\", \"potential\", \"invitation to\", modal hedging (\"may\", \"might\", \"could\").\n\nRespond ONLY in valid JSON, no text before or after."
+            : "Tu es un astrologue praticien qui rédige un horoscope quotidien personnalisé dans la tradition de Robert Hand (Planets in Transit), Liz Greene et Stephen Arroyo.\n\nRÈGLE ABSOLUE : chaque phrase doit être justifiée par une donnée astrologique précise issue du prompt — position planétaire exacte, signe, aspect calculé. Zéro généralité.\n\nPLANÈTES LENTES (Saturne, Jupiter, Uranus, Neptune, Pluton) en transit = tendances de fond de la période. Cite la planète natale qu'elles activent.\nPLANÈTES RAPIDES (Lune, Mercure, Vénus, Mars, Soleil) en transit = énergie spécifique du jour.\n\nNE CITE JAMAIS le type d'aspect (trigone, carré, conjonction, etc.) — traduis directement en impact humain courant.\n\nINTERDIT : \"une période de transformation\", \"les énergies sont favorables\", \"l'univers\", \"potentiel\", \"invitation à\", modaux d'évitement (\"peut\", \"pourrait\").\n\nRéponds UNIQUEMENT en JSON valide, sans texte avant ou après.";
 
         $result = $this->callResponsesApi($prompt, $instructions);
 

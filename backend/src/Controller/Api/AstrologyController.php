@@ -60,6 +60,34 @@ class AstrologyController extends AbstractController
     }
 
     /**
+     * Get short personality summary (Sun, Moon, Ascendant) — free, cached 90 days
+     */
+    #[Route('/natal-chart/summary', name: 'api_natal_chart_summary', methods: ['GET'])]
+    public function getNatalChartSummary(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $locale = $this->getLocaleFromRequest($request);
+        $this->astrologyService->setLocale($locale);
+
+        if (!$user->hasBirthProfile()) {
+            return $this->json([
+                'success' => false,
+                'error' => $locale === 'en' ? 'Please complete your birth profile first' : 'Veuillez compléter votre profil de naissance',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $result = $this->astrologyService->getNatalChartSummary($user);
+
+        if (!$result['success']) {
+            return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return $this->json($result);
+    }
+
+    /**
      * Get AI interpretation of natal chart
      */
     #[Route('/natal-chart/interpretation', name: 'api_natal_chart_interpretation', methods: ['GET'])]
@@ -79,20 +107,6 @@ class AstrologyController extends AbstractController
             return $this->json([
                 'error' => $errorMessage
             ], Response::HTTP_BAD_REQUEST);
-        }
-
-        // Free users: 1 free interpretation — gate if already generated
-        if (!$user->isPremium()) {
-            $chart = $this->natalChartRepository->findByUser($user);
-            if ($chart && $chart->getInterpretation()) {
-                return $this->json([
-                    'error' => 'interpretation_already_used',
-                    'message' => $locale === 'en'
-                        ? 'Your free interpretation has already been generated. Upgrade to Premium for unlimited access.'
-                        : 'Votre interprétation gratuite a déjà été générée. Passez en Premium pour un accès illimité.',
-                    'generated_at' => $chart->getCreatedAt()?->format(\DateTime::ATOM),
-                ], Response::HTTP_FORBIDDEN);
-            }
         }
 
         $result = $this->astrologyService->getNatalChartInterpretation($user);

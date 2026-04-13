@@ -19,12 +19,19 @@ import {
     NotoSerif_700Bold,
 } from '@expo-google-fonts/noto-serif';
 import {
+    useFonts as useEBGaramond,
+    EBGaramond_400Regular,
+    EBGaramond_500Medium,
+    EBGaramond_500Medium_Italic,
+    EBGaramond_600SemiBold,
+    EBGaramond_700Bold,
+} from '@expo-google-fonts/eb-garamond';
+import {
     useFonts as useManrope,
     Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
     Manrope_700Bold,
-    Manrope_800ExtraBold,
 } from '@expo-google-fonts/manrope';
 
 // Initialize i18n (must be imported before components that use translations)
@@ -60,7 +67,7 @@ export const unstable_settings = {
 };
 
 // Custom dark theme matching our design system
-const AstroMatchTheme: Theme = {
+const LunestiaTheme: Theme = {
     dark: true,
     colors: {
         primary: colors.primary,
@@ -72,20 +79,20 @@ const AstroMatchTheme: Theme = {
     },
     fonts: {
         regular: {
-            fontFamily: 'Manrope_400Regular',
+            fontFamily: 'EBGaramond_400Regular',
             fontWeight: '400',
         },
         medium: {
-            fontFamily: 'Manrope_500Medium',
+            fontFamily: 'EBGaramond_500Medium',
             fontWeight: '500',
         },
         bold: {
-            fontFamily: 'Manrope_700Bold',
+            fontFamily: 'EBGaramond_700Bold',
             fontWeight: '700',
         },
         heavy: {
-            fontFamily: 'Manrope_800ExtraBold',
-            fontWeight: '800',
+            fontFamily: 'EBGaramond_700Bold',
+            fontWeight: '700',
         },
     },
 };
@@ -108,17 +115,25 @@ export default function RootLayout() {
         NotoSerif_700Bold,
     });
 
-    // Load Manrope fonts (body/UI text)
+    // Load EB Garamond fonts (body/reading text)
+    const [garamondLoaded, garamondError] = useEBGaramond({
+        EBGaramond_400Regular,
+        EBGaramond_500Medium,
+        EBGaramond_500Medium_Italic,
+        EBGaramond_600SemiBold,
+        EBGaramond_700Bold,
+    });
+
+    // Load Manrope fonts (buttons/labels/UI)
     const [manropeLoaded, manropeError] = useManrope({
         Manrope_400Regular,
         Manrope_500Medium,
         Manrope_600SemiBold,
         Manrope_700Bold,
-        Manrope_800ExtraBold,
     });
 
-    const fontsLoaded = notoSerifLoaded && manropeLoaded;
-    const fontError = notoSerifError || manropeError;
+    const fontsLoaded = notoSerifLoaded && garamondLoaded && manropeLoaded;
+    const fontError = notoSerifError || garamondError || manropeError;
 
     // Initialize API config once at startup
     useEffect(() => {
@@ -155,7 +170,7 @@ export default function RootLayout() {
         <SafeAreaProvider>
             <AuthProvider>
                 <PurchasesInitializer />
-                <ThemeProvider value={AstroMatchTheme}>
+                <ThemeProvider value={LunestiaTheme}>
                     <Stack>
                         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                         <Stack.Screen name="demo" options={{ headerShown: false }} />
