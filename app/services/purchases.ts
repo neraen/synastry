@@ -22,6 +22,7 @@
  */
 
 import { Platform } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { api } from './api';
 
 // Lazy import to prevent native module crash if billing is unavailable
@@ -71,6 +72,14 @@ let configured = false;
  */
 export function configurePurchases(): void {
     if (!Purchases) return;
+    
+    // RevenueCat requires native modules. Expo Go does not have them.
+    const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+    if (isExpoGo) {
+        console.warn('[Purchases] Expo Go detected. RevenueCat native module is not available. Skipping configuration.');
+        return;
+    }
+
     if (!RC_API_KEY_IOS && !RC_API_KEY_ANDROID) {
         console.warn('[Purchases] RevenueCat API keys not set. Set EXPO_PUBLIC_RC_API_KEY_IOS / EXPO_PUBLIC_RC_API_KEY_ANDROID.');
         return;
@@ -83,7 +92,6 @@ export function configurePurchases(): void {
         Purchases.configure({ apiKey });
         configured = true;
     } catch {
-        // Expo Go doesn't support native IAP — silently skip.
         // Purchases will be unavailable until running a real dev/prod build.
     }
 }

@@ -175,7 +175,40 @@ class ChatController extends AbstractController
         $locale = $localeService->normalizeLocale($request->headers->get('Accept-Language', 'fr'));
         $this->openAiService->setLocale($locale);
 
-        $result = $this->openAiService->getChatResponse($messages, $userContext);
+        // ── AI Tools ────────────────────────────────────────────────────────────
+        $tools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_transits',
+                    'description' => $locale === 'en'
+                        ? 'Calculates exact planetary transits for a specific number of months from now. Use when the user asks about their future (e.g. "in 6 months", "next year").'
+                        : 'Calcule les transits planétaires exacts pour un nombre précis de mois dans le futur. À utiliser quand l\'utilisateur pose une question sur son avenir (ex: "dans 6 mois", "l\'année prochaine").',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'months_from_now' => [
+                                'type' => 'integer',
+                                'description' => $locale === 'en'
+                                    ? 'The number of months in the future. For example, 6 for "in 6 months". Can be negative for the past.'
+                                    : 'Le nombre de mois dans le futur. Par exemple, 6 pour "dans 6 mois". Peut être négatif pour le passé.'
+                            ]
+                        ],
+                        'required' => ['months_from_now']
+                    ]
+                ]
+            ]
+        ];
+
+        $toolHandler = function (string $functionName, array $arguments) use ($user) {
+            if ($functionName === 'get_transits') {
+                $months = (int) ($arguments['months_from_now'] ?? 0);
+                return $this->astrologyAnalysisService->getTransitsForSpecificMonth($user, $months);
+            }
+            return ['error' => 'Unknown function'];
+        };
+
+        $result = $this->openAiService->getChatResponse($messages, $userContext, $toolHandler, $tools);
 
         if (!$result['success']) {
             return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);

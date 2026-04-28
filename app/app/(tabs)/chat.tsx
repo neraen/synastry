@@ -27,7 +27,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, radius, fonts } from '@/theme';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { usePremium } from '@/hooks/usePremium';
 import {
     sendChatMessage,
@@ -35,6 +35,7 @@ import {
     ChatMessage,
     ChatPartner,
 } from '@/services/astrology';
+import { createChatSession, getChatSession, updateChatSession } from '@/services/chatSessions';
 
 // ─── Typing indicator ─────────────────────────────────────────────────────────
 
@@ -217,6 +218,14 @@ const WELCOME_ID = '__welcome__';
 export default function ChatScreen() {
     const { t } = useTranslation();
     const { isPremium } = usePremium();
+    const { sessionId: paramSessionId } = useLocalSearchParams<{ sessionId?: string }>();
+    
+    const [sessionId, setSessionId] = useState<number | null>(null);
+    const [canReply, setCanReply] = useState(true);
+    const [saveModalVisible, setSaveModalVisible] = useState(false);
+    const [chatTitle, setChatTitle] = useState('');
+    const [isLoadingSession, setIsLoadingSession] = useState(false);
+
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
             id: WELCOME_ID,
@@ -232,6 +241,68 @@ export default function ChatScreen() {
     const [remainingMessages, setRemainingMessages] = useState<number | null>(null);
     const [dailyLimitReached, setDailyLimitReached] = useState(false);
     const listRef = useRef<FlatList>(null);
+
+    useEffect(() => {
+        if (paramSessionId) {
+            const id = parseInt(paramSessionId, 10);
+            if (!isNaN(id)) {
+                setSessionId(id);
+                setIsLoadingSession(true);
+                getChatSession(id)
+                    .then(res => {
+                        if (res.success && res.session) {
+                            const loadedMessages = res.session.messages.map((m: any, idx: number) => ({
+                                id: `hist_${idx}`,
+                                role: m.role,
+                                content: m.content,
+                                createdAt: new Date()
+                            }));
+                            setMessages(loadedMessages);
+                            if (res.session.partnerHistoryId) {
+                                setActivePartner({ id: res.session.partnerHistoryId, partnerName: 'Partenaire', compatibilityScore: null });
+                            }
+                        }
+                        if (res.can_reply !== undefined) {
+                            setCanReply(res.can_reply);
+                        }
+                    })
+                    .catch(e => console.warn(e))
+                    .finally(() => setIsLoadingSession(false));
+            }
+        }
+    }, [paramSessionId]);
+
+    const handleSaveChat = async () => {
+        if (!isPremium) return;
+        const toSave = messages.filter(m => m.id !== WELCOME_ID).map(m => ({ role: m.role, content: m.content }));
+        try {
+            const res = await createChatSession(chatTitle, toSave, activePartner?.id);
+            if (res.success && res.id) {
+                setSessionId(res.id);
+                setSaveModalVisible(false);
+            }
+        } catch (e) {
+            console.warn(e);
+        }
+    };
+
+    const handleNewChat = useCallback(() => {
+        if (paramSessionId) {
+            router.setParams({ sessionId: '' });
+        }
+        setSessionId(null);
+        setMessages([
+            {
+                id: WELCOME_ID,
+                role: 'assistant',
+                content: t('chat.welcomeMessage'),
+                createdAt: new Date(),
+            },
+        ]);
+        setActivePartner(null);
+        setChatTitle('');
+        setCanReply(true);
+    }, [paramSessionId, t]);
 
     const scrollToBottom = useCallback(() => {
         listRef.current?.scrollToEnd({ animated: true });
@@ -263,10 +334,16 @@ export default function ChatScreen() {
             if (res.daily_limit_reached) setDailyLimitReached(true);
 
             const replyContent = res.success && res.message ? res.message : t('chat.errorMessage');
-            setMessages((prev) => [
-                ...prev,
-                { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, createdAt: new Date() },
-            ]);
+            const newAssistantMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, createdAt: new Date() };
+            
+            setMessages((prev) => {
+                const newMessages = [...prev, newAssistantMsg];
+                if (sessionId) {
+                    const toSave = newMessages.filter(m => m.id !== WELCOME_ID).map(m => ({ role: m.role, content: m.content }));
+                    updateChatSession(sessionId, toSave).catch(e => console.warn(e));
+                }
+                return newMessages;
+            });
         } catch (err: any) {
             if (err?.status === 403 && err?.payload?.error === 'daily_limit_reached') {
                 setDailyLimitReached(true);
@@ -298,6 +375,21 @@ export default function ChatScreen() {
                     <Text style={styles.headerStatus}>
                         {isTyping ? t('chat.statusTyping') : t('chat.statusOnline')}
                     </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                    <Pressable onPress={handleNewChat} hitSlop={10}>
+                        <Feather name="edit" size={20} color={colors.onSurface} />
+                    </Pressable>
+                    {!sessionId && isPremium && (
+                        <Pressable onPress={() => setSaveModalVisible(true)} hitSlop={10}>
+                            <Feather name="bookmark" size={20} color={colors.onSurface} />
+                        </Pressable>
+                    )}
+                    {isPremium && (
+                        <Pressable onPress={() => router.push('/chat-history')} hitSlop={10}>
+                            <Feather name="clock" size={20} color={colors.onSurface} />
+                        </Pressable>
+                    )}
                 </View>
             </View>
 
@@ -387,15 +479,15 @@ export default function ChatScreen() {
                         onSubmitEditing={handleSend}
                         blurOnSubmit={false}
                         returnKeyType="send"
-                        editable={isPremium || !dailyLimitReached}
+                        editable={(isPremium || !dailyLimitReached) && canReply}
                     />
 
                     <Pressable
                         onPress={handleSend}
-                        disabled={!inputText.trim() || isTyping || (!isPremium && dailyLimitReached)}
+                        disabled={!inputText.trim() || isTyping || (!isPremium && dailyLimitReached) || !canReply}
                         style={({ pressed }) => [
                             styles.sendBtn,
-                            (!inputText.trim() || isTyping || (!isPremium && dailyLimitReached)) && styles.sendBtnDisabled,
+                            (!inputText.trim() || isTyping || (!isPremium && dailyLimitReached) || !canReply) && styles.sendBtnDisabled,
                             pressed && styles.sendBtnPressed,
                         ]}
                     >
@@ -410,6 +502,36 @@ export default function ChatScreen() {
                 onSelect={(p) => setActivePartner(p)}
                 activePartnerId={activePartner?.id ?? null}
             />
+
+            {/* Save Chat Modal */}
+            <Modal visible={saveModalVisible} transparent animationType="fade" onRequestClose={() => setSaveModalVisible(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.saveModalContent}>
+                        <Text style={styles.saveModalTitle}>{t('chat.saveChatTitle', 'Sauvegarder la discussion')}</Text>
+                        <Text style={styles.saveModalSubtitle}>
+                            {t('chat.saveChatDesc', 'Donnez un nom à cette discussion, ou laissez vide pour que l\'IA en génère un.')}
+                        </Text>
+                        
+                        <TextInput
+                            style={styles.saveInput}
+                            value={chatTitle}
+                            onChangeText={setChatTitle}
+                            placeholder={t('chat.savePlaceholder', 'Ex: Ma vie pro...')}
+                            placeholderTextColor={colors.onSurfaceMuted}
+                            autoFocus
+                        />
+                        
+                        <View style={styles.saveModalActions}>
+                            <TouchableOpacity style={styles.saveBtnCancel} onPress={() => setSaveModalVisible(false)}>
+                                <Text style={styles.saveBtnCancelText}>{t('common.cancel', 'Annuler')}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.saveBtnConfirm} onPress={handleSaveChat}>
+                                <Text style={styles.saveBtnConfirmText}>{t('common.save', 'Sauvegarder')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -680,5 +802,65 @@ const styles = StyleSheet.create({
         color: colors.onSurfaceMuted,
         textAlign: 'center',
         lineHeight: 19,
+    },
+    
+    // Save Modal
+    saveModalContent: {
+        backgroundColor: colors.surfaceLow,
+        margin: spacing.xl,
+        borderRadius: radius.xl,
+        padding: spacing.xl,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        top: '25%',
+    },
+    saveModalTitle: {
+        fontFamily: fonts.display.regular,
+        fontSize: 18,
+        color: colors.onSurface,
+        marginBottom: spacing.xs,
+    },
+    saveModalSubtitle: {
+        fontFamily: fonts.body.regular,
+        fontSize: 13,
+        color: colors.onSurfaceMuted,
+        marginBottom: spacing.lg,
+    },
+    saveInput: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        color: colors.onSurface,
+        backgroundColor: 'rgba(42, 32, 64, 0.60)',
+        borderRadius: radius.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        marginBottom: spacing.xl,
+    },
+    saveModalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: spacing.md,
+    },
+    saveBtnCancel: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+    },
+    saveBtnCancelText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
+    },
+    saveBtnConfirm: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderRadius: radius.md,
+    },
+    saveBtnConfirmText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 14,
+        color: colors.surfaceLowest,
     },
 });

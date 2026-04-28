@@ -51,7 +51,7 @@ async function markDone(): Promise<void> {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TabId = 'timeline' | 'calendar' | 'mirror';
-type RefKey = 'tabs' | 'help' | 'timeline' | 'calendar' | 'mirror';
+type RefKey = 'tabs' | 'tab1' | 'tab2' | 'tab3' | 'help' | 'timeline' | 'calendar' | 'mirror';
 
 interface Rect { x: number; y: number; w: number; h: number }
 
@@ -64,6 +64,9 @@ interface Step {
 
 export interface OnboardingRefs {
     tabs: React.RefObject<View | null>;
+    tab1: React.RefObject<View | null>;
+    tab2: React.RefObject<View | null>;
+    tab3: React.RefObject<View | null>;
     help: React.RefObject<View | null>;
     timeline: React.RefObject<View | null>;
     calendar: React.RefObject<View | null>;
@@ -72,6 +75,7 @@ export interface OnboardingRefs {
 
 interface Props {
     refs: OnboardingRefs;
+    rootRef: React.RefObject<View | null>;
     activeTab: TabId;
     onTabChange: (tab: TabId) => void;
     scrollRef: React.RefObject<ScrollView | null>;
@@ -81,10 +85,10 @@ interface Props {
 // ─── Steps definition ─────────────────────────────────────────────────────────
 
 const STEPS: Step[] = [
-    { refKey: 'timeline', tab: 'timeline', titleKey: 'transitsOnboarding.step2Title', bodyKey: 'transitsOnboarding.step2Body' },
-    { refKey: 'tabs',     tab: 'timeline', titleKey: 'transitsOnboarding.step3Title', bodyKey: 'transitsOnboarding.step3Body' },
-    { refKey: 'tabs',     tab: 'timeline', titleKey: 'transitsOnboarding.step4Title', bodyKey: 'transitsOnboarding.step4Body' },
-    { refKey: 'help',     tab: 'timeline', titleKey: 'transitsOnboarding.step5Title', bodyKey: 'transitsOnboarding.step5Body' },
+    { refKey: 'tab1', tab: 'timeline', titleKey: 'transitsOnboarding.step2Title', bodyKey: 'transitsOnboarding.step2Body' },
+    { refKey: 'tab2', tab: 'calendar', titleKey: 'transitsOnboarding.step3Title', bodyKey: 'transitsOnboarding.step3Body' },
+    { refKey: 'tab3', tab: 'mirror',   titleKey: 'transitsOnboarding.step4Title', bodyKey: 'transitsOnboarding.step4Body' },
+    { refKey: 'help', tab: 'timeline', titleKey: 'transitsOnboarding.step5Title', bodyKey: 'transitsOnboarding.step5Body' },
 ];
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -93,7 +97,7 @@ const SPOT_RADIUS = radius.lg;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function TransitOnboarding({ refs, activeTab, onTabChange, scrollRef, onDone }: Props) {
+export function TransitOnboarding({ refs, rootRef, activeTab, onTabChange, scrollRef, onDone }: Props) {
     const { t } = useTranslation();
 
     const [stepIdx, setStepIdx] = useState(0);
@@ -128,17 +132,21 @@ export function TransitOnboarding({ refs, activeTab, onTabChange, scrollRef, onD
     // ── Measure target ref ───────────────────────────────────────────────────
     const measureStep = useCallback((step: Step) => {
         const ref = refs[step.refKey];
-        if (!ref?.current) { setSpot(null); animateTooltipIn(); return; }
-        ref.current.measureInWindow((x, y, w, h) => {
-            setSpot({ x, y, w, h });
-            animateTooltipIn();
-        });
-    }, [refs, animateTooltipIn]);
+        if (!ref?.current || !rootRef?.current) { setSpot(null); animateTooltipIn(); return; }
+        ref.current.measureLayout(
+            rootRef.current,
+            (x, y, w, h) => {
+                setSpot({ x, y, w, h });
+                animateTooltipIn();
+            },
+            () => { setSpot(null); animateTooltipIn(); },
+        );
+    }, [refs, rootRef, animateTooltipIn]);
 
     // ── Measure on step change (tab never changes during onboarding) ─────────
     useEffect(() => {
         const id = requestAnimationFrame(() => {
-            setTimeout(() => measureStep(currentStep), 120);
+            setTimeout(() => measureStep(currentStep), 200);
         });
         return () => cancelAnimationFrame(id);
     }, [stepIdx]); // eslint-disable-line react-hooks/exhaustive-deps

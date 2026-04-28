@@ -39,13 +39,48 @@ class AstrologyAnalysisService
         $moonSign = $natalPositions['Moon']['Sign'] ?? 'Unknown';
         $ascendant = $natalPositions['Ascendant']['Sign'] ?? 'Unknown';
 
+        $formattedAspects = $this->formatMajorAspects($aspects);
+
+        // Build a dedicated slow-planet aspects list (no top-10 cap) with real date windows.
+        // This is used by the transits prompt to find significant slow-on-fast transits.
+        $slowTransitPlanets = ['Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+        $fastNatalPlanets   = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Ascendant'];
+        $majorAspectTypes   = ['conjunction', 'opposition', 'trine', 'square'];
+
+        $slowAspects = [];
+        foreach ($aspects as $rawAspect) {
+            $transitPlanet = $rawAspect['planet_b'];
+            $natalPlanet   = $rawAspect['planet_a'];
+            $aspectType    = $rawAspect['type'];
+
+            if (!in_array($transitPlanet, $slowTransitPlanets, true)) continue;
+            if (!in_array($natalPlanet, $fastNatalPlanets, true)) continue;
+            if (!in_array($aspectType, $majorAspectTypes, true)) continue;
+            if ($rawAspect['orb'] >= 8) continue;  // skip very loose aspects
+
+            $range = $this->computeTransitDateRange(
+                $natalCalculator, $transitPlanet, $natalPlanet, $aspectType
+            );
+
+            $slowAspects[] = [
+                'natal_planet'   => $natalPlanet,
+                'transit_planet' => $transitPlanet,
+                'aspect'         => $rawAspect['name'],
+                'aspect_type'    => $aspectType,
+                'orb'            => $rawAspect['orb'],
+                'start_date'     => $range['start'],
+                'end_date'       => $range['end'],
+            ];
+        }
+
         return [
-            'sun_sign' => $sunSign,
-            'moon_sign' => $moonSign,
-            'ascendant' => $ascendant,
-            'natal_planets' => $natalPositions,
+            'sun_sign'         => $sunSign,
+            'moon_sign'        => $moonSign,
+            'ascendant'        => $ascendant,
+            'natal_planets'    => $natalPositions,
             'current_transits' => $transitPositions,
-            'major_aspects' => $this->formatMajorAspects($aspects),
+            'major_aspects'    => $formattedAspects,
+            'slow_aspects'     => $slowAspects,
         ];
     }
 
@@ -115,6 +150,62 @@ class AstrologyAnalysisService
     }
 
     /**
+     * Scan backward and forward from today to find the real date window
+     * during which a transit aspect stays within orb.
+     *
+     * @return array{start: string, end: string}  YYYY-MM-DD strings
+     */
+    private function computeTransitDateRange(
+        PlanetaryCalculator $natalCalc,
+        string $transitPlanet,
+        string $natalPlanet,
+        string $aspectType
+    ): array {
+        $aspectDef = PlanetaryCalculator::ASPECTS[$aspectType] ?? null;
+        if ($aspectDef === null) {
+            $today = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
+            return ['start' => $today, 'end' => $today];
+        }
+
+        [$targetAngle, $maxOrb] = $aspectDef;
+
+        // Natal planet longitude is fixed
+        $natalLon = $natalCalc->getPlanetLongitude($natalPlanet);
+
+        // Check whether a given date is still within orb
+        $isInOrb = function (string $dateStr) use ($transitPlanet, $natalLon, $targetAngle, $maxOrb): bool {
+            $calc = new PlanetaryCalculator($dateStr, '12:00', 0.0, 0.0, 'T');
+            $transitLon = $calc->getPlanetLongitude($transitPlanet);
+            $diff = abs($transitLon - $natalLon);
+            if ($diff > 180) $diff = 360 - $diff;
+            return abs($diff - $targetAngle) <= $maxOrb;
+        };
+
+        $today = new \DateTime('now', new \DateTimeZone('UTC'));
+        $startDate = clone $today;
+        $endDate   = clone $today;
+
+        // Scan backward (max 400 days)
+        for ($i = 1; $i <= 400; $i++) {
+            $date = (clone $today)->modify("-{$i} days");
+            if (!$isInOrb($date->format('Y-m-d'))) break;
+            $startDate = $date;
+        }
+
+        // Scan forward (max 400 days)
+        for ($i = 1; $i <= 400; $i++) {
+            $date = (clone $today)->modify("+{$i} days");
+            if (!$isInOrb($date->format('Y-m-d'))) break;
+            $endDate = $date;
+        }
+
+        return [
+            'start' => $startDate->format('Y-m-d'),
+            'end'   => $endDate->format('Y-m-d'),
+        ];
+    }
+
+    /**
      * Format major aspects for the prompt
      * Only keep the most significant aspects (low orb)
      */
@@ -130,10 +221,11 @@ class AstrologyAnalysisService
 
         return array_map(function ($aspect) {
             return [
-                'natal_planet' => $aspect['planet_a'],
+                'natal_planet'   => $aspect['planet_a'],
                 'transit_planet' => $aspect['planet_b'],
-                'aspect' => $aspect['name'],
-                'orb' => $aspect['orb'],
+                'aspect'         => $aspect['name'],
+                'aspect_type'    => $aspect['type'],  // machine key: trine, square, etc.
+                'orb'            => $aspect['orb'],
             ];
         }, $significantAspects);
     }
@@ -255,6 +347,49 @@ class AstrologyAnalysisService
         }
 
         return $result;
+    }
+
+    /**
+     * Compute major transit aspects for a specific month in the future (or past).
+     * Used by AI tool calls to query specific time periods.
+     */
+    public function getTransitsForSpecificMonth(User $user, int $monthsFromNow): array
+    {
+        $birthProfile = $user->getBirthProfile();
+        if (!$birthProfile) {
+            return [];
+        }
+
+        $slowPlanets = ['Saturn', 'Jupiter', 'Uranus', 'Neptune', 'Pluto', 'Mars'];
+        $natalCalculator = $this->createCalculatorFromProfile($birthProfile);
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+
+        $modifier = $monthsFromNow >= 0 ? "+{$monthsFromNow} months" : "{$monthsFromNow} months";
+        $date = (clone $now)->modify($modifier);
+        $monthKey = $date->format('Y-m');
+        $dateStr  = $date->format('Y-m-01'); // 1st of the month at noon UTC
+
+        $transitCalculator = new PlanetaryCalculator($dateStr, '12:00', 0.0, 0.0, 'Transits');
+        $aspects = $natalCalculator->getSynastryAspects($transitCalculator);
+
+        $filtered = array_values(array_filter($aspects, function (array $a) use ($slowPlanets): bool {
+            return in_array($a['planet_b'], $slowPlanets, true)
+                && $a['type'] !== 'quincunx'
+                && $a['orb'] < 4.0;
+        }));
+
+        usort($filtered, fn($a, $b) => $a['orb'] <=> $b['orb']);
+        $filtered = array_slice($filtered, 0, 5);
+
+        return [
+            'month'   => $monthKey,
+            'aspects' => array_map(fn($a) => [
+                'transit' => $a['planet_b'],
+                'natal'   => $a['planet_a'],
+                'type'    => $a['name'],
+                'orb'     => round($a['orb'], 1),
+            ], $filtered),
+        ];
     }
 
     /**

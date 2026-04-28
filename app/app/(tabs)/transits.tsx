@@ -950,7 +950,11 @@ export default function TransitsScreen() {
 
     // Onboarding
     const [onboardingVisible, setOnboardingVisible] = useState(false);
+    const rootRef = useRef<View>(null);
     const tabsRef = useRef<View>(null);
+    const tab1Ref = useRef<View>(null);
+    const tab2Ref = useRef<View>(null);
+    const tab3Ref = useRef<View>(null);
     const helpBtnRef = useRef<View>(null);
     const tlAreaRef = useRef<View>(null);
     const calAreaRef = useRef<View>(null);
@@ -1088,7 +1092,7 @@ export default function TransitsScreen() {
     }, [allSelectedAspects]);
 
     return (
-        <View style={styles.root}>
+        <View ref={rootRef} style={styles.root}>
             <SafeAreaView style={styles.safe} edges={['top']}>
                 <TabHeader />
 
@@ -1123,51 +1127,57 @@ export default function TransitsScreen() {
                     {/* Tab toggle */}
                     <View style={styles.tabToggleWrap}>
                         <View ref={tabsRef} style={styles.tabToggle}>
-                            <Pressable
-                                style={[styles.tabBtn, activeTab === 'timeline' && styles.tabBtnActive]}
-                                onPress={() => setActiveTab('timeline')}
-                            >
-                                <Feather
-                                    name="zap"
-                                    size={13}
-                                    color={activeTab === 'timeline' ? colors.surfaceLowest : colors.onSurfaceMuted}
-                                />
-                                <Text style={[styles.tabBtnText, activeTab === 'timeline' && styles.tabBtnTextActive]}>
-                                    {t('transits.timelineTab')}
-                                </Text>
-                            </Pressable>
-                            <Pressable
-                                style={[styles.tabBtn, activeTab === 'calendar' && styles.tabBtnActive]}
-                                onPress={() => setActiveTab('calendar')}
-                            >
-                                <Feather
-                                    name="calendar"
-                                    size={13}
-                                    color={activeTab === 'calendar' ? colors.surfaceLowest : colors.onSurfaceMuted}
-                                />
-                                <Text style={[styles.tabBtnText, activeTab === 'calendar' && styles.tabBtnTextActive]}>
-                                    {t('transits.calendarTab')}
-                                </Text>
-                            </Pressable>
-                            <Pressable
-                                style={[styles.tabBtn, activeTab === 'mirror' && styles.tabBtnActive]}
-                                onPress={() => setActiveTab('mirror')}
-                            >
-                                <Feather
-                                    name="clock"
-                                    size={13}
-                                    color={activeTab === 'mirror' ? colors.surfaceLowest : colors.onSurfaceMuted}
-                                />
-                                <Text style={[styles.tabBtnText, activeTab === 'mirror' && styles.tabBtnTextActive]}>
-                                    {t('transits.mirrorTab')}
-                                </Text>
+                            <View ref={tab1Ref} collapsable={false} style={styles.tabBtnWrap}>
+                                <Pressable
+                                    style={[styles.tabBtn, activeTab === 'timeline' && styles.tabBtnActive]}
+                                    onPress={() => setActiveTab('timeline')}
+                                >
+                                    <Feather
+                                        name="zap"
+                                        size={13}
+                                        color={activeTab === 'timeline' ? colors.surfaceLowest : colors.onSurfaceMuted}
+                                    />
+                                    <Text style={[styles.tabBtnText, activeTab === 'timeline' && styles.tabBtnTextActive]}>
+                                        {t('transits.timelineTab')}
+                                    </Text>
+                                </Pressable>
+                            </View>
+                            <View ref={tab2Ref} collapsable={false} style={styles.tabBtnWrap}>
+                                <Pressable
+                                    style={[styles.tabBtn, activeTab === 'calendar' && styles.tabBtnActive]}
+                                    onPress={() => setActiveTab('calendar')}
+                                >
+                                    <Feather
+                                        name="calendar"
+                                        size={13}
+                                        color={activeTab === 'calendar' ? colors.surfaceLowest : colors.onSurfaceMuted}
+                                    />
+                                    <Text style={[styles.tabBtnText, activeTab === 'calendar' && styles.tabBtnTextActive]}>
+                                        {t('transits.calendarTab')}
+                                    </Text>
+                                </Pressable>
+                            </View>
+                            <View ref={tab3Ref} collapsable={false} style={styles.tabBtnWrap}>
+                                <Pressable
+                                    style={[styles.tabBtn, activeTab === 'mirror' && styles.tabBtnActive]}
+                                    onPress={() => setActiveTab('mirror')}
+                                >
+                                    <Feather
+                                        name="clock"
+                                        size={13}
+                                        color={activeTab === 'mirror' ? colors.surfaceLowest : colors.onSurfaceMuted}
+                                    />
+                                    <Text style={[styles.tabBtnText, activeTab === 'mirror' && styles.tabBtnTextActive]}>
+                                        {t('transits.mirrorTab')}
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        </View>
+                        <View ref={helpBtnRef} collapsable={false}>
+                            <Pressable onPress={() => setHelpVisible(true)} hitSlop={12} style={styles.helpBtn}>
+                                <Feather name="help-circle" size={18} color={colors.onSurfaceMuted} />
                             </Pressable>
                         </View>
-                        <Pressable onPress={() => setHelpVisible(true)} hitSlop={12} style={styles.helpBtn}>
-                            <View ref={helpBtnRef} collapsable={false}>
-                                <Feather name="help-circle" size={18} color={colors.onSurfaceMuted} />
-                            </View>
-                        </Pressable>
                     </View>
 
                     {/* ── Timeline tab ── */}
@@ -1402,7 +1412,8 @@ export default function TransitsScreen() {
 
             {onboardingVisible && (
                 <TransitOnboarding
-                    refs={{ tabs: tabsRef, help: helpBtnRef, timeline: tlAreaRef, calendar: calAreaRef, mirror: mirrorAreaRef }}
+                    refs={{ tabs: tabsRef, tab1: tab1Ref, tab2: tab2Ref, tab3: tab3Ref, help: helpBtnRef, timeline: tlAreaRef, calendar: calAreaRef, mirror: mirrorAreaRef }}
+                    rootRef={rootRef}
                     activeTab={activeTab}
                     onTabChange={setActiveTab}
                     scrollRef={scrollRef}
@@ -1454,6 +1465,9 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surfaceContainerHigh,
         borderRadius: radius.full,
         padding: 3,
+        flex: 1,
+    },
+    tabBtnWrap: {
         flex: 1,
     },
     tabBtn: {

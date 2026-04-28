@@ -20,7 +20,7 @@ import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
 import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
-import { getAiModel, setAiModel, MODEL_MINI, MODEL_PRO } from '@/services/aiModelConfig';
+import { getAiModel, setAiModel, MODEL_MINI, MODEL_PRO, MODEL_MINI5, AiModel } from '@/services/aiModelConfig';
 
 // ─── Preference Row ────────────────────────────────────────────────────────────
 interface PrefRowProps {
@@ -119,11 +119,11 @@ export default function ProfileTab() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isLocal, setIsLocal] = useState(getApiEnv() === 'local');
-    const [isProModel, setIsProModel] = useState(getAiModel() === 'pro');
+    const [aiModel, setAiModelState] = useState<AiModel>(getAiModel());
 
     useEffect(() => {
         setIsLocal(getApiEnv() === 'local');
-        setIsProModel(getAiModel() === 'pro');
+        setAiModelState(getAiModel());
     }, []);
 
     async function toggleApiEnv(value: boolean) {
@@ -131,9 +131,9 @@ export default function ProfileTab() {
         await setApiEnv(value ? 'local' : 'prod');
     }
 
-    async function toggleAiModel(value: boolean) {
-        setIsProModel(value);
-        await setAiModel(value ? 'pro' : 'mini');
+    async function selectAiModel(model: AiModel) {
+        setAiModelState(model);
+        await setAiModel(model);
     }
 
     const handleDeleteAccount = async () => {
@@ -342,21 +342,28 @@ export default function ProfileTab() {
 
                             <View style={styles.devDivider} />
 
-                            <View style={styles.devRow}>
-                                <View style={styles.devInfo}>
-                                    <Text style={styles.devTitle}>
-                                        {isProModel ? MODEL_PRO : MODEL_MINI}
-                                    </Text>
-                                    <Text style={styles.devUrl}>
-                                        {isProModel ? 'Qualité max — plus lent' : 'Rapide — défaut'}
-                                    </Text>
-                                </View>
-                                <Switch
-                                    value={isProModel}
-                                    onValueChange={toggleAiModel}
-                                    trackColor={{ false: `${colors.primary}40`, true: `${colors.primary}80` }}
-                                    thumbColor={colors.primary}
-                                />
+                            <View style={styles.devModelPicker}>
+                                {(
+                                    [
+                                        { key: 'mini',  label: MODEL_MINI,  sub: 'Rapide — défaut' },
+                                        { key: 'pro',   label: MODEL_PRO,   sub: 'Qualité max'     },
+                                        { key: 'mini5', label: MODEL_MINI5, sub: 'Nouveau'         },
+                                    ] as { key: AiModel; label: string; sub: string }[]
+                                ).map(({ key, label, sub }) => {
+                                    const active = aiModel === key;
+                                    return (
+                                        <Pressable
+                                            key={key}
+                                            style={[styles.devModelOption, active && styles.devModelOptionActive]}
+                                            onPress={() => selectAiModel(key)}
+                                        >
+                                            <Text style={[styles.devTitle, active && styles.devModelLabelActive]} numberOfLines={1}>
+                                                {label}
+                                            </Text>
+                                            <Text style={styles.devUrl}>{sub}</Text>
+                                        </Pressable>
+                                    );
+                                })}
                             </View>
                         </GlassCard>
                     </View>
@@ -731,6 +738,24 @@ const styles = StyleSheet.create({
         fontFamily: fonts.body.regular,
         fontSize: 11,
         color: colors.onSurfaceMuted,
+    },
+    devModelPicker: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    devModelOption: {
+        flex: 1,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.sm,
+        borderRadius: 12,
+        backgroundColor: `${colors.primary}15`,
+        alignItems: 'center',
+    },
+    devModelOptionActive: {
+        backgroundColor: `${colors.primary}40`,
+    },
+    devModelLabelActive: {
+        color: colors.primary,
     },
 
     // Demo

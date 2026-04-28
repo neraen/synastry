@@ -13,7 +13,7 @@ class OpenAiService
     private string $apiUrl;
     private PromptLocaleService $localeService;
     private const MODEL_DEFAULT  = 'gpt-4.1-mini';
-    private const ALLOWED_MODELS = ['gpt-4.1-mini', 'gpt-4o'];
+    private const ALLOWED_MODELS = ['gpt-4.1-mini', 'gpt-4o', 'chatgpt-5-mini'];
 
     private string $model = self::MODEL_DEFAULT;
 
@@ -104,21 +104,29 @@ PERSONA;
     }
 
     /**
-     * Call OpenAI Responses API
+     * Call OpenAI Responses API (Using Chat Completions for prompt caching)
      */
     private function callResponsesApi(string $input, ?string $instructions = null): array
     {
-        $payload = [
-            'model' => $this->model,
-            'input' => $input,
+        $messages = [];
+        if ($instructions) {
+            $messages[] = [
+                'role' => 'developer',
+                'content' => $instructions,
+            ];
+        }
+        $messages[] = [
+            'role' => 'user',
+            'content' => $input,
         ];
 
-        if ($instructions) {
-            $payload['instructions'] = $instructions;
-        }
+        $payload = [
+            'model' => $this->model,
+            'messages' => $messages,
+        ];
 
         try {
-            $response = $this->client->request('POST', $this->apiUrl . '/responses', [
+            $response = $this->client->request('POST', $this->apiUrl . '/chat/completions', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $this->apiKey,
                     'Content-Type' => 'application/json',
@@ -129,7 +137,8 @@ PERSONA;
             $data = $response->toArray();
 
             // Extract output text from the response
-            $outputText = $data['output_text'] ?? $data['output'][0]['content'][0]['text'] ?? null;
+            $message = $data['choices'][0]['message'] ?? null;
+            $outputText = $message['content'] ?? null;
 
             if (!$outputText) {
                 return [
@@ -641,14 +650,24 @@ PROMPT;
      *   partner_positions?: array<string, array{Sign: string, Position: float}>,
      *   compatibility_score?: float
      * }
+     * @param \Closure|null $toolHandler Callback to handle tool execution
+     * @param array $tools Array of tool definitions
      */
-    public function getChatResponse(array $messages, array $userContext): array
+    public function getChatResponse(array $messages, array $userContext, ?\Closure $toolHandler = null, array $tools = []): array
     {
         $isEnglish = $this->localeService->getLocale() === 'en';
 
-        $systemPrompt = $isEnglish
+        $developerPrompt = $isEnglish
             ? "You are Lyra, a straight-talking and warm astrologer in the AstroMatch app. You speak like a knowledgeable friend — direct, natural, no unnecessary flourish. Not a solemn oracle.\n\nStrict rules:\n- ALWAYS ground your answer in the exact natal positions provided below. Name the specific placement (e.g. \"your Moon in Scorpio\"). Never speak in generalities.\n- For questions about the future or upcoming periods, use the upcoming transit data provided below — real computed aspects for the next 12 months. Only reference transits that are actually listed there.\n- NEVER use technical astrological jargon: no \"trine\", \"square\", \"conjunction\", \"opposition\", \"sextile\", \"quincunx\", \"transit\", \"aspect\", \"orb\". Instead, translate the meaning into plain human impact — e.g. instead of \"Saturn squares your Moon\" say \"Saturn is putting pressure on your emotional world right now\".\n- Avoid vague spiritual filler like \"the universe is guiding you\" — be concrete.\n- Default to 2–4 sentences. Go longer only if the question genuinely calls for it.\n- Warm and direct. Skip the ceremonial tone."
             : "Tu es Lyra, une astrologue directe et chaleureuse dans l'app AstroMatch. Tu parles comme une amie qui maîtrise vraiment l'astrologie — naturelle, sans chichi, pas du tout solennelle.\n\nRègles strictes :\n- Appuie TOUJOURS tes propos sur les positions natales exactes fournies ci-dessous. Cite-les nommément (ex : \"ton Soleil en Taureau\", \"ta Lune en Scorpion\"). Pas de généralités.\n- Pour les questions sur l'avenir ou les prochaines périodes, utilise les données de transits à venir fournies ci-dessous — de vrais aspects calculés pour les 12 prochains mois. Ne cite que les transits qui y figurent réellement.\n- N'utilise JAMAIS de jargon astrologique technique : pas de \"trigone\", \"carré\", \"conjonction\", \"opposition\", \"sextile\", \"quinconce\", \"transit\", \"aspect\", \"orbe\". Traduis toujours en impact humain concret — ex : au lieu de \"Saturne en carré avec ta Lune\" dis \"Saturne met de la pression sur ta vie émotionnelle en ce moment\".\n- Évite les formulations creuses du style \"l'univers vous guide\" — sois concrète.\n- Par défaut 2 à 4 phrases. Plus long seulement si la question le justifie vraiment.\n- Ton chaleureux et direct. Pas de style oracle.";
+
+        if (!empty($tools)) {
+            $developerPrompt .= $isEnglish
+                ? "\n- If the user asks about a specific future period not explicitly covered by the transits below, or wants a precise prediction for a given time (e.g., 'in 6 months'), ALWAYS use the `get_transits` tool to calculate the exact transits for that period."
+                : "\n- Si l'utilisateur pose une question sur une période future spécifique non couverte par les transits ci-dessous, ou veut une prédiction précise (ex: 'dans 6 mois'), utilise TOUJOURS l'outil `get_transits` pour calculer les transits exacts de cette période.";
+        }
+
+        $systemContext = "";
 
         // ── User identity ────────────────────────────────────────────────────────
         $identityLines = [];
@@ -662,14 +681,14 @@ PROMPT;
             $identityLines[] = $isEnglish ? "City: {$userContext['birth_city']}" : "Ville : {$userContext['birth_city']}";
         }
         if (!empty($identityLines)) {
-            $label = $isEnglish ? "\n\n— User —" : "\n\n— Utilisateur —";
-            $systemPrompt .= $label . "\n" . implode("\n", $identityLines);
+            $label = $isEnglish ? "— User —" : "— Utilisateur —";
+            $systemContext .= $label . "\n" . implode("\n", $identityLines) . "\n\n";
         }
 
         // ── User natal chart positions ───────────────────────────────────────────
         if (!empty($userContext['positions'])) {
-            $label = $isEnglish ? "\n\nUser's natal chart:" : "\n\nThème natal de l'utilisateur :";
-            $systemPrompt .= $label . "\n" . $this->formatPositions($userContext['positions']);
+            $label = $isEnglish ? "User's natal chart:" : "Thème natal de l'utilisateur :";
+            $systemContext .= $label . "\n" . $this->formatPositions($userContext['positions']) . "\n\n";
         }
 
         // ── Partner context (optional) ───────────────────────────────────────────
@@ -678,22 +697,32 @@ PROMPT;
             $score = isset($userContext['compatibility_score']) ? (int) $userContext['compatibility_score'] : null;
             $scoreStr = $score !== null ? ($isEnglish ? " (compatibility score: {$score}/100)" : " (score de compatibilité : {$score}/100)") : '';
             $label = $isEnglish
-                ? "\n\n— Partner in context: {$partnerName}{$scoreStr} —"
-                : "\n\n— Partenaire en contexte : {$partnerName}{$scoreStr} —";
-            $systemPrompt .= $label;
+                ? "— Partner in context: {$partnerName}{$scoreStr} —"
+                : "— Partenaire en contexte : {$partnerName}{$scoreStr} —";
+            $systemContext .= $label . "\n";
 
             if (!empty($userContext['partner_positions'])) {
-                $posLabel = $isEnglish ? "\n{$partnerName}'s natal chart:" : "\nThème natal de {$partnerName} :";
-                $systemPrompt .= $posLabel . "\n" . $this->formatPositions($userContext['partner_positions']);
+                $posLabel = $isEnglish ? "{$partnerName}'s natal chart:" : "Thème natal de {$partnerName} :";
+                $systemContext .= $posLabel . "\n" . $this->formatPositions($userContext['partner_positions']) . "\n\n";
             }
         }
 
         // ── Upcoming transits (next 12 months) ──────────────────────────────────
         if (!empty($userContext['upcoming_transits'])) {
             $label = $isEnglish
-                ? "\n\n— Upcoming transits (next 12 months, computed) —"
-                : "\n\n— Transits à venir (12 prochains mois, calculés) —";
-            $systemPrompt .= $label . "\n" . $this->formatUpcomingTransits($userContext['upcoming_transits'], $isEnglish);
+                ? "— Upcoming transits (next 12 months, computed) —"
+                : "— Transits à venir (12 prochains mois, calculés) —";
+            $systemContext .= $label . "\n" . $this->formatUpcomingTransits($userContext['upcoming_transits'], $isEnglish) . "\n\n";
+        }
+
+        $systemContext = trim($systemContext);
+
+        $chatMessages = [
+            ['role' => 'developer', 'content' => $developerPrompt]
+        ];
+
+        if (!empty($systemContext)) {
+            $chatMessages[] = ['role' => 'system', 'content' => $systemContext];
         }
 
         $inputMessages = array_values(array_map(fn($m) => [
@@ -701,13 +730,53 @@ PROMPT;
             'content' => trim((string) $m['content']),
         ], $messages));
 
-        $result = $this->callMultiTurnApi($inputMessages, $systemPrompt);
+        $chatMessages = array_merge($chatMessages, $inputMessages);
+
+        $result = $this->callMultiTurnApi($chatMessages, $toolHandler, $tools);
 
         if (!$result['success']) {
             return $result;
         }
 
         return ['success' => true, 'message' => $result['content']];
+    }
+
+    /**
+     * Generate a short, descriptive title for a chat based on its first messages.
+     * Keeps it under 40 characters.
+     */
+    public function generateChatTitle(array $messages): string
+    {
+        $isEnglish = $this->localeService->getLocale() === 'en';
+        
+        // Take at most the first 3 messages to understand the context
+        $contextMessages = array_slice($messages, 0, 3);
+        $chatText = "";
+        foreach ($contextMessages as $m) {
+            $role = $m['role'] === 'user' ? 'User' : 'Lyra';
+            $chatText .= "{$role}: {$m['content']}\n";
+        }
+
+        $instructions = $isEnglish
+            ? "You are a summarization assistant. Your task is to generate a very short title (max 40 characters, 3-5 words) for an astrological chat conversation based on its first few messages. NEVER use quotes. Just return the raw title."
+            : "Tu es un assistant de résumé. Ta tâche est de générer un titre très court (max 40 caractères, 3-5 mots) pour une conversation de chat astrologique basé sur ses premiers messages. N'utilise JAMAIS de guillemets. Retourne juste le titre brut.";
+
+        $input = ($isEnglish ? "Chat messages:\n" : "Messages du chat :\n") . $chatText . ($isEnglish ? "\n\nGenerate title:" : "\n\nGénère le titre :");
+
+        $result = $this->callResponsesApi($input, $instructions);
+
+        if (!$result['success']) {
+            return $isEnglish ? "New conversation" : "Nouvelle conversation";
+        }
+
+        // Clean up the output
+        $title = trim($result['content'], " \t\n\r\0\x0B\"'");
+        
+        if (mb_strlen($title) > 50) {
+            $title = mb_substr($title, 0, 47) . '...';
+        }
+
+        return $title;
     }
 
     /**
@@ -748,15 +817,18 @@ PROMPT;
 
     /**
      * Call the Chat Completions API (/v1/chat/completions) for multi-turn conversation.
-     * System prompt goes as the first "system" message.
+     * Messages array should be fully constructed including developer/system prompts.
      */
-    private function callMultiTurnApi(array $messages, string $systemPrompt): array
+    private function callMultiTurnApi(array $chatMessages, ?\Closure $toolHandler = null, array $tools = []): array
     {
-        // Build chat completions messages: system + conversation history
-        $chatMessages = array_merge(
-            [['role' => 'system', 'content' => $systemPrompt]],
-            $messages
-        );
+        $payload = [
+            'model'    => $this->model,
+            'messages' => $chatMessages,
+        ];
+
+        if (!empty($tools)) {
+            $payload['tools'] = $tools;
+        }
 
         try {
             $response = $this->client->request('POST', $this->apiUrl . '/chat/completions', [
@@ -764,18 +836,52 @@ PROMPT;
                     'Authorization' => 'Bearer ' . $this->apiKey,
                     'Content-Type'  => 'application/json',
                 ],
-                'json' => [
-                    'model'    => $this->model,
-                    'messages' => $chatMessages,
-                ],
+                'json' => $payload,
             ]);
 
             $data = $response->toArray();
 
-            $outputText = $data['choices'][0]['message']['content'] ?? null;
+            $message = $data['choices'][0]['message'] ?? null;
+            if (!$message) {
+                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
+            }
+
+            // Handle tool calls if present
+            if (!empty($message['tool_calls']) && $toolHandler !== null) {
+                $chatMessages[] = $message;
+                
+                foreach ($message['tool_calls'] as $toolCall) {
+                    if ($toolCall['type'] === 'function') {
+                        $functionName = $toolCall['function']['name'];
+                        $arguments = json_decode($toolCall['function']['arguments'], true) ?? [];
+                        
+                        $toolResult = $toolHandler($functionName, $arguments);
+                        
+                        $chatMessages[] = [
+                            'role' => 'tool',
+                            'tool_call_id' => $toolCall['id'],
+                            'name' => $functionName,
+                            'content' => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
+                        ];
+                    }
+                }
+                
+                $payload['messages'] = $chatMessages;
+                $response2 = $this->client->request('POST', $this->apiUrl . '/chat/completions', [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $this->apiKey,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'json' => $payload,
+                ]);
+                $data2 = $response2->toArray();
+                $message = $data2['choices'][0]['message'] ?? null;
+            }
+
+            $outputText = $message['content'] ?? null;
 
             if (!$outputText) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
+                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data ?? ($data2 ?? [])];
             }
 
             return ['success' => true, 'content' => $outputText];

@@ -58,10 +58,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OrderBy(['date' => 'DESC'])]
     private Collection $dailyHoroscopes;
 
+    /** @var Collection<int, ChatSession> */
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: ChatSession::class, cascade: ['remove'])]
+    #[ORM\OrderBy(['updatedAt' => 'DESC'])]
+    private Collection $chatSessions;
+
     public function __construct()
     {
         $this->synastryHistories = new ArrayCollection();
         $this->dailyHoroscopes = new ArrayCollection();
+        $this->chatSessions = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -222,6 +228,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getDailyHoroscopes(): Collection
     {
         return $this->dailyHoroscopes;
+    }
+
+    /**
+     * @return Collection<int, ChatSession>
+     */
+    public function getChatSessions(): Collection
+    {
+        return $this->chatSessions;
     }
 
     #[\Deprecated]

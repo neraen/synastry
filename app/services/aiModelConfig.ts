@@ -8,17 +8,20 @@ import * as SecureStore from 'expo-secure-store';
 
 const STORAGE_KEY = 'ai_model';
 
-export type AiModel = 'mini' | 'pro';
+export type AiModel = 'mini' | 'pro' | 'mini5';
 
-export const MODEL_MINI = 'gpt-4.1-mini';
-export const MODEL_PRO  = 'gpt-4o';
+export const MODEL_MINI  = 'gpt-4.1-mini';
+export const MODEL_PRO   = 'gpt-4o';
+export const MODEL_MINI5 = 'chatgpt-5-mini';
+
+const VALID_MODELS: AiModel[] = ['mini', 'pro', 'mini5'];
 
 let currentModel: AiModel = 'mini';
 
 export async function initAiModelConfig(): Promise<void> {
     try {
         const stored = await SecureStore.getItemAsync(STORAGE_KEY) as AiModel | null;
-        currentModel = stored === 'pro' ? 'pro' : 'mini';
+        currentModel = stored && VALID_MODELS.includes(stored) ? stored : 'mini';
     } catch {
         currentModel = 'mini';
     }
@@ -35,5 +38,7 @@ export async function setAiModel(model: AiModel): Promise<void> {
 
 /** Header value sent to the backend on every request. */
 export function getAiModelHeader(): string {
-    return currentModel === 'pro' ? MODEL_PRO : MODEL_MINI;
+    if (currentModel === 'pro')   return MODEL_PRO;
+    if (currentModel === 'mini5') return MODEL_MINI5;
+    return MODEL_MINI;
 }

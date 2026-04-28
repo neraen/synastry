@@ -613,6 +613,20 @@ PROMPT;
         return $this->longitudeToSign($mc);
     }
 
+    /**
+     * Return the ecliptic longitude (degrees) of a single planet or point.
+     * More efficient than getAllPoints() when only one planet is needed.
+     */
+    public function getPlanetLongitude(string $name): float
+    {
+        return match ($name) {
+            'Sun'       => $this->getSun()['longitude'],
+            'Moon'      => $this->getMoon()['longitude'],
+            'Ascendant' => $this->getAscendant()['longitude'],
+            default     => $this->getPlanet($name)['longitude'],
+        };
+    }
+
     // -------------------------------------------------------------------------
     // Calcul des aspects
     // -------------------------------------------------------------------------

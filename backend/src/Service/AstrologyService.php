@@ -26,6 +26,7 @@ class AstrologyService
         private SynastryHistoryRepository $synastryHistoryRepository,
         private EntityManagerInterface $entityManager,
         private CacheInterface $cache,
+        private AstrologyAnalysisService $astrologyAnalysisService,
     ) {}
 
     /**
@@ -74,7 +75,7 @@ class AstrologyService
 
         // Calculate planetary positions using PlanetaryCalculator
         try {
-            $calculator = $this->createCalculatorFromProfile($birthProfile);
+            $calculator = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
             $positions = $calculator->getPlanetaryPositionsForApi();
         } catch (\Exception $e) {
             return [
@@ -254,8 +255,8 @@ class AstrologyService
         }
 
         try {
-            $calc1 = $this->createCalculatorFromProfile($profile1);
-            $calc2 = $this->createCalculatorFromProfile($profile2);
+            $calc1 = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($profile1);
+            $calc2 = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($profile2);
 
             // Build the compatibility prompt with aspects and locale
             $prompt = $calc1->buildCompatibilityPrompt($calc2, $question, $this->locale);
@@ -309,7 +310,7 @@ class AstrologyService
 
         try {
             // Create calculator for user
-            $userCalc = $this->createCalculatorFromProfile($userProfile);
+            $userCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($userProfile);
 
             // Create calculator for partner (with timezone conversion to UTC)
             $partnerDate = sprintf(
@@ -463,43 +464,5 @@ class AstrologyService
         ];
     }
 
-    /**
-     * Create PlanetaryCalculator from BirthProfile
-     * Converts local birth time to UTC using the timezone offset
-     */
-    private function createCalculatorFromProfile(BirthProfile $profile): PlanetaryCalculator
-    {
-        $birthDate = $profile->getBirthDate();
-        $birthTime = $profile->getBirthTime();
-        $timezone = $profile->getTimezone();
 
-        // Combine date and time into a DateTime object
-        $dateStr = $birthDate->format('Y-m-d');
-        $timeStr = $birthTime ? $birthTime->format('H:i:s') : '12:00:00';
-
-        // Create DateTime with local time
-        $localDateTime = new \DateTime("$dateStr $timeStr");
-
-        // Convert to UTC by subtracting the timezone offset
-        // Timezone is stored as hours offset (e.g., 1.0 for UTC+1, 2.0 for UTC+2)
-        if ($timezone !== null) {
-            $offsetHours = (float) $timezone;
-            // Convert offset to minutes (handles fractional hours like 5.5 for UTC+5:30)
-            $offsetMinutes = (int) ($offsetHours * 60);
-            // Subtract the offset to get UTC (local - offset = UTC)
-            $localDateTime->modify("-{$offsetMinutes} minutes");
-        }
-
-        // Extract UTC date and time
-        $utcDate = $localDateTime->format('Y-m-d');
-        $utcTime = $localDateTime->format('H:i');
-
-        return new PlanetaryCalculator(
-            $utcDate,
-            $utcTime,
-            (float) $profile->getLatitude(),
-            (float) $profile->getLongitude(),
-            $profile->getFirstName() ?? 'Personne'
-        );
-    }
 }

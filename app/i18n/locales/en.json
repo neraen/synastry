@@ -390,7 +390,7 @@
     "intensityMedium": "MODERATE",
     "intensityLow": "MINOR",
     "loadError": "Unable to fetch transits.",
-    "timelineTab": "Upcoming",
+    "timelineTab": "Transits",
     "calendarTab": "Calendar",
     "mirrorTab": "Mirror",
     "calendarNoAspects": "No major aspects today",

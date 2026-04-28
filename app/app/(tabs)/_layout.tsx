@@ -47,7 +47,7 @@ export default function TabsLayout() {
                 tabBarStyle: {
                     height: tabBarHeight,
                     borderTopWidth: 0,
-                    backgroundColor: 'transparent',
+                    backgroundColor: 'rgba(28, 20, 46, 0.98)',
                     shadowColor: colors.primary,
                     shadowOffset: { width: 0, height: -4 },
                     shadowOpacity: 0.1,
@@ -55,8 +55,9 @@ export default function TabsLayout() {
                     elevation: 12,
                 },
                 tabBarItemStyle: {
-                    height: 64,
-                    paddingVertical: 0,
+                    height: tabBarHeight,
+                    paddingBottom: insets.bottom,
+                    paddingTop: 10,
                     alignItems: 'center',
                     justifyContent: 'center',
                 },
@@ -113,14 +114,14 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
     pillOverlay: {
-        backgroundColor: 'rgba(47, 36, 68, 0.95)',
+        backgroundColor: 'rgba(28, 20, 46, 0.98)',
     },
     iconWrapper: {
-        width: 40,
+        width: 36,
         height: 36,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: radius.full,
+        borderRadius: 18,
     },
     iconWrapperActive: {
         backgroundColor: 'rgba(233, 195, 73, 0.12)',

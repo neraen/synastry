@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import {
     User,
     LoginCredentials,
@@ -140,6 +141,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
         }
     }, []);
+
+    // Refresh user profile when app comes to foreground (picks up premium changes immediately)
+    const appState = useRef(AppState.currentState);
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+            if (appState.current.match(/inactive|background/) && nextState === 'active') {
+                checkAuth().then(authenticated => {
+                    if (authenticated) refreshUser();
+                });
+            }
+            appState.current = nextState;
+        });
+        return () => subscription.remove();
+    }, [refreshUser]);
 
     const loginWithGoogle = useCallback(async (idToken: string) => {
         setIsLoading(true);

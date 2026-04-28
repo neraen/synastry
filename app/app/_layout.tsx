@@ -19,19 +19,12 @@ import {
     NotoSerif_700Bold,
 } from '@expo-google-fonts/noto-serif';
 import {
-    useFonts as useEBGaramond,
-    EBGaramond_400Regular,
-    EBGaramond_500Medium,
-    EBGaramond_500Medium_Italic,
-    EBGaramond_600SemiBold,
-    EBGaramond_700Bold,
-} from '@expo-google-fonts/eb-garamond';
-import {
     useFonts as useManrope,
     Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
     Manrope_700Bold,
+    Manrope_800ExtraBold,
 } from '@expo-google-fonts/manrope';
 
 // Initialize i18n (must be imported before components that use translations)
@@ -115,25 +108,17 @@ export default function RootLayout() {
         NotoSerif_700Bold,
     });
 
-    // Load EB Garamond fonts (body/reading text)
-    const [garamondLoaded, garamondError] = useEBGaramond({
-        EBGaramond_400Regular,
-        EBGaramond_500Medium,
-        EBGaramond_500Medium_Italic,
-        EBGaramond_600SemiBold,
-        EBGaramond_700Bold,
-    });
-
-    // Load Manrope fonts (buttons/labels/UI)
+    // Load Manrope fonts (body/UI text)
     const [manropeLoaded, manropeError] = useManrope({
         Manrope_400Regular,
         Manrope_500Medium,
         Manrope_600SemiBold,
         Manrope_700Bold,
+        Manrope_800ExtraBold,
     });
 
-    const fontsLoaded = notoSerifLoaded && garamondLoaded && manropeLoaded;
-    const fontError = notoSerifError || garamondError || manropeError;
+    const fontsLoaded = notoSerifLoaded && manropeLoaded;
+    const fontError = notoSerifError || manropeError;
 
     // Initialize API config once at startup
     useEffect(() => {

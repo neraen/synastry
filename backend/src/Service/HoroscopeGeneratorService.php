@@ -38,6 +38,22 @@ class HoroscopeGeneratorService
     }
 
     /**
+     * Helper to check if a user has a birth profile.
+     */
+    private function checkMissingProfileError(User $user, bool $isEnglish): ?array
+    {
+        if (!$user->getBirthProfile()) {
+            return [
+                'success' => false,
+                'error' => $isEnglish
+                    ? 'Please complete your birth profile first'
+                    : 'Veuillez compléter votre profil de naissance',
+            ];
+        }
+        return null;
+    }
+
+    /**
      * Get daily horoscope for a user
      *
      * @param User $user The user
@@ -49,13 +65,8 @@ class HoroscopeGeneratorService
         $isEnglish = $this->localeService->getLocale() === 'en';
 
         // Check if user has birth profile
-        if (!$user->getBirthProfile()) {
-            return [
-                'success' => false,
-                'error' => $isEnglish
-                    ? 'Please complete your birth profile first'
-                    : 'Vous devez compléter votre profil de naissance',
-            ];
+        if ($error = $this->checkMissingProfileError($user, $isEnglish)) {
+            return $error;
         }
 
         // Check for existing horoscope today
@@ -149,13 +160,8 @@ class HoroscopeGeneratorService
     {
         $isEnglish = $this->localeService->getLocale() === 'en';
 
-        if (!$user->getBirthProfile()) {
-            return [
-                'success' => false,
-                'error' => $isEnglish
-                    ? 'Please complete your birth profile first'
-                    : 'Veuillez compléter votre profil de naissance',
-            ];
+        if ($error = $this->checkMissingProfileError($user, $isEnglish)) {
+            return $error;
         }
 
         try {
@@ -163,7 +169,7 @@ class HoroscopeGeneratorService
             $prompt = $this->buildTransitsPrompt($data);
             $result = $this->openAiService->getUpcomingTransits($prompt);
             return $result;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return [
                 'success' => false,
                 'error' => $isEnglish
@@ -180,13 +186,8 @@ class HoroscopeGeneratorService
     {
         $isEnglish = $this->localeService->getLocale() === 'en';
 
-        if (!$user->getBirthProfile()) {
-            return [
-                'success' => false,
-                'error' => $isEnglish
-                    ? 'Please complete your birth profile first'
-                    : 'Veuillez compléter votre profil de naissance',
-            ];
+        if ($error = $this->checkMissingProfileError($user, $isEnglish)) {
+            return $error;
         }
 
         try {
@@ -220,13 +221,8 @@ class HoroscopeGeneratorService
     {
         $isEnglish = $this->localeService->getLocale() === 'en';
 
-        if (!$user->getBirthProfile()) {
-            return [
-                'success' => false,
-                'error' => $isEnglish
-                    ? 'Please complete your birth profile first'
-                    : 'Veuillez compléter votre profil de naissance',
-            ];
+        if ($error = $this->checkMissingProfileError($user, $isEnglish)) {
+            return $error;
         }
 
         try {
@@ -250,9 +246,9 @@ class HoroscopeGeneratorService
         $isEnglish = $this->localeService->getLocale() === 'en';
         $today = (new \DateTime())->format('F j, Y');
 
-        $natalJson = json_encode($data['natal_planets'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        $transitsJson = json_encode($data['current_transits'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        $aspectsJson = json_encode($data['major_aspects'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $natalJson   = json_encode($data['natal_planets'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        // slow_aspects is already filtered (slow transit × fast natal × major type) with real date ranges
+        $aspectsJson = json_encode($data['slow_aspects'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         $sunSign = $data['sun_sign'];
         $moonSign = $data['moon_sign'];
@@ -268,25 +264,24 @@ class HoroscopeGeneratorService
             return <<<PROMPT
 Today is {$today}. Sun in {$sunSign}, Moon in {$moonSign}, Ascendant {$ascendant}.
 
-Based on this natal chart and the current planetary positions, identify the 3 most significant transits that will be active or approaching in the next 30 days.
+Each aspect below already includes its real astronomical date window (start_date / end_date computed from orbs).
+Select up to 3 of the most impactful aspects and return them as a JSON array.
 
-Return ONLY a JSON array with exactly 3 objects (no text before or after):
+Return ONLY a JSON array (no text before or after):
 {$exampleJson}
 
 Rules:
-- "date" = date range formatted as "Mon D – Mon D" or "Mon D" for single-day events
-- "title" = "Planet Aspect Planet" (e.g. "Venus Trine Jupiter")
+- Use ONLY aspects from the list below
+- "date" = format the provided start_date–end_date as "Mon D – Mon D" (e.g. "Apr 3 – Jun 18"); use "Mon D" only if start and end are the same day
+- "title" = "Planet Aspect Planet" (e.g. "Jupiter Trine Sun")
 - "description" = 1-2 sentences, personal impact based on the natal chart, no jargon
 - "intensity" = "high", "medium", or "low"
-- Focus on transits that personally activate this chart
+- If fewer than 3 aspects are provided, return only the ones present
 
 ═══ NATAL CHART ═══
 {$natalJson}
 
-═══ CURRENT TRANSITS ═══
-{$transitsJson}
-
-═══ ACTIVE ASPECTS (natal vs transits) ═══
+═══ ACTIVE ASPECTS (with real date windows) ═══
 {$aspectsJson}
 PROMPT;
         }
@@ -294,25 +289,24 @@ PROMPT;
         return <<<PROMPT
 Aujourd'hui, le {$today}. Soleil en {$sunSign}, Lune en {$moonSign}, Ascendant {$ascendant}.
 
-En te basant sur ce thème natal et les positions planétaires actuelles, identifie les 3 prochains transits les plus significatifs actifs ou à venir dans les 30 prochains jours.
+Chaque aspect ci-dessous inclut sa fenêtre astronomique réelle (start_date / end_date calculée à partir des orbes).
+Sélectionne jusqu'à 3 aspects les plus marquants et renvoie-les sous forme de tableau JSON.
 
-Renvoie UNIQUEMENT un tableau JSON avec exactement 3 objets (pas de texte avant ou après) :
+Renvoie UNIQUEMENT un tableau JSON (pas de texte avant ou après) :
 {$exampleJson}
 
 Règles :
-- "date" = plage de dates formatée comme "D Mois – D Mois" ou "D Mois" pour les événements d'un seul jour
-- "title" = "Planète Aspect Planète" (ex. "Vénus Trigone Jupiter")
+- Utilise UNIQUEMENT les aspects de la liste ci-dessous
+- "date" = formate les start_date–end_date fournis en "D Mois – D Mois" (ex. "3 avr. – 18 juin") ; utilise "D Mois" seulement si début et fin sont le même jour
+- "title" = "Planète Aspect Planète" (ex. "Jupiter Trigone Soleil")
 - "description" = 1-2 phrases, impact personnel basé sur le thème natal, sans jargon technique
 - "intensity" = "high", "medium" ou "low"
-- Concentre-toi sur les transits qui activent personnellement ce thème
+- Si moins de 3 aspects sont fournis, renvoie uniquement ceux présents
 
 ═══ THÈME NATAL ═══
 {$natalJson}
 
-═══ TRANSITS ACTUELS ═══
-{$transitsJson}
-
-═══ ASPECTS ACTIFS (natal vs transits) ═══
+═══ ASPECTS ACTIFS (avec fenêtres de dates réelles) ═══
 {$aspectsJson}
 PROMPT;
     }
