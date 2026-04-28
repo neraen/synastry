@@ -20,6 +20,7 @@ import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
 import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
+import { api } from '@/services/api';
 import { getAiModel, setAiModel, MODEL_MINI, MODEL_PRO, MODEL_MINI5, AiModel } from '@/services/aiModelConfig';
 
 // ─── Preference Row ────────────────────────────────────────────────────────────
@@ -134,6 +135,15 @@ export default function ProfileTab() {
     async function selectAiModel(model: AiModel) {
         setAiModelState(model);
         await setAiModel(model);
+    }
+
+    async function forcePremium() {
+        try {
+            await api.post('/api/dev/force-premium', {});
+            Alert.alert('✓ Premium activé', 'Reconnecte-toi pour que le statut se mette à jour.');
+        } catch (e: any) {
+            Alert.alert('Erreur', e?.message ?? 'Impossible d\'activer le premium');
+        }
     }
 
     const handleDeleteAccount = async () => {
@@ -365,6 +375,12 @@ export default function ProfileTab() {
                                     );
                                 })}
                             </View>
+
+                            <View style={styles.devDivider} />
+
+                            <Pressable style={styles.devPremiumBtn} onPress={forcePremium}>
+                                <Text style={styles.devPremiumLabel}>⚡ Activer Premium</Text>
+                            </Pressable>
                         </GlassCard>
                     </View>
 
@@ -756,6 +772,17 @@ const styles = StyleSheet.create({
     },
     devModelLabelActive: {
         color: colors.primary,
+    },
+    devPremiumBtn: {
+        paddingVertical: spacing.sm,
+        borderRadius: 12,
+        backgroundColor: `${colors.secondary}25`,
+        alignItems: 'center',
+    },
+    devPremiumLabel: {
+        fontFamily: fonts.body.medium,
+        fontSize: 13,
+        color: colors.secondary,
     },
 
     // Demo

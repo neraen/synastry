@@ -7,6 +7,7 @@ use App\Entity\RefreshToken;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
 #[Route('/api')]
@@ -39,6 +40,32 @@ class ProfileController extends AbstractController
             'isPremium' => $user->isPremium(),
             'premiumUntil' => $user->getPremiumUntil()?->format(\DateTime::ATOM),
         ]);
+    }
+
+    /**
+     * Dev-only: force premium on the authenticated user.
+     * Only works for the admin email.
+     */
+    #[Route('/dev/force-premium', name: 'api_dev_force_premium', methods: ['POST'])]
+    public function forcePremium(): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['error' => 'Not authenticated'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $adminEmail = $_ENV['ADMIN_EMAIL'] ?? 'clement.silvestre31@gmail.com';
+        if ($user->getEmail() !== $adminEmail) {
+            return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $user->setIsPremium(true);
+        $user->setPremiumUntil(null);
+        $this->entityManager->flush();
+
+        return $this->json(['success' => true, 'isPremium' => true]);
     }
 
     /**
