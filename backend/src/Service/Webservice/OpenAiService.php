@@ -104,62 +104,55 @@ PERSONA;
     }
 
     /**
-     * Call OpenAI Responses API (Using Chat Completions for prompt caching)
+     * Call OpenAI Responses API (/v1/responses)
      */
     private function callResponsesApi(string $input, ?string $instructions = null): array
     {
-        $messages = [];
-        if ($instructions) {
-            $messages[] = [
-                'role' => 'developer',
-                'content' => $instructions,
-            ];
-        }
-        $messages[] = [
-            'role' => 'user',
-            'content' => $input,
-        ];
-
         $payload = [
             'model' => $this->model,
-            'messages' => $messages,
+            'input' => $input,
         ];
 
+        if ($instructions) {
+            $payload['instructions'] = $instructions;
+        }
+
         try {
-            $response = $this->client->request('POST', $this->apiUrl . '/chat/completions', [
+            $response = $this->client->request('POST', $this->apiUrl . '/responses', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
+                    'Content-Type'  => 'application/json',
                 ],
                 'json' => $payload,
             ]);
 
             $data = $response->toArray();
 
-            // Extract output text from the response
-            $message = $data['choices'][0]['message'] ?? null;
-            $outputText = $message['content'] ?? null;
+            $outputText = null;
+            foreach ($data['output'] ?? [] as $item) {
+                if (($item['type'] ?? '') === 'message') {
+                    foreach ($item['content'] ?? [] as $content) {
+                        if (($content['type'] ?? '') === 'output_text') {
+                            $outputText = $content['text'];
+                            break 2;
+                        }
+                    }
+                }
+            }
 
             if (!$outputText) {
-                return [
-                    'success' => false,
-                    'error' => 'No response from AI',
-                    'raw' => $data,
-                ];
+                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
             }
 
             return [
                 'success' => true,
                 'content' => $outputText,
-                'model' => $data['model'] ?? $this->model,
-                'usage' => $data['usage'] ?? null,
+                'model'   => $data['model'] ?? $this->model,
+                'usage'   => $data['usage'] ?? null,
             ];
 
         } catch (ExceptionInterface $e) {
-            return [
-                'success' => false,
-                'error' => 'AI service error: ' . $e->getMessage(),
-            ];
+            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
     }
 
@@ -816,22 +809,44 @@ PROMPT;
     }
 
     /**
-     * Call the Chat Completions API (/v1/chat/completions) for multi-turn conversation.
-     * Messages array should be fully constructed including developer/system prompts.
+     * Call OpenAI Responses API (/v1/responses) for multi-turn conversation with optional tool use.
      */
     private function callMultiTurnApi(array $chatMessages, ?\Closure $toolHandler = null, array $tools = []): array
     {
-        $payload = [
-            'model'    => $this->model,
-            'messages' => $chatMessages,
-        ];
+        // Split developer/system messages (→ instructions) from conversation messages (→ input)
+        $instructions = '';
+        $inputMessages = [];
 
+        foreach ($chatMessages as $msg) {
+            if (in_array($msg['role'], ['developer', 'system'], true)) {
+                $instructions .= ($instructions !== '' ? "\n\n" : '') . $msg['content'];
+            } else {
+                $inputMessages[] = ['role' => $msg['role'], 'content' => $msg['content']];
+            }
+        }
+
+        $payload = ['model' => $this->model, 'input' => $inputMessages];
+        if ($instructions !== '') {
+            $payload['instructions'] = $instructions;
+        }
+
+        // Convert tools from Chat Completions format to Responses API format
         if (!empty($tools)) {
-            $payload['tools'] = $tools;
+            $payload['tools'] = array_map(function (array $tool): array {
+                if (isset($tool['function'])) {
+                    return [
+                        'type'        => 'function',
+                        'name'        => $tool['function']['name'],
+                        'description' => $tool['function']['description'] ?? '',
+                        'parameters'  => $tool['function']['parameters'] ?? new \stdClass(),
+                    ];
+                }
+                return $tool;
+            }, $tools);
         }
 
         try {
-            $response = $this->client->request('POST', $this->apiUrl . '/chat/completions', [
+            $response = $this->client->request('POST', $this->apiUrl . '/responses', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $this->apiKey,
                     'Content-Type'  => 'application/json',
@@ -841,47 +856,63 @@ PROMPT;
 
             $data = $response->toArray();
 
-            $message = $data['choices'][0]['message'] ?? null;
-            if (!$message) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
-            }
+            $outputText = null;
+            $toolCalls  = [];
 
-            // Handle tool calls if present
-            if (!empty($message['tool_calls']) && $toolHandler !== null) {
-                $chatMessages[] = $message;
-                
-                foreach ($message['tool_calls'] as $toolCall) {
-                    if ($toolCall['type'] === 'function') {
-                        $functionName = $toolCall['function']['name'];
-                        $arguments = json_decode($toolCall['function']['arguments'], true) ?? [];
-                        
-                        $toolResult = $toolHandler($functionName, $arguments);
-                        
-                        $chatMessages[] = [
-                            'role' => 'tool',
-                            'tool_call_id' => $toolCall['id'],
-                            'name' => $functionName,
-                            'content' => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
-                        ];
+            foreach ($data['output'] ?? [] as $item) {
+                if (($item['type'] ?? '') === 'function_call') {
+                    $toolCalls[] = $item;
+                } elseif (($item['type'] ?? '') === 'message') {
+                    foreach ($item['content'] ?? [] as $content) {
+                        if (($content['type'] ?? '') === 'output_text') {
+                            $outputText = $content['text'];
+                        }
                     }
                 }
-                
-                $payload['messages'] = $chatMessages;
-                $response2 = $this->client->request('POST', $this->apiUrl . '/chat/completions', [
+            }
+
+            // Handle tool calls
+            if (!empty($toolCalls) && $toolHandler !== null) {
+                // Append the assistant output items then the tool results
+                foreach ($data['output'] as $item) {
+                    $inputMessages[] = $item;
+                }
+
+                foreach ($toolCalls as $toolCall) {
+                    $arguments = json_decode($toolCall['arguments'], true) ?? [];
+                    $toolResult = $toolHandler($toolCall['name'], $arguments);
+
+                    $inputMessages[] = [
+                        'type'    => 'function_call_output',
+                        'call_id' => $toolCall['call_id'],
+                        'output'  => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
+                    ];
+                }
+
+                $payload['input'] = $inputMessages;
+
+                $response2 = $this->client->request('POST', $this->apiUrl . '/responses', [
                     'headers' => [
                         'Authorization' => 'Bearer ' . $this->apiKey,
                         'Content-Type'  => 'application/json',
                     ],
                     'json' => $payload,
                 ]);
+
                 $data2 = $response2->toArray();
-                $message = $data2['choices'][0]['message'] ?? null;
+                foreach ($data2['output'] ?? [] as $item) {
+                    if (($item['type'] ?? '') === 'message') {
+                        foreach ($item['content'] ?? [] as $content) {
+                            if (($content['type'] ?? '') === 'output_text') {
+                                $outputText = $content['text'];
+                            }
+                        }
+                    }
+                }
             }
 
-            $outputText = $message['content'] ?? null;
-
             if (!$outputText) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data ?? ($data2 ?? [])];
+                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
             }
 
             return ['success' => true, 'content' => $outputText];
