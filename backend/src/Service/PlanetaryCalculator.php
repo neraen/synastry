@@ -78,6 +78,77 @@ class PlanetaryCalculator
         'quincunx'    => [150, 3, 'Quinconce',   '⚻'],
     ];
 
+    // ── Deterministic compatibility scoring ──────────────────────────────────
+
+    const SIGN_ELEMENTS = [
+        'Aries'       => 'fire',  'Leo'         => 'fire',  'Sagittarius' => 'fire',
+        'Taurus'      => 'earth', 'Virgo'       => 'earth', 'Capricorn'   => 'earth',
+        'Gemini'      => 'air',   'Libra'       => 'air',   'Aquarius'    => 'air',
+        'Cancer'      => 'water', 'Scorpio'     => 'water', 'Pisces'      => 'water',
+    ];
+
+    const SIGN_RULERS = [
+        'Aries'       => 'Mars',    'Taurus'      => 'Venus',
+        'Gemini'      => 'Mercury', 'Cancer'      => 'Moon',
+        'Leo'         => 'Sun',     'Virgo'       => 'Mercury',
+        'Libra'       => 'Venus',   'Scorpio'     => 'Mars',
+        'Sagittarius' => 'Jupiter', 'Capricorn'   => 'Saturn',
+        'Aquarius'    => 'Saturn',  'Pisces'      => 'Jupiter',
+    ];
+
+    // Points per aspect type (positive = harmonious, negative = tense)
+    const SCORING_ASPECT_POINTS = [
+        'conjunction' => 22,
+        'trine'       => 17,
+        'sextile'     => 10,
+        'square'      => -14,
+        'opposition'  => -11,
+        'quincunx'    => -4,
+    ];
+
+    // Planet pairs per dimension [planetA, planetB, weight].
+    // Both directions are checked: user's planetA–partner's planetB
+    // AND user's planetB–partner's planetA (for cross pairs where A≠B).
+    const DIMENSION_PAIRS = [
+        'amour' => [
+            ['Moon',   'Moon',   1.5],
+            ['Moon',   'Venus',  1.5],
+            ['Venus',  'Venus',  1.2],
+            ['Sun',    'Moon',   0.9],
+            ['Venus',  'Sun',    0.7],
+        ],
+        'attirance' => [
+            ['Venus',  'Mars',      1.8],
+            ['Mars',   'Ascendant', 1.0],
+            ['Venus',  'Ascendant', 1.0],
+            ['Sun',    'Mars',      0.7],
+            ['Moon',   'Mars',      0.7],
+        ],
+        'communication' => [
+            ['Mercury', 'Mercury',   1.5],
+            ['Mercury', 'Sun',       1.2],
+            ['Mercury', 'Moon',      0.9],
+            ['Mercury', 'Ascendant', 0.7],
+        ],
+        'long_terme' => [
+            ['Saturn',  'Sun',       1.5],
+            ['Saturn',  'Venus',     1.3],
+            ['Saturn',  'Moon',      1.2],
+            ['Saturn',  'Ascendant', 0.9],
+            ['Jupiter', 'Sun',       0.7],
+            ['Jupiter', 'Moon',      0.7],
+        ],
+        'conflits' => [
+            ['Mars',   'Mars',   1.5],
+            ['Saturn', 'Moon',   1.5],
+            ['Saturn', 'Sun',    1.2],
+            ['Uranus', 'Venus',  1.2],
+            ['Uranus', 'Moon',   1.0],
+            ['Mars',   'Moon',   0.9],
+            ['Mars',   'Venus',  0.8],
+        ],
+    ];
+
     // -------------------------------------------------------------------------
     // Éléments orbitaux moyens (époque J2000.0)
     // -------------------------------------------------------------------------
@@ -264,6 +335,52 @@ class PlanetaryCalculator
     }
 
     /**
+     * Calculate deterministic compatibility scores vs another chart.
+     * Returns overall score + per-dimension breakdown.
+     *
+     * Importance order: Sun sign > ASC > Venus/Mars/Moon > Mercury > ASC ruler > Saturn/Uranus
+     */
+    public function calculateCompatibilityScore(PlanetaryCalculator $other): array
+    {
+        $lookup = $this->buildAspectLookup($other);
+        $chartA = $this->getFullChart();
+        $chartB = $other->getFullChart();
+
+        $sunSignA = $chartA['planets']['Sun']['sign']     ?? 'Aries';
+        $sunSignB = $chartB['planets']['Sun']['sign']     ?? 'Aries';
+        $ascSignA = $chartA['ascendant']['sign']          ?? 'Aries';
+        $ascSignB = $chartB['ascendant']['sign']          ?? 'Aries';
+        $mercSignA = $chartA['planets']['Mercury']['sign'] ?? '';
+        $mercSignB = $chartB['planets']['Mercury']['sign'] ?? '';
+
+        $sunElemBonus  = $this->elementCompat($sunSignA, $sunSignB);
+        $ascElemBonus  = $this->elementCompat($ascSignA, $ascSignB);
+        $ascRulerBonus = $this->ascRulerBonus($lookup, $ascSignA, $ascSignB);
+
+        $airSigns = ['Gemini', 'Libra', 'Aquarius'];
+        $airBonus = (in_array($mercSignA, $airSigns) || in_array($mercSignB, $airSigns)) ? 6 : 0;
+
+        $amour         = $this->dimensionScore($lookup, self::DIMENSION_PAIRS['amour'],         $sunElemBonus * 0.8);
+        $attirance     = $this->dimensionScore($lookup, self::DIMENSION_PAIRS['attirance'],     $ascElemBonus);
+        $communication = $this->dimensionScore($lookup, self::DIMENSION_PAIRS['communication'], $airBonus + $ascRulerBonus * 0.3);
+        $longTerme     = $this->dimensionScore($lookup, self::DIMENSION_PAIRS['long_terme'],    $sunElemBonus * 0.5 + $ascRulerBonus * 0.5);
+        $conflits      = $this->dimensionScore($lookup, self::DIMENSION_PAIRS['conflits'],      0.0);
+
+        $global = (int) round(($amour + $attirance + $communication + $longTerme + $conflits) / 5);
+
+        return [
+            'score_global' => $global,
+            'dimensions'   => [
+                'amour'         => $amour,
+                'attirance'     => $attirance,
+                'communication' => $communication,
+                'long_terme'    => $longTerme,
+                'conflits'      => $conflits,
+            ],
+        ];
+    }
+
+    /**
      * Construit le prompt LLM de compatibilité
      * @param string $locale Locale for the prompt (fr or en)
      */
@@ -272,29 +389,26 @@ class PlanetaryCalculator
         $localeService = new PromptLocaleService($locale);
         $template = $localeService->getCompatibilityPromptTemplate();
         $labels = $template['labels'];
-        $jsonDescriptions = $template['json_descriptions'];
-        $dimensions = $template['dimensions'];
         $isEnglish = $locale === 'en';
 
         $chartA  = $this->getFullChart();
         $chartB  = $other->getFullChart();
         $aspects = $this->getSynastryAspects($other);
 
+        $nameA = $chartA['name'];
+        $nameB = $chartB['name'];
+
+        // ── Format natal chart block ──
         $formatChart = function($chart) use ($localeService, $isEnglish) {
             $lines = [];
             foreach ($chart['planets'] as $key => $p) {
                 $retro = $p['retrograde'] ? ' ℞' : '';
                 $planetName = $localeService->translatePlanet($key);
                 $signName = $localeService->translateSign($p['sign']);
-                $atWord = $isEnglish ? 'at' : 'à';
                 $lines[] = sprintf(
-                    '  %-10s : %s %s %s %d°%02d\'%s',
+                    '%s — %s%s',
                     $planetName,
-                    self::PLANET_SYMBOLS[$key] ?? '',
                     $signName,
-                    $atWord,
-                    $p['degrees'],
-                    $p['minutes'],
                     $retro
                 );
             }
@@ -304,66 +418,50 @@ class PlanetaryCalculator
             $mcSignName = $localeService->translateSign($mc['sign']);
             $ascLabel = $localeService->translatePlanet('Ascendant');
             $mcLabel = $localeService->translatePlanet('Midheaven');
-            $atWord = $isEnglish ? 'at' : 'à';
-            $lines[] = sprintf('  %-10s : %s %s %d°%02d\'', $ascLabel, $ascSignName, $atWord, $asc['degrees'], $asc['minutes']);
-            $lines[] = sprintf('  %-10s : %s %s %d°%02d\'', $mcLabel, $mcSignName, $atWord, $mc['degrees'], $mc['minutes']);
+            $lines[] = sprintf('%s — %s', $ascLabel, $ascSignName);
+            $lines[] = sprintf('%s — %s', $mcLabel, $mcSignName);
             return implode("\n", $lines);
         };
 
+        // ── Format cross aspects with intensity label ──
         $formatAspects = function($aspects) use ($localeService, $isEnglish) {
-            $noAspects = $isEnglish ? '  (No major aspects)' : '  (Aucun aspect majeur)';
+            $noAspects = $isEnglish ? '(No major aspects)' : '(Aucun aspect majeur)';
             if (empty($aspects)) return $noAspects;
             $lines = [];
-            $orbWord = $isEnglish ? 'orb' : 'orbe';
             foreach (array_slice($aspects, 0, 20) as $a) {
                 $planetA = $localeService->translatePlanet($a['planet_a']);
                 $planetB = $localeService->translatePlanet($a['planet_b']);
+                $orb = $a['orb'];
+                if ($isEnglish) {
+                    $intensity = $orb <= 2.0 ? 'tight' : ($orb <= 5.0 ? 'medium' : 'wide');
+                } else {
+                    $intensity = $orb <= 2.0 ? 'serré' : ($orb <= 5.0 ? 'moyen' : 'large');
+                }
                 $lines[] = sprintf(
-                    '  %s %s %s (%s, %s %.1f°)',
+                    '%s %s %s — %s (%s)',
                     $planetA,
                     $a['symbol'],
                     $planetB,
                     $a['name'],
-                    $orbWord,
-                    $a['orb']
+                    $intensity
                 );
             }
             return implode("\n", $lines);
         };
 
-        $nameA = $chartA['name'];
-        $nameB = $chartB['name'];
-
         $questionSection = $question
             ? "\n═══════════ {$labels['specific_question']} ═══════════\n{$question}\n"
             : '';
 
-        $intro = $template['intro'];
-        $rules = implode("\n- ", $template['rules']);
-
         $chartOfA = "{$labels['chart_of']} {$nameA}";
         $chartOfB = "{$labels['chart_of']} {$nameB}";
         $aspectsBetween = $labels['aspects_between'];
-        $responseFormat = $labels['response_format'];
 
-        $jsonOnlyInstruction = $isEnglish
-            ? "Respond ONLY with this valid JSON, no text before or after:"
-            : "Réponds UNIQUEMENT avec ce JSON valide, sans texte avant ou après :";
-
-        $exampleAspect = $isEnglish
-            ? "{$nameA}'s Venus trine {$nameB}'s Mars"
-            : "la Vénus de {$nameA} en trigone avec le Mars de {$nameB}";
-
-        $scoringRules = $isEnglish
-            ? "SCORING METHOD (MANDATORY — read carefully):\n\nSTEP 1 — PRIORITY ORDER (apply in this order, highest weight first):\n  1. Sun/Ascendant signs: element compatibility is the foundation\n     Fire(Aries,Leo,Sag) ↔ Air(Gem,Lib,Aqu) = naturally compatible (+)\n     Earth(Tau,Vir,Cap) ↔ Water(Can,Sco,Pis) = naturally compatible (+)\n     Same sign or same element = strong resonance\n     Fire/Air vs Earth/Water = friction (-)\n  2. Venus-Mars cross aspects: drives attraction score directly\n  3. Moon-Moon / Moon-Venus: drives love & emotional score\n  4. Sign rulers: identify each person's Sun sign ruler and ASC ruler,\n     then check if those ruler planets form aspects with the partner's chart\n     (e.g. Person A is Aries → their ruler is Mars → check Mars aspects with B)\n  5. Mercury aspects: communication score\n  6. Saturn aspects: long-term & conflicts (Saturn conjunct/square = obstacle, trine = stability)\n\nSTEP 2 — SCORE RANGES (do NOT cluster around 60):\n  90-100 = exceptional: 3+ harmonious aspects on priority planets\n  75-89  = strong: 2 harmonious aspects, compatible elements\n  55-74  = mixed: some harmony, some tension\n  35-54  = difficult: incompatible elements + tense aspects\n  0-34   = very challenging: opposition/square on Sun+Moon+Venus\n\nSTEP 3 — ASPECT WEIGHTS:\n  Conjunction (0°): +25 if benefic planets, -25 if malefic (Mars/Saturn)\n  Trine (120°):     +20\n  Sextile (60°):    +12\n  Square (90°):     -18\n  Opposition (180°): -15 (tension but also magnetism for attraction)\n\nDIMENSION BREAKDOWN:\n  love         → 40% Moon-Moon/Moon-Venus, 30% sign rulers aspects, 30% Sun-Sun element\n  attraction   → 50% Venus-Mars cross, 30% ASC-ASC element, 20% Mars-ASC\n  communication → 60% Mercury aspects, 25% Mercury-Sun cross, 15% Air sign presence\n  long_term    → 35% Sun-Sun aspects, 30% ASC rulers aspects, 35% Saturn aspects\n  conflicts    → 50% Saturn-Sun/Moon/Venus, 30% Mars-Mars, 20% square/opposition count"
-            : "MÉTHODE DE SCORING (OBLIGATOIRE — lis attentivement) :\n\nÉTAPE 1 — ORDRE DE PRIORITÉ (applique dans cet ordre, poids décroissant) :\n  1. Signes Soleil/Ascendant : la compatibilité d'éléments est la base\n     Feu(Bél,Lion,Sag) ↔ Air(Gém,Bal,Ver) = naturellement compatibles (+)\n     Terre(Tau,Vierge,Cap) ↔ Eau(Can,Scor,Poiss) = naturellement compatibles (+)\n     Même signe ou même élément = forte résonance\n     Feu/Air vs Terre/Eau = friction (-)\n  2. Aspects Vénus-Mars croisés : pilote directement le score attirance\n  3. Lune-Lune / Lune-Vénus : pilote amour & score émotionnel\n  4. Maîtres de signes : identifie le maître du signe solaire ET de l'ascendant de chaque personne,\n     puis vérifie si ces planètes maîtresses forment des aspects avec le thème du partenaire\n     (ex: Personne A est Bélier → son maître est Mars → vérifie les aspects de ce Mars avec B)\n     Maîtres : Bélier=Mars, Taureau=Vénus, Gémeaux=Mercure, Cancer=Lune, Lion=Soleil,\n     Vierge=Mercure, Balance=Vénus, Scorpion=Mars/Pluton, Sagittaire=Jupiter,\n     Capricorne=Saturne, Verseau=Saturne/Uranus, Poissons=Jupiter/Neptune\n  5. Aspects Mercure : score communication\n  6. Aspects Saturne : long terme & conflits (Saturne conjonction/carré = obstacle, trigone = stabilité)\n\nÉTAPE 2 — PLAGES DE SCORES (NE PAS regrouper autour de 60) :\n  90-100 = exceptionnel : 3+ aspects harmonieux sur planètes prioritaires\n  75-89  = fort : 2 aspects harmonieux, éléments compatibles\n  55-74  = mixte : un peu d'harmonie, un peu de tension\n  35-54  = difficile : éléments incompatibles + aspects tendus\n  0-34   = très difficile : opposition/carré sur Soleil+Lune+Vénus\n\nÉTAPE 3 — POIDS DES ASPECTS :\n  Conjonction (0°) : +25 si planètes bénéfiques, -25 si maléfiques (Mars/Saturne)\n  Trigone (120°) :   +20\n  Sextile (60°) :    +12\n  Carré (90°) :      -18\n  Opposition (180°) : -15 (tension mais aussi magnétisme pour l'attirance)\n\nDÉTAIL DES DIMENSIONS :\n  amour         → 40% Lune-Lune/Lune-Vénus, 30% aspects maîtres de signes, 30% élément Soleil-Soleil\n  attirance     → 50% Vénus-Mars croisés, 30% élément ASC-ASC, 20% Mars-Ascendant\n  communication → 60% aspects Mercure, 25% Mercure-Soleil croisé, 15% présence signes Air\n  long_terme    → 35% aspects Soleil-Soleil, 30% aspects maîtres Ascendants, 35% aspects Saturne\n  conflits      → 50% Saturne-Soleil/Lune/Vénus, 30% Mars-Mars, 20% compte carrés/oppositions";
+        // ── Build the scoring methodology section ──
+        $scoringMethod = $template['scoring_method'];
 
         return <<<PROMPT
-{$intro}
-
-- {$rules}
-
-{$scoringRules}
+{$scoringMethod}
 
 ═══════════ {$chartOfA} ═══════════
 {$formatChart($chartA)}
@@ -374,27 +472,6 @@ class PlanetaryCalculator
 ═══════════ {$aspectsBetween} ═══════════
 {$formatAspects($aspects)}
 {$questionSection}
-═══════════ {$responseFormat} ═══════════
-{$jsonOnlyInstruction}
-{
-  "score_global": <{$jsonDescriptions['score_global']}>,
-  "headline": "<{$jsonDescriptions['headline']}>",
-  "resume": "<{$jsonDescriptions['resume']}>",
-  "forces": ["<{$jsonDescriptions['forces']}>", "<{$jsonDescriptions['forces']}>", "<{$jsonDescriptions['forces']}>"],
-  "tensions": ["<{$jsonDescriptions['tensions']}>", "<{$jsonDescriptions['tensions']}>"],
-  "dimensions": {
-    "{$dimensions['amour']}":         { "score": <0-100>, "analyse": "<{$jsonDescriptions['analyse']}>" },
-    "{$dimensions['communication']}": { "score": <0-100>, "analyse": "<{$jsonDescriptions['analyse']}>" },
-    "{$dimensions['conflits']}":      { "score": <0-100>, "analyse": "<{$jsonDescriptions['analyse']}>" },
-    "{$dimensions['long_terme']}":    { "score": <0-100>, "analyse": "<{$jsonDescriptions['analyse']}>" },
-    "{$dimensions['attirance']}":     { "score": <0-100>, "analyse": "<{$jsonDescriptions['analyse']}>" }
-  },
-  "aspect_cle": {
-    "planetes": "<ex: {$exampleAspect}>",
-    "impact":   "<{$jsonDescriptions['impact']}>"
-  },
-  "conseil": "<{$jsonDescriptions['conseil']}>"
-}
 PROMPT;
     }
 
@@ -630,6 +707,93 @@ PROMPT;
     // -------------------------------------------------------------------------
     // Calcul des aspects
     // -------------------------------------------------------------------------
+
+    // ── Compatibility scoring helpers ─────────────────────────────────────────
+
+    /**
+     * Build lookup[planetA][planetB] => aspect_type
+     * planetA is always from $this (user), planetB from $other (partner).
+     */
+    private function buildAspectLookup(PlanetaryCalculator $other): array
+    {
+        $lookup = [];
+        foreach ($this->getSynastryAspects($other) as $a) {
+            $lookup[$a['planet_a']][$a['planet_b']] = $a['type'];
+        }
+        return $lookup;
+    }
+
+    /**
+     * Score one dimension (0-100, starts at 50).
+     * Checks user's pa vs partner's pb AND user's pb vs partner's pa.
+     */
+    private function dimensionScore(array $lookup, array $pairs, float $elementBonus): int
+    {
+        $delta = 0.0;
+        foreach ($pairs as [$pa, $pb, $weight]) {
+            $type = $lookup[$pa][$pb] ?? null;
+            if ($type !== null) {
+                $delta += (self::SCORING_ASPECT_POINTS[$type] ?? 0) * $weight;
+            }
+            if ($pa !== $pb) {
+                $type = $lookup[$pb][$pa] ?? null;
+                if ($type !== null) {
+                    $delta += (self::SCORING_ASPECT_POINTS[$type] ?? 0) * $weight;
+                }
+            }
+        }
+        $delta += $elementBonus;
+        return max(5, min(95, (int) round(50.0 + $delta)));
+    }
+
+    /**
+     * Element compatibility bonus: +10 same element, +8 compatible pair, -8 incompatible.
+     */
+    private function elementCompat(string $signA, string $signB): int
+    {
+        $elemA = self::SIGN_ELEMENTS[$signA] ?? '';
+        $elemB = self::SIGN_ELEMENTS[$signB] ?? '';
+        if (!$elemA || !$elemB) return 0;
+        if ($elemA === $elemB) return 10;
+        $pair = [$elemA, $elemB];
+        sort($pair);
+        $key = implode('-', $pair);
+        return ($key === 'air-fire' || $key === 'earth-water') ? 8 : -8;
+    }
+
+    /**
+     * Bonus from ASC ruler planets forming aspects across the two charts.
+     * Affects amour, communication, and long_terme dimensions.
+     */
+    private function ascRulerBonus(array $lookup, string $ascSignA, string $ascSignB): float
+    {
+        $bonus = 0.0;
+        $personal = ['Sun', 'Moon', 'Venus', 'Mars', 'Mercury'];
+
+        $rulerA = self::SIGN_RULERS[$ascSignA] ?? null;
+        if ($rulerA) {
+            foreach ($personal as $pp) {
+                $type = $lookup[$rulerA][$pp] ?? null;
+                if ($type !== null) {
+                    $bonus += (self::SCORING_ASPECT_POINTS[$type] ?? 0) * 0.5;
+                }
+            }
+        }
+
+        $rulerB = self::SIGN_RULERS[$ascSignB] ?? null;
+        if ($rulerB) {
+            foreach ($personal as $pp) {
+                $type = $lookup[$pp][$rulerB] ?? null;
+                if ($type !== null) {
+                    $bonus += (self::SCORING_ASPECT_POINTS[$type] ?? 0) * 0.5;
+                }
+            }
+        }
+
+        return $bonus;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     private function detectAspect(float $lonA, float $lonB, string $nameA, string $nameB): ?array
     {

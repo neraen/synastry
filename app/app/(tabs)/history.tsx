@@ -253,7 +253,7 @@ export default function HistoryTab() {
                                     key={item.id}
                                     item={item}
                                     userName={userName}
-                                    onPress={() => router.push(`/(tabs)/compatibility?id=${item.id}`)}
+                                    onPress={() => router.push(`/compatibility-result?id=${item.id}`)}
                                     onDelete={() => handleDelete(item)}
                                 />
                             ))}

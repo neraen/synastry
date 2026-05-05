@@ -12,7 +12,7 @@ export type AiModel = 'mini' | 'pro' | 'mini5';
 
 export const MODEL_MINI  = 'gpt-4.1-mini';
 export const MODEL_PRO   = 'gpt-4o';
-export const MODEL_MINI5 = 'chatgpt-5-mini';
+export const MODEL_MINI5 = 'gpt-5-mini';
 
 const VALID_MODELS: AiModel[] = ['mini', 'pro', 'mini5'];
 

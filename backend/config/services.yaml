@@ -39,3 +39,7 @@ services:
     App\Service\AppleAuthService:
         arguments:
             $appleClientId: '%apple.client_id%'
+
+    App\Service\ExpoPushService:
+        arguments:
+            $expoAccessToken: '%env(default::EXPO_ACCESS_TOKEN)%'

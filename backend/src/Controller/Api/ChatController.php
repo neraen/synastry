@@ -93,7 +93,18 @@ class ChatController extends AbstractController
             return $this->json(['success' => false, 'error' => 'No valid messages'], Response::HTTP_BAD_REQUEST);
         }
 
-        if (count($messages) > 20) {
+        // ── Conversation chaining ─────────────────────────────────────────────────
+        $previousResponseId = isset($data['previousResponseId']) && is_string($data['previousResponseId'])
+            ? $data['previousResponseId']
+            : null;
+
+        // Hybrid truncation when no server-side chain exists (lost-in-middle mitigation)
+        if (!$previousResponseId && count($messages) > 10) {
+            $first    = array_slice($messages, 0, 4);
+            $last     = array_slice($messages, -6);
+            $marker   = ['role' => 'assistant', 'content' => '[Début de conversation omis — derniers échanges ci-dessous]'];
+            $messages = array_merge($first, [$marker], $last);
+        } elseif (!$previousResponseId && count($messages) > 20) {
             $messages = array_slice($messages, -20);
         }
 
@@ -182,8 +193,8 @@ class ChatController extends AbstractController
                 'function' => [
                     'name' => 'get_transits',
                     'description' => $locale === 'en'
-                        ? 'Calculates exact planetary transits for a specific number of months from now. Use when the user asks about their future (e.g. "in 6 months", "next year").'
-                        : 'Calcule les transits planétaires exacts pour un nombre précis de mois dans le futur. À utiliser quand l\'utilisateur pose une question sur son avenir (ex: "dans 6 mois", "l\'année prochaine").',
+                        ? 'Calculates exact planetary transits (slow planets only: Saturn, Jupiter, Uranus, Neptune, Pluto, Mars) for a specific number of months from now. Use when the user asks about their future (e.g. "in 6 months", "next year").'
+                        : 'Calcule les transits planétaires exacts (planètes lentes uniquement : Saturne, Jupiter, Uranus, Neptune, Pluton, Mars) pour un nombre précis de mois dans le futur. À utiliser quand l\'utilisateur pose une question sur son avenir (ex: "dans 6 mois", "l\'année prochaine").',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -197,7 +208,28 @@ class ChatController extends AbstractController
                         'required' => ['months_from_now']
                     ]
                 ]
-            ]
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_sky',
+                    'description' => $locale === 'en'
+                        ? 'Returns the exact position (sign + degree) of ALL planets including the Moon for a given number of days from today. Use for questions about where a planet is on a specific day (e.g. "is the Moon in Scorpio tomorrow?", "what sign is Venus in today?").'
+                        : 'Retourne la position exacte (signe + degré) de TOUTES les planètes incluant la Lune pour un nombre de jours à partir d\'aujourd\'hui. À utiliser pour les questions sur la position d\'une planète un jour précis (ex: "la Lune est en Scorpion demain ?", "dans quel signe est Vénus aujourd\'hui ?").',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'days_from_now' => [
+                                'type' => 'integer',
+                                'description' => $locale === 'en'
+                                    ? 'Number of days from today. 0 = today, 1 = tomorrow, -1 = yesterday, 7 = next week.'
+                                    : 'Nombre de jours à partir d\'aujourd\'hui. 0 = aujourd\'hui, 1 = demain, -1 = hier, 7 = la semaine prochaine.'
+                            ]
+                        ],
+                        'required' => ['days_from_now']
+                    ]
+                ]
+            ],
         ];
 
         $toolHandler = function (string $functionName, array $arguments) use ($user) {
@@ -205,10 +237,14 @@ class ChatController extends AbstractController
                 $months = (int) ($arguments['months_from_now'] ?? 0);
                 return $this->astrologyAnalysisService->getTransitsForSpecificMonth($user, $months);
             }
+            if ($functionName === 'get_sky') {
+                $days = (int) ($arguments['days_from_now'] ?? 0);
+                return $this->astrologyAnalysisService->getPlanetPositionsForDate($days);
+            }
             return ['error' => 'Unknown function'];
         };
 
-        $result = $this->openAiService->getChatResponse($messages, $userContext, $toolHandler, $tools);
+        $result = $this->openAiService->getChatResponse($messages, $userContext, $toolHandler, $tools, $previousResponseId);
 
         if (!$result['success']) {
             return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);

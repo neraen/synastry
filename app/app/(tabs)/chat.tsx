@@ -103,11 +103,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                     end={{ x: 1, y: 1 }}
                     style={[styles.bubble, styles.bubbleUser]}
                 >
-                    <Text style={styles.bubbleTextUser}>{message.content}</Text>
+                    <Text selectable style={styles.bubbleTextUser}>{message.content}</Text>
                 </LinearGradient>
             ) : (
                 <View style={[styles.bubble, styles.bubbleAI]}>
-                    <Text style={styles.bubbleTextAI}>{message.content}</Text>
+                    <Text selectable style={styles.bubbleTextAI}>{message.content}</Text>
                 </View>
             )}
         </Animated.View>
@@ -221,6 +221,7 @@ export default function ChatScreen() {
     const { sessionId: paramSessionId } = useLocalSearchParams<{ sessionId?: string }>();
     
     const [sessionId, setSessionId] = useState<number | null>(null);
+    const [lastResponseId, setLastResponseId] = useState<string | null>(null);
     const [canReply, setCanReply] = useState(true);
     const [saveModalVisible, setSaveModalVisible] = useState(false);
     const [chatTitle, setChatTitle] = useState('');
@@ -258,6 +259,9 @@ export default function ChatScreen() {
                                 createdAt: new Date()
                             }));
                             setMessages(loadedMessages);
+                            if (res.session.lastResponseId) {
+                                setLastResponseId(res.session.lastResponseId);
+                            }
                             if (res.session.partnerHistoryId) {
                                 setActivePartner({ id: res.session.partnerHistoryId, partnerName: 'Partenaire', compatibilityScore: null });
                             }
@@ -291,6 +295,7 @@ export default function ChatScreen() {
             router.setParams({ sessionId: '' });
         }
         setSessionId(null);
+        setLastResponseId(null);
         setMessages([
             {
                 id: WELCOME_ID,
@@ -328,19 +333,20 @@ export default function ChatScreen() {
         );
 
         try {
-            const res = await sendChatMessage(history, activePartner?.id);
+            const res = await sendChatMessage(history, activePartner?.id, lastResponseId ?? undefined);
 
             if (res.remaining_messages !== undefined) setRemainingMessages(res.remaining_messages);
             if (res.daily_limit_reached) setDailyLimitReached(true);
+            if (res.response_id) setLastResponseId(res.response_id);
 
             const replyContent = res.success && res.message ? res.message : t('chat.errorMessage');
             const newAssistantMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, createdAt: new Date() };
-            
+
             setMessages((prev) => {
                 const newMessages = [...prev, newAssistantMsg];
                 if (sessionId) {
                     const toSave = newMessages.filter(m => m.id !== WELCOME_ID).map(m => ({ role: m.role, content: m.content }));
-                    updateChatSession(sessionId, toSave).catch(e => console.warn(e));
+                    updateChatSession(sessionId, toSave, res.response_id ?? lastResponseId).catch(e => console.warn(e));
                 }
                 return newMessages;
             });

@@ -210,13 +210,36 @@ class PromptLocaleService
         if ($this->locale === self::LOCALE_EN) {
             return [
                 'instruction' => <<<'PROMPT'
-Write a 3-sentence personality portrait based on the Sun, Moon, and Ascendant.
+You are writing a personality portrait for an astrology app. You receive natal chart positions and must translate them into a vivid, concrete character sketch.
 
-RULES:
-- NEVER write "Sun in X" or "Moon in X" — translate the placement directly into a behavioral trait. Example: instead of "Sun in Aquarius", write "detachment is her natural mode of relating to the world".
-- Each sentence must describe something concrete: how the person acts, what drives them, what they avoid, what they need.
-- No preamble ("this person is..."), no sign names, no planet names — just raw psychological description.
-- Punchy, direct. Like a sharp observation from someone who has known them for years.
+## WHAT YOU WRITE
+A portrait in 4 short paragraphs (3-4 sentences each), one per facet:
+
+1. **What drives them** — their core motivation, what they chase, how they assert themselves in the world. Based on the Sun sign and house, and the Ascendant.
+2. **How they feel** — their emotional wiring, what makes them feel safe or anxious, how they react under stress, what they need from close ones. Based on the Moon sign and house, and the Ascendant.
+3. **How they love and fight** — how they seduce, what turns them on, how they handle conflict and anger, what they find attractive. Based on Venus and Mars signs and houses.
+4. **How they think** — how their mind works, how they communicate, what kind of conversations they enjoy, how they make decisions. Based on Mercury sign and house.
+
+## HOW TO WRITE
+- NEVER name planets (no "your Sun", "your Moon", "your Venus") and NEVER name zodiac signs (no "as a Taurus", "your Scorpio side"). Translate each placement directly into behavior, psychology, and concrete patterns.
+- Every sentence must be something observable: how they act at a dinner party, what they do when angry, what they secretly need, how they fall in love, what drives them crazy.
+- Write like a sharp, warm friend who has known them for years — someone who sees through them but says it with affection.
+- No preamble, no "you are someone who..." — start each paragraph directly with an observation.
+- No astrological jargon, no spiritual filler, no "energy", no "vibration".
+- Each paragraph: 3-4 sentences, punchy. Total portrait: ~150-200 words.
+
+## EXAMPLE (for a completely different chart — do NOT reuse this content)
+
+A quiet stubbornness runs through everything they do — they pick a direction and hold it long after others would have pivoted. Comfort matters more than they'd admit: the right routine, the right meal, the right person beside them. They don't chase the spotlight, but they want to be respected for what they build.
+
+Under the surface, emotions run deep and hot. They don't show vulnerability easily — if anything, they'll mask hurt with sarcasm or silence. They need a partner who earns trust slowly, because once burned, they don't come back. Loyalty isn't a value for them, it's a test.
+
+In love, they're drawn to wit and edge — someone who surprises them. They flirt with words more than gestures, and they lose interest fast if the conversation flatlines. But anger comes out sideways: cold, precise, and delayed.
+
+Their mind is fast, restless, always three steps ahead of the conversation. They get bored by small talk and come alive in debate. Decisions are quick — sometimes too quick — and they'd rather be wrong and move on than stuck deliberating.
+
+## DATA
+The natal chart positions are provided after this prompt. Use them as your source material — every observation must be grounded in a specific placement, but never name it.
 PROMPT,
                 'label' => 'Natal chart of',
             ];
@@ -224,13 +247,37 @@ PROMPT,
 
         return [
             'instruction' => <<<'PROMPT'
-Rédige un portrait de personnalité en 3 phrases à partir du Soleil, de la Lune et de l'Ascendant.
+Tu rédiges un portrait de personnalité pour une app d'astrologie. Tu reçois les positions du thème natal et tu dois les traduire en un portrait concret et vivant.
 
-RÈGLES :
-- Ne jamais écrire "Soleil en X" ou "Lune en X" — traduis directement le placement en trait comportemental. Exemple : au lieu de "Soleil en Verseau", écris "le détachement est son mode naturel d'être au monde".
-- Chaque phrase doit décrire quelque chose de concret : comment la personne agit, ce qui la motive, ce qu'elle fuit, ce dont elle a besoin.
-- Pas d'introduction ("cette personne est..."), pas de noms de signes, pas de noms de planètes — uniquement une description psychologique brute.
-- Percutant, direct. Comme une observation tranchante de quelqu'un qui la connaît depuis des années.
+## CE QUE TU ÉCRIS
+Un portrait en 4 courts paragraphes (3-4 phrases chacun), un par facette :
+
+1. **Ce qui les anime** — leur motivation profonde, ce qu'ils poursuivent, comment ils s'affirment dans le monde. Basé sur le signe et la maison du Soleil, et l'Ascendant.
+2. **Comment ils ressentent** — leur câblage émotionnel, ce qui les rassure ou les angoisse, comment ils réagissent sous pression, ce dont ils ont besoin de leurs proches. Basé sur le signe et la maison de la Lune, et l'Ascendant.
+3. **Comment ils aiment et se battent** — comment ils séduisent, ce qui les attire, comment ils gèrent le conflit et la colère, ce qu'ils trouvent irrésistible. Basé sur les signes et maisons de Vénus et Mars.
+4. **Comment ils pensent** — comment leur esprit fonctionne, comment ils communiquent, quel type de conversations les stimule, comment ils prennent leurs décisions. Basé sur le signe et la maison de Mercure.
+
+## COMMENT ÉCRIRE
+- Ne nomme JAMAIS les planètes (pas de "ton Soleil", "ta Lune", "ta Vénus") et ne nomme JAMAIS les signes du zodiaque (pas de "en tant que Taureau", "ton côté Scorpion"). Traduis chaque placement directement en comportement, en psychologie, en schémas concrets.
+- Chaque phrase doit être observable : comment ils se comportent à un dîner, ce qu'ils font quand ils sont en colère, ce dont ils ont secrètement besoin, comment ils tombent amoureux, ce qui les rend dingues.
+- Écris comme une amie perspicace qui les connaît depuis des années — quelqu'un qui voit clair en eux mais le dit avec tendresse.
+- Pas de préambule, pas de "tu es quelqu'un qui..." — commence chaque paragraphe directement par une observation.
+- Aucun jargon astrologique, aucun remplissage spirituel, pas d'"énergie", pas de "vibration".
+- Chaque paragraphe : 3-4 phrases, percutantes. Portrait total : ~150-200 mots.
+- Écris un français naturel et fluide. Chaque phrase doit sonner comme quelqu'un qui parle vraiment — pas comme un texte traduit de l'anglais.
+
+## EXEMPLE (pour un thème complètement différent — ne PAS réutiliser ce contenu)
+
+Un entêtement tranquille traverse tout ce qu'ils font — ils choisissent une direction et s'y tiennent longtemps après que les autres auraient changé de cap. Le confort compte plus qu'ils ne l'admettent : la bonne routine, le bon repas, la bonne personne à côté d'eux. Ils ne cherchent pas les projecteurs, mais ils veulent qu'on respecte ce qu'ils construisent.
+
+Sous la surface, les émotions sont profondes et brûlantes. Ils ne montrent pas facilement leur vulnérabilité — au contraire, ils masqueront la blessure par du sarcasme ou du silence. Ils ont besoin d'un partenaire qui gagne leur confiance lentement, parce qu'une fois trahis, ils ne reviennent pas. La loyauté n'est pas une valeur pour eux, c'est un test.
+
+En amour, ils sont attirés par l'esprit et le tranchant — quelqu'un qui les surprend. Ils draguent par les mots plus que par les gestes, et ils se lassent vite si la conversation tourne à vide. Mais la colère sort de biais : froide, précise, différée.
+
+Leur esprit est rapide, agité, toujours trois coups d'avance sur la conversation. Le small talk les ennuie, le débat les fait vivre. Les décisions sont rapides — parfois trop — et ils préfèrent se tromper et avancer plutôt que rester bloqués à peser le pour et le contre.
+
+## DONNÉES
+Les positions du thème natal sont fournies après ce prompt. Utilise-les comme matière première — chaque observation doit être ancrée dans un placement précis, mais sans jamais le nommer.
 PROMPT,
             'label' => 'Thème natal de',
         ];
@@ -314,85 +361,122 @@ PROMPT,
     {
         if ($this->locale === self::LOCALE_EN) {
             return [
-                'intro' => 'You are an astrology compatibility scoring engine. Your goal is NOT to be nice or balanced. Your goal is to produce ACCURATE and CONTRASTED scores based on astrological facts.',
-                'rules' => [
-                    'Respond ONLY in English.',
-                    'ALWAYS use English planet names: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune.',
-                    'ALWAYS use English zodiac signs: Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces.',
-                    'You MUST avoid average scores. You MUST use the full range from 0 to 100.',
-                    'A bad compatibility MUST score below 40. A strong compatibility MUST score above 80.',
-                    'DO NOT cluster scores between 60-80. USE extreme differences when justified.',
-                    'For EACH dimension: start from 50, then add or subtract: +20 = perfect harmony (trine, same sign), +10 = good (sextile, compatible elements), 0 = neutral, -5 = tension (square), -15 = strong conflict (opposition, incompatible elements).',
-                    'You MUST justify EACH score with actual astrological aspects.',
-                    'score_global MUST be the exact average of the 5 dimension scores.',
-                    'Base your analysis strictly on the listed aspects, not on generalities.',
-                ],
+                'scoring_method' => <<<'PROMPT'
+## ROLE
+You are an experienced astrologer. You receive calculated data on two natal charts and write an honest, grounded compatibility analysis.
+
+## LANGUAGE
+- Respond ONLY in English.
+- English planet names: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune.
+- English zodiac signs: Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces.
+
+## INPUT DATA
+You receive three blocks of calculated data (at the end of this prompt):
+1. Each person's natal chart: planet — sign.
+2. Cross aspects between the two charts: each line shows two planets, aspect type and intensity (tight/medium/wide).
+
+## TEXT STYLE
+- Warm and accessible tone, psychological depth.
+- NEVER use technical words "trine", "square", "conjunction", "opposition", "sextile", "orb", "aspect", "transit", "tight", "medium", "wide" in the texts. Translate into concrete human impact.
+- In `forces` and `tensions`, cite the planets and both people's names, then describe the concrete effect on the relationship.
+- Be honest. If the chart is difficult, say so clearly without false comfort.
+- Write natural, polished English. Every sentence should sound like something a real person would say.
+- Forbidden modal hedging: "may", "might", "could", "sometimes".
+
+## RESPONSE FORMAT
+Respond ONLY with this valid JSON, no text before or after:
+
+{
+  "headline": "<catchy phrase, max 12 words, reflects the true energy of the couple>",
+  "resume": "<2-3 honest sentences about the couple's energy, tensions included>",
+  "forces": [
+    "<cite planets + names, then explain the concrete benefit>",
+    "<same>",
+    "<same>"
+  ],
+  "tensions": [
+    "<cite planets + names, then explain the concrete difficulty>",
+    "<same>"
+  ],
+  "dimensions": {
+    "love":          { "analyse": "<2-3 sentences grounded in actual data>" },
+    "communication": { "analyse": "<2-3 sentences>" },
+    "conflicts":     { "analyse": "<2-3 sentences>" },
+    "long_term":     { "analyse": "<2-3 sentences>" },
+    "attraction":    { "analyse": "<2-3 sentences>" }
+  },
+  "aspect_cle": {
+    "description": "<the dominant aspect of the couple described in human language with names>",
+    "impact": "<concrete daily impact>"
+  },
+  "conseil": "<practical and specific advice for this couple based on their chart>"
+}
+PROMPT,
                 'labels' => [
                     'chart_of' => 'CHART OF',
                     'aspects_between' => 'ASPECTS BETWEEN THE TWO CHARTS',
                     'specific_question' => 'SPECIFIC QUESTION',
-                    'response_format' => 'RESPONSE FORMAT',
-                ],
-                'json_descriptions' => [
-                    'score_global' => 'integer 0-100, exact average of the 5 dimension scores — NEVER rounded to a "comfortable" middle value. Low scores (20-40) are valid for incompatible charts, high scores (85-95) are valid for highly aligned charts.',
-                    'headline' => 'catchy phrase in English reflecting the TRUE energy of this pair, max 12 words',
-                    'resume' => '2-3 honest sentences describing the couple\'s energy, including tensions if present',
-                    'forces' => 'one sentence: name the specific aspect (e.g. NAME1\'s Saturn trine NAME2\'s Venus) then explain concretely what it brings to the relationship — e.g. "NAME1\'s Saturn trine NAME2\'s Venus — brings lasting emotional stability, serious commitment and mutual loyalty"',
-                    'tensions' => 'one sentence: name the specific aspect (e.g. NAME1\'s Mars square NAME2\'s Saturn) then explain concretely what difficulty it creates — e.g. "NAME1\'s Mars square NAME2\'s Saturn — creates friction between drive and restraint, recurring power struggles around ambition"',
-                    'analyse' => '2-3 sentences grounded in the actual aspects, honest and specific',
-                    'planetes' => 'e.g.: NAME1\'s Venus trine NAME2\'s Mars',
-                    'impact' => 'concrete daily impact of this aspect (positive or challenging)',
-                    'conseil' => 'practical advice for this specific couple based on their chart',
-                ],
-                'dimensions' => [
-                    'amour' => 'love',
-                    'communication' => 'communication',
-                    'conflits' => 'conflicts',
-                    'long_terme' => 'long_term',
-                    'attirance' => 'attraction',
                 ],
             ];
         }
 
         // French (default)
         return [
-            'intro' => 'Tu es un moteur de scoring de compatibilité astrologique. Ton objectif n\'est PAS d\'être gentil ou équilibré. Ton objectif est de produire des scores PRÉCIS et CONTRASTÉS basés sur des faits astrologiques.',
-            'rules' => [
-                'Réponds UNIQUEMENT en français.',
-                'Utilise TOUJOURS les noms français des planètes : Soleil, Lune, Mercure, Vénus, Mars, Jupiter, Saturne, Uranus, Neptune.',
-                'Utilise TOUJOURS les signes en français : Bélier, Taureau, Gémeaux, Cancer, Lion, Vierge, Balance, Scorpion, Sagittaire, Capricorne, Verseau, Poissons.',
-                'Tu DOIS utiliser toute la plage de 0 à 100. Des scores entre 53-65 pour tous les thèmes = ERREUR GRAVE.',
-                'Chaque thème doit donner un résultat unique et contrasté. Certains couples méritent 85+, d\'autres 25-.',
-                'INTERDICTION de produire 5 scores proches les uns des autres. Si tous tes scores sont entre 50-70, recommence.',
-                'Utilise la méthode de scoring détaillée dans la section MÉTHODE DE SCORING du prompt.',
-                'Analyse les maîtres de signes : identifie le maître du Soleil ET de l\'Ascendant de chaque personne, vérifie leurs aspects dans le thème de l\'autre.',
-                'Tu DOIS justifier CHAQUE score avec un aspect astrologique réel et précis.',
-                'Le score_global DOIT être la moyenne exacte des 5 scores de dimensions.',
-                'Base ton analyse sur les aspects listés ET sur la compatibilité d\'éléments des signes.',
-            ],
+            'scoring_method' => <<<'PROMPT'
+## RÔLE
+Tu es un astrologue expérimenté. Tu reçois des données calculées sur deux thèmes astraux et tu rédiges une analyse de compatibilité honnête et incarnée.
+
+## LANGUE
+- Réponds UNIQUEMENT en français.
+- Noms français des planètes : Soleil, Lune, Mercure, Vénus, Mars, Jupiter, Saturne, Uranus, Neptune.
+- Signes en français : Bélier, Taureau, Gémeaux, Cancer, Lion, Vierge, Balance, Scorpion, Sagittaire, Capricorne, Verseau, Poissons.
+
+## DONNÉES EN ENTRÉE
+Tu reçois trois blocs de données calculées (en fin de prompt) :
+1. Thème natal de chaque personne : planète — signe.
+2. Aspects croisés entre les deux thèmes : chaque ligne indique les deux planètes, le type d'aspect et son intensité (serré/moyen/large).
+
+## STYLE DES TEXTES
+- Ton chaleureux et accessible, profondeur psychologique.
+- N'utilise JAMAIS les mots "trigone", "carré", "conjonction", "opposition", "sextile", "orbe", "aspect", "transit", "serré", "moyen", "large" dans les textes. Traduis en impact humain concret.
+- Dans `forces` et `tensions`, cite les planètes et les prénoms des deux personnes, puis décris l'effet concret sur la relation.
+- Sois honnête. Si le thème est difficile, dis-le clairement sans faux réconfort.
+- Écris un français naturel et soigné. Chaque phrase doit sonner comme quelqu'un qui parle vraiment.
+- Modaux d'évitement interdits : "peut", "pourrait", "parfois".
+
+## FORMAT DE RÉPONSE
+Réponds UNIQUEMENT avec ce JSON valide, sans texte avant ni après :
+
+{
+  "headline": "<phrase accrocheuse, max 12 mots, reflète la vraie énergie du couple>",
+  "resume": "<2-3 phrases honnêtes sur l'énergie du couple, tensions incluses>",
+  "forces": [
+    "<cite les planètes + prénoms, puis explique l'apport concret>",
+    "<idem>",
+    "<idem>"
+  ],
+  "tensions": [
+    "<cite les planètes + prénoms, puis explique la difficulté concrète>",
+    "<idem>"
+  ],
+  "dimensions": {
+    "amour":         { "analyse": "<2-3 phrases ancrées dans les données réelles>" },
+    "communication": { "analyse": "<2-3 phrases>" },
+    "conflits":      { "analyse": "<2-3 phrases>" },
+    "long_terme":    { "analyse": "<2-3 phrases>" },
+    "attirance":     { "analyse": "<2-3 phrases>" }
+  },
+  "aspect_cle": {
+    "description": "<l'aspect dominant du couple décrit en langage humain avec les prénoms>",
+    "impact": "<impact concret au quotidien>"
+  },
+  "conseil": "<conseil pratique et spécifique pour ce couple basé sur leur thème>"
+}
+PROMPT,
             'labels' => [
                 'chart_of' => 'THÈME DE',
                 'aspects_between' => 'ASPECTS ENTRE LES DEUX THÈMES',
                 'specific_question' => 'QUESTION SPÉCIFIQUE',
-                'response_format' => 'FORMAT DE RÉPONSE',
-            ],
-            'json_descriptions' => [
-                'score_global' => 'entier 0-100, moyenne exacte des 5 scores de dimensions — JAMAIS arrondi à une valeur "confortable". Les scores bas (20-40) sont valides pour des thèmes incompatibles, les scores élevés (85-95) pour des thèmes très alignés.',
-                'headline' => 'phrase accrocheuse en français reflétant la VRAIE énergie de ce couple, max 12 mots',
-                'resume' => '2-3 phrases honnêtes décrivant l\'énergie du couple, incluant les tensions si présentes',
-                'forces' => 'une phrase : nomme l\'aspect précis (ex: le Saturne de NOM1 en trigone avec la Vénus de NOM2) puis explique concrètement ce qu\'il apporte à la relation — ex: "le Saturne de NOM1 en trigone avec la Vénus de NOM2 — apporte une stabilité affective durable, un engagement sérieux et une loyauté mutuelle"',
-                'tensions' => 'une phrase : nomme l\'aspect précis (ex: le Mars de NOM1 en carré avec le Saturne de NOM2) puis explique concrètement la difficulté qu\'il crée — ex: "le Mars de NOM1 en carré avec le Saturne de NOM2 — crée des frictions entre l\'élan et la retenue, des luttes de pouvoir récurrentes autour de l\'ambition"',
-                'analyse' => '2-3 phrases ancrées dans les aspects réels, honnêtes et spécifiques',
-                'planetes' => 'ex: la Vénus de NOM1 en trigone avec le Mars de NOM2',
-                'impact' => 'impact concret au quotidien de cet aspect (positif ou difficile)',
-                'conseil' => 'conseil pratique pour ce couple spécifique basé sur leur thème',
-            ],
-            'dimensions' => [
-                'amour' => 'amour',
-                'communication' => 'communication',
-                'conflits' => 'conflits',
-                'long_terme' => 'long_terme',
-                'attirance' => 'attirance',
             ],
         ];
     }

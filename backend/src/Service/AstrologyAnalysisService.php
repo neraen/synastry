@@ -350,6 +350,32 @@ class AstrologyAnalysisService
     }
 
     /**
+     * Return raw planetary positions (sign + degree) for a given number of days from now.
+     * Used by AI tool calls to answer questions like "where is the Moon tomorrow?".
+     */
+    public function getPlanetPositionsForDate(int $daysFromNow): array
+    {
+        $date = (new \DateTime('now', new \DateTimeZone('UTC')))->modify("{$daysFromNow} days");
+        $calc = new PlanetaryCalculator($date->format('Y-m-d'), '12:00', 0.0, 0.0, 'Sky');
+        $positions = $calc->getPlanetaryPositionsForApi();
+
+        $result = [];
+        foreach ($positions as $planet => $data) {
+            if (in_array($planet, ['Ascendant', 'MC', 'Midheaven'], true)) continue;
+            $result[$planet] = [
+                'sign'       => $data['Sign'] ?? '',
+                'degree'     => round((float) ($data['Position'] ?? 0) % 30, 1),
+                'retrograde' => ($data['Retrograde'] ?? 'No') === 'Yes',
+            ];
+        }
+
+        return [
+            'date'      => $date->format('Y-m-d'),
+            'positions' => $result,
+        ];
+    }
+
+    /**
      * Compute major transit aspects for a specific month in the future (or past).
      * Used by AI tool calls to query specific time periods.
      */

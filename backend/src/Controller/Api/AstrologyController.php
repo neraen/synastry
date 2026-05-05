@@ -149,6 +149,47 @@ class AstrologyController extends AbstractController
     }
 
     /**
+     * Get short personality summary for a partner stored in synastry history.
+     * Cached 90 days per entry + locale.
+     */
+    #[Route('/partner-summary/{historyId}', name: 'api_partner_summary', methods: ['GET'])]
+    public function getPartnerSummary(int $historyId, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $locale = $this->getLocaleFromRequest($request);
+        $this->astrologyService->setLocale($locale);
+
+        $history = $this->synastryHistoryRepository->findOneByUserAndId($user, $historyId);
+        if (!$history) {
+            return $this->json(['success' => false, 'error' => 'Not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $partnerPositions = $history->getPartnerPositions();
+        if (empty($partnerPositions)) {
+            return $this->json(['success' => false, 'error' => 'No partner positions available'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $result = $this->astrologyService->getPartnerNatalSummary(
+            $history->getPartnerName(),
+            $partnerPositions,
+            $historyId
+        );
+
+        if (!$result['success']) {
+            return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return $this->json([
+            'success'     => true,
+            'partnerName' => $history->getPartnerName(),
+            'positions'   => $partnerPositions,
+            'summary'     => $result['summary'],
+        ]);
+    }
+
+    /**
      * Calculate synastry with partner's birth data
      */
     #[Route('/synastry', name: 'api_synastry', methods: ['POST'])]

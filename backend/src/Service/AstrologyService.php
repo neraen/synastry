@@ -258,11 +258,14 @@ class AstrologyService
             $calc1 = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($profile1);
             $calc2 = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($profile2);
 
+            // Calculate deterministic compatibility scores
+            $calculatedScores = $calc1->calculateCompatibilityScore($calc2);
+
             // Build the compatibility prompt with aspects and locale
             $prompt = $calc1->buildCompatibilityPrompt($calc2, $question, $this->locale);
 
-            // Get AI analysis
-            $aiResult = $this->openAiService->getCompatibilityAnalysis($prompt);
+            // Get AI analysis (text only) and inject pre-calculated scores
+            $aiResult = $this->openAiService->getCompatibilityAnalysis($prompt, $calculatedScores);
 
             if (!$aiResult['success']) {
                 return $aiResult;
@@ -355,11 +358,14 @@ class AstrologyService
                 $partnerName
             );
 
+            // Calculate deterministic compatibility scores
+            $calculatedScores = $userCalc->calculateCompatibilityScore($partnerCalc);
+
             // Build the compatibility prompt with aspects and locale
             $prompt = $userCalc->buildCompatibilityPrompt($partnerCalc, $question, $this->locale);
 
-            // Get AI analysis
-            $aiResult = $this->openAiService->getCompatibilityAnalysis($prompt);
+            // Get AI analysis (text only) and inject pre-calculated scores
+            $aiResult = $this->openAiService->getCompatibilityAnalysis($prompt, $calculatedScores);
 
             if (!$aiResult['success']) {
                 return $aiResult;
@@ -461,6 +467,32 @@ class AstrologyService
         return [
             'success' => true,
             'message' => 'History entry deleted',
+        ];
+    }
+
+    /**
+     * Get a short personality summary for a partner from their positions stored in synastry history.
+     * Cached 90 days per historyId + locale.
+     */
+    public function getPartnerNatalSummary(string $partnerName, array $positions, int $historyId): array
+    {
+        $safeLocale = preg_replace('/[^a-z]/', '', $this->locale);
+        $sun  = preg_replace('/[^a-zA-Z]/', '', $positions['Sun']['Sign'] ?? 'Unknown');
+        $moon = preg_replace('/[^a-zA-Z]/', '', $positions['Moon']['Sign'] ?? 'Unknown');
+        $cacheKey = sprintf('partner_interp_%d_%s_%s_%s', $historyId, $sun, $moon, $safeLocale);
+
+        $summary = $this->cache->get($cacheKey, function (ItemInterface $item) use ($partnerName, $positions) {
+            $item->expiresAfter(self::PLANET_INTERP_TTL);
+            $result = $this->openAiService->getNatalChartInterpretation($partnerName, $positions);
+            if (!$result['success']) {
+                throw new \RuntimeException($result['error'] ?? 'AI error');
+            }
+            return $result['interpretation'];
+        });
+
+        return [
+            'success' => true,
+            'summary' => $summary,
         ];
     }
 

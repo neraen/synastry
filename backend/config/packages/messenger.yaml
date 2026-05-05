@@ -13,7 +13,7 @@ framework:
                     max_retries: 3
                     multiplier: 2
             failed: 'doctrine://default?queue_name=failed'
-            # sync: 'sync://'
+            scheduler_notifications: 'scheduler://notifications'
 
         default_bus: messenger.bus.default
 
@@ -25,6 +25,7 @@ framework:
             Symfony\Component\Notifier\Message\ChatMessage: async
             Symfony\Component\Notifier\Message\SmsMessage: async
 
-            # Route your messages to the transports
-            # 'App\Message\YourMessage': async
             App\Message\CalculateLifetimeTransitsMessage: async
+            App\Message\ProcessPersonalTransitsMessage: async
+            App\Message\ProcessSkyEventsMessage: async
+            App\Message\ProcessDailyRemindersMessage: async

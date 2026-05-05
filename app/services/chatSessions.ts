@@ -11,6 +11,7 @@ export interface ChatSessionSummary {
 
 export interface ChatSessionDetail extends ChatSessionSummary {
     messages: Pick<ChatMessage, 'role' | 'content'>[];
+    lastResponseId?: string | null;
 }
 
 export interface ChatSessionListResponse {
@@ -67,10 +68,12 @@ export async function createChatSession(
  */
 export async function updateChatSession(
     id: number,
-    messages: Pick<ChatMessage, 'role' | 'content'>[]
+    messages: Pick<ChatMessage, 'role' | 'content'>[],
+    lastResponseId?: string | null
 ): Promise<{ success: boolean; error?: string }> {
     return authApi.put<{ success: boolean; error?: string }>(`/api/chat/sessions/${id}`, {
         messages,
+        ...(lastResponseId !== undefined ? { lastResponseId } : {}),
     });
 }
 

@@ -31,6 +31,7 @@ import {
 import '@/i18n';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { colors } from '@/theme';
 
@@ -42,7 +43,6 @@ SplashScreen.preventAutoHideAsync();
 configurePurchases();
 
 // ─── RevenueCat initializer ───────────────────────────────────────────────────
-// Placed inside AuthProvider so it can access the user context.
 function PurchasesInitializer() {
     const { user } = useAuth();
     useEffect(() => {
@@ -52,6 +52,12 @@ function PurchasesInitializer() {
             resetPurchasesUser();
         }
     }, [user?.id]);
+    return null;
+}
+
+// ─── Push notification initializer ───────────────────────────────────────────
+function NotificationsInitializer() {
+    useNotifications();
     return null;
 }
 
@@ -155,6 +161,7 @@ export default function RootLayout() {
         <SafeAreaProvider>
             <AuthProvider>
                 <PurchasesInitializer />
+                <NotificationsInitializer />
                 <ThemeProvider value={LunestiaTheme}>
                     <Stack>
                         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -165,6 +172,10 @@ export default function RootLayout() {
                         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
                         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
                         <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
+                        <Stack.Screen name="chat-history" options={{ headerShown: false }} />
+                        <Stack.Screen name="partner-chart" options={{ headerShown: false }} />
+                        <Stack.Screen name="notification-preferences" options={{ headerShown: false }} />
+                        <Stack.Screen name="compatibility-result" options={{ headerShown: false }} />
                         {/* Legal Screens */}
                         <Stack.Screen name="privacy-policy" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="terms-of-service" options={{ headerShown: false, presentation: 'modal' }} />

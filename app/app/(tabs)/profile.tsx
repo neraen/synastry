@@ -295,6 +295,13 @@ export default function ProfileTab() {
                         <Text style={styles.sectionLabel}>{t('profile.sectionPreferences')}</Text>
                         <GlassCard opacity="low" radius="xl">
                             <PrefRow
+                                icon="bell"
+                                title="Notifications"
+                                subtitle="Transits, événements du ciel, rappels"
+                                onPress={() => router.push('/notification-preferences')}
+                            />
+                            <View style={styles.prefSep} />
+                            <PrefRow
                                 icon="shield"
                                 title={t('profile.privacyPolicy')}
                                 onPress={() => router.push('/privacy-policy')}

@@ -28,6 +28,9 @@ class ChatSession
     #[ORM\Column(nullable: true)]
     private ?int $partnerHistoryId = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $lastResponseId = null;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -84,6 +87,17 @@ class ChatSession
     {
         $this->partnerHistoryId = $partnerHistoryId;
 
+        return $this;
+    }
+
+    public function getLastResponseId(): ?string
+    {
+        return $this->lastResponseId;
+    }
+
+    public function setLastResponseId(?string $lastResponseId): static
+    {
+        $this->lastResponseId = $lastResponseId;
         return $this;
     }
 

@@ -51,7 +51,7 @@ export interface CompatibilityDetails {
     forces?: string[];
     tensions?: string[];
     dimensions?: Record<string, { score: number; analyse: string }>;
-    aspect_cle?: { planetes: string; impact: string };
+    aspect_cle?: { description?: string; planetes?: string; impact: string };
     conseil?: string;
 }
 
@@ -442,6 +442,7 @@ export interface ChatResponse {
     error?: string;
     remaining_messages?: number; // -1 = unlimited (premium)
     daily_limit_reached?: boolean;
+    response_id?: string;
 }
 
 export interface ChatPartner {
@@ -462,11 +463,13 @@ export interface ChatPartnersResponse {
  */
 export async function sendChatMessage(
     messages: Pick<ChatMessage, 'role' | 'content'>[],
-    partnerHistoryId?: number
+    partnerHistoryId?: number,
+    previousResponseId?: string
 ): Promise<ChatResponse> {
     return authApi.post<ChatResponse>('/api/chat', {
         messages,
         ...(partnerHistoryId ? { partnerHistoryId } : {}),
+        ...(previousResponseId ? { previousResponseId } : {}),
     });
 }
 
@@ -475,6 +478,23 @@ export async function sendChatMessage(
  */
 export async function getChatPartners(): Promise<ChatPartnersResponse> {
     return authApi.get<ChatPartnersResponse>('/api/chat/partners');
+}
+
+// ─── Partner Chart ────────────────────────────────────────────────────────────
+
+export interface PartnerSummaryResponse {
+    success: boolean;
+    partnerName?: string;
+    positions?: Record<string, PlanetPosition>;
+    summary?: string;
+    error?: string;
+}
+
+/**
+ * Get personality summary + positions for a partner stored in synastry history.
+ */
+export async function getPartnerSummary(historyId: number): Promise<PartnerSummaryResponse> {
+    return authApi.get<PartnerSummaryResponse>(`/api/astrology/partner-summary/${historyId}`);
 }
 
 // ─── Miroir Temporel ──────────────────────────────────────────────────────────

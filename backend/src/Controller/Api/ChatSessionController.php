@@ -65,6 +65,7 @@ class ChatSessionController extends AbstractController
                 'title' => $session->getTitle(),
                 'partnerHistoryId' => $session->getPartnerHistoryId(),
                 'messages' => $session->getMessages(),
+                'lastResponseId' => $session->getLastResponseId(),
                 'createdAt' => $session->getCreatedAt()->format(\DateTimeInterface::ATOM),
                 'updatedAt' => $session->getUpdatedAt()->format(\DateTimeInterface::ATOM),
             ],
@@ -138,9 +139,13 @@ class ChatSessionController extends AbstractController
         if (isset($data['messages'])) {
             $session->setMessages($data['messages']);
         }
-        
+
         if (isset($data['title']) && trim($data['title']) !== '') {
             $session->setTitle(trim($data['title']));
+        }
+
+        if (array_key_exists('lastResponseId', $data)) {
+            $session->setLastResponseId($data['lastResponseId'] ?: null);
         }
 
         $this->em->flush();

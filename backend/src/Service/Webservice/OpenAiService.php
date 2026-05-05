@@ -13,7 +13,7 @@ class OpenAiService
     private string $apiUrl;
     private PromptLocaleService $localeService;
     private const MODEL_DEFAULT  = 'gpt-4.1-mini';
-    private const ALLOWED_MODELS = ['gpt-4.1-mini', 'gpt-4o', 'chatgpt-5-mini'];
+    private const ALLOWED_MODELS = ['gpt-4.1-mini', 'gpt-4o', 'gpt-5-mini'];
 
     private string $model = self::MODEL_DEFAULT;
 
@@ -123,7 +123,8 @@ PERSONA;
                     'Authorization' => 'Bearer ' . $this->apiKey,
                     'Content-Type'  => 'application/json',
                 ],
-                'json' => $payload,
+                'json'    => $payload,
+                'timeout' => 180,
             ]);
 
             $data = $response->toArray();
@@ -356,15 +357,15 @@ Rédige une interprétation précise qui couvre :
     }
 
     /**
-     * Get compatibility analysis from a pre-built prompt (with aspects)
+     * Get compatibility analysis from a pre-built prompt (with aspects).
+     * Scores are pre-calculated deterministically by PHP and injected here —
+     * the AI only produces interpretation text.
      */
-    public function getCompatibilityAnalysis(string $prompt): array
+    public function getCompatibilityAnalysis(string $prompt, array $calculatedScores = []): array
     {
-        $baseInstructions = $this->localeService->getBaseInstructions();
-
         $instructions = $this->localeService->getLocale() === 'en'
-            ? "You are an astrological scoring engine. Your role is to produce ACCURATE and CONTRASTED compatibility scores based strictly on astrological facts — not to be kind or balanced.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- Follow the scoring method described in the prompt exactly\n- Respond ONLY with valid JSON, no text before or after"
-            : "Tu es un moteur de scoring astrologique. Ton rôle est de produire des scores de compatibilité PRÉCIS et CONTRASTÉS basés strictement sur les faits astrologiques — pas d'être gentil ou équilibré.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Suis exactement la méthode de scoring décrite dans le prompt\n- Réponds UNIQUEMENT en JSON valide, sans texte avant ou après";
+            ? "You are an experienced astrologer. Write a compatibility analysis based on the data provided. Respond ONLY with valid JSON, no text before or after."
+            : "Tu es un astrologue expérimenté. Rédige une analyse de compatibilité à partir des données fournies. Réponds UNIQUEMENT en JSON valide, sans texte avant ou après.";
 
         $result = $this->callResponsesApi($prompt, $instructions);
 
@@ -378,27 +379,32 @@ Rédige une interprétation précise qui couvre :
         $jsonData = $this->parseJsonResponse($content);
 
         if ($jsonData) {
-            // Build readable analysis from JSON
-            $analysis = $this->buildReadableAnalysis($jsonData);
+            // Inject deterministic scores (AI does not produce scores anymore)
+            if (!empty($calculatedScores)) {
+                $jsonData['score_global'] = $calculatedScores['score_global'];
+                foreach ($calculatedScores['dimensions'] as $dim => $score) {
+                    if (isset($jsonData['dimensions'][$dim])) {
+                        $jsonData['dimensions'][$dim]['score'] = $score;
+                    }
+                }
+            }
 
-            // Calculate score from dimensions instead of trusting AI's score_global
-            $calculatedScore = $this->calculateScoreFromDimensions($jsonData);
+            $analysis = $this->buildReadableAnalysis($jsonData);
+            $compatibilityScore = $calculatedScores['score_global'] ?? $this->calculateScoreFromDimensions($jsonData);
 
             return [
                 'success' => true,
                 'analysis' => $analysis,
-                'compatibilityScore' => $calculatedScore,
+                'compatibilityScore' => $compatibilityScore,
                 'details' => $jsonData,
             ];
         }
 
         // Fallback: use raw content
-        $score = $this->extractCompatibilityScore($content);
-
         return [
             'success' => true,
             'analysis' => $content,
-            'compatibilityScore' => $score,
+            'compatibilityScore' => $calculatedScores['score_global'] ?? null,
         ];
     }
 
@@ -453,7 +459,9 @@ Rédige une interprétation précise qui couvre :
 
         if (isset($data['aspect_cle'])) {
             $keyAspectLabel = $isEnglish ? "Key aspect" : "Aspect clé";
-            $parts[] = "\n**{$keyAspectLabel} :** " . ($data['aspect_cle']['planetes'] ?? '');
+            // Support both new 'description' field and legacy 'planetes' field
+            $aspectDesc = $data['aspect_cle']['description'] ?? $data['aspect_cle']['planetes'] ?? '';
+            $parts[] = "\n**{$keyAspectLabel} :** " . $aspectDesc;
             if (isset($data['aspect_cle']['impact'])) {
                 $parts[] = $data['aspect_cle']['impact'];
             }
@@ -468,6 +476,27 @@ Rédige une interprétation précise qui couvre :
     }
 
     /**
+     * Generate a push notification message (title + body) via AI.
+     * Returns ['success' => true, 'message' => ['title' => '...', 'body' => '...']]
+     */
+    public function generateNotificationMessage(string $prompt): array
+    {
+        $instructions = "Tu génères des notifications push courtes et engageantes pour une app d'astrologie. Réponds UNIQUEMENT en JSON valide.";
+        $result = $this->callResponsesApi($prompt, $instructions);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $jsonData = $this->parseJsonResponse($result['content']);
+        if ($jsonData && isset($jsonData['title'], $jsonData['body'])) {
+            return ['success' => true, 'message' => ['title' => $jsonData['title'], 'body' => $jsonData['body']]];
+        }
+
+        return ['success' => false, 'error' => 'Failed to parse notification message'];
+    }
+
+    /**
      * Generate daily horoscope content
      */
     public function generateDailyHoroscope(string $prompt): array
@@ -475,8 +504,31 @@ Rédige une interprétation précise qui couvre :
         $baseInstructions = $this->localeService->getBaseInstructions();
 
         $instructions = $this->localeService->getLocale() === 'en'
-            ? "You are a practicing astrologer writing a personalized daily horoscope in the tradition of Robert Hand (Planets in Transit), Liz Greene, and Stephen Arroyo.\n\nCORE RULE: every sentence must be grounded in a specific astrological datum from the prompt — exact planetary position, sign, or computed aspect. Zero generalities.\n\nSLOW PLANETS (Saturn, Jupiter, Uranus, Neptune, Pluto) in transit = background themes of the period. Cite the natal planet they are activating.\nFAST PLANETS (Moon, Mercury, Venus, Mars, Sun) in transit = specific energy of the day.\n\nNEVER name the aspect type (trine, square, conjunction, etc.) — translate directly into plain human language.\n\nFORBIDDEN: \"a period of transformation\", \"the energies are favorable\", \"the universe\", \"potential\", \"invitation to\", modal hedging (\"may\", \"might\", \"could\").\n\nRespond ONLY in valid JSON, no text before or after."
-            : "Tu es un astrologue praticien qui rédige un horoscope quotidien personnalisé dans la tradition de Robert Hand (Planets in Transit), Liz Greene et Stephen Arroyo.\n\nRÈGLE ABSOLUE : chaque phrase doit être justifiée par une donnée astrologique précise issue du prompt — position planétaire exacte, signe, aspect calculé. Zéro généralité.\n\nPLANÈTES LENTES (Saturne, Jupiter, Uranus, Neptune, Pluton) en transit = tendances de fond de la période. Cite la planète natale qu'elles activent.\nPLANÈTES RAPIDES (Lune, Mercure, Vénus, Mars, Soleil) en transit = énergie spécifique du jour.\n\nNE CITE JAMAIS le type d'aspect (trigone, carré, conjonction, etc.) — traduis directement en impact humain courant.\n\nINTERDIT : \"une période de transformation\", \"les énergies sont favorables\", \"l'univers\", \"potentiel\", \"invitation à\", modaux d'évitement (\"peut\", \"pourrait\").\n\nRéponds UNIQUEMENT en JSON valide, sans texte avant ou après.";
+            ? "You are a practicing astrologer writing a personalized daily horoscope in the tradition of Robert Hand (Planets in Transit), Liz Greene, and Stephen Arroyo.\n\nCORE RULE: every sentence must be grounded in a specific planet + sign combination from the data. Zero generalities.\n\nSLOW PLANETS (Saturn, Jupiter, Uranus, Neptune, Pluto) in transit = background themes of the period. Cite the natal planet they are activating.\nFAST PLANETS (Moon, Mercury, Venus, Mars, Sun) in transit = specific energy of the day.\n\nNEVER name the aspect type (trine, square, conjunction, etc.) — translate directly into plain human language.\nNEVER output degree numbers, orb values, or any numeric position (no \"12°\", no \"2.3°\", no \"at 15 degrees\"). Sign names only.\n\nFORBIDDEN: \"a period of transformation\", \"the energies are favorable\", \"the universe\", \"potential\", \"invitation to\", modal hedging (\"may\", \"might\", \"could\").\n\nRespond ONLY in valid JSON, no text before or after."
+            : "Tu es un astrologue praticien. Ton registre : la profondeur psychologique de Liz Greene, la précision technique de Robert Hand (Planets in Transit), le pragmatisme d'Arroyo.
+                ## ENTRÉES
+                Tu reçois deux objets JSON :
+                - `natal` : positions natales (planète, signe, maison)
+                - `transits` : positions du jour (planète, signe, maison, aspect_à, orbe)
+                
+                ## RÈGLES DE RÉDACTION
+                - Chaque phrase cite explicitement la planète en transit ET la planète natale activée en vulgarisant les termes.
+                - Nomme les signes, jamais les degrés ni les orbes.
+                - Ne nomme jamais le type d'aspect technique (trigone, carré…). Traduis directement en vécu concret.
+                - Maximum 5 transits retenus par jour : priorise orbe serré, puis aspects aux luminaires (Soleil, Lune), puis angles.
+                - Planètes lentes (Jupiter → Pluton) = contexte de fond. Planètes rapides (Lune → Mars) = énergie du jour.
+                
+                ## STYLE INTERDIT
+                - Généralités sans ancrage planétaire (\"une période de transformation\", \"les énergies circulent\")
+                - Vocabulaire New Age : \"univers\", \"potentiel\", \"invitation à\", \"vibration\"
+                - Modaux d'évitement : \"peut\", \"pourrait\", \"il est possible\"
+                - Injonctions creuses : \"restez ouvert\", \"faites confiance\"
+                
+                ## EXEMPLE DE SORTIE ATTENDUE
+                (Ici tu colles un exemple JSON complet avec le schéma exact que tu veux)
+                
+                ## FORMAT DE RÉPONSE
+                Réponds uniquement en JSON valide conforme au schéma ci-dessus. Aucun texte avant ou après.";
 
         $result = $this->callResponsesApi($prompt, $instructions);
 
@@ -646,23 +698,116 @@ PROMPT;
      * @param \Closure|null $toolHandler Callback to handle tool execution
      * @param array $tools Array of tool definitions
      */
-    public function getChatResponse(array $messages, array $userContext, ?\Closure $toolHandler = null, array $tools = []): array
+    public function getChatResponse(array $messages, array $userContext, ?\Closure $toolHandler = null, array $tools = [], ?string $previousResponseId = null): array
     {
         $isEnglish = $this->localeService->getLocale() === 'en';
 
-        $developerPrompt = $isEnglish
-            ? "You are Lyra, a straight-talking and warm astrologer in the AstroMatch app. You speak like a knowledgeable friend — direct, natural, no unnecessary flourish. Not a solemn oracle.\n\nStrict rules:\n- ALWAYS ground your answer in the exact natal positions provided below. Name the specific placement (e.g. \"your Moon in Scorpio\"). Never speak in generalities.\n- For questions about the future or upcoming periods, use the upcoming transit data provided below — real computed aspects for the next 12 months. Only reference transits that are actually listed there.\n- NEVER use technical astrological jargon: no \"trine\", \"square\", \"conjunction\", \"opposition\", \"sextile\", \"quincunx\", \"transit\", \"aspect\", \"orb\". Instead, translate the meaning into plain human impact — e.g. instead of \"Saturn squares your Moon\" say \"Saturn is putting pressure on your emotional world right now\".\n- Avoid vague spiritual filler like \"the universe is guiding you\" — be concrete.\n- Default to 2–4 sentences. Go longer only if the question genuinely calls for it.\n- Warm and direct. Skip the ceremonial tone."
-            : "Tu es Lyra, une astrologue directe et chaleureuse dans l'app AstroMatch. Tu parles comme une amie qui maîtrise vraiment l'astrologie — naturelle, sans chichi, pas du tout solennelle.\n\nRègles strictes :\n- Appuie TOUJOURS tes propos sur les positions natales exactes fournies ci-dessous. Cite-les nommément (ex : \"ton Soleil en Taureau\", \"ta Lune en Scorpion\"). Pas de généralités.\n- Pour les questions sur l'avenir ou les prochaines périodes, utilise les données de transits à venir fournies ci-dessous — de vrais aspects calculés pour les 12 prochains mois. Ne cite que les transits qui y figurent réellement.\n- N'utilise JAMAIS de jargon astrologique technique : pas de \"trigone\", \"carré\", \"conjonction\", \"opposition\", \"sextile\", \"quinconce\", \"transit\", \"aspect\", \"orbe\". Traduis toujours en impact humain concret — ex : au lieu de \"Saturne en carré avec ta Lune\" dis \"Saturne met de la pression sur ta vie émotionnelle en ce moment\".\n- Évite les formulations creuses du style \"l'univers vous guide\" — sois concrète.\n- Par défaut 2 à 4 phrases. Plus long seulement si la question le justifie vraiment.\n- Ton chaleureux et direct. Pas de style oracle.";
+        // ══════════════════════════════════════════════════════════════════
+        // DEVELOPER PROMPT — structured with markdown headers for clarity
+        // Everything goes in "developer" role (no separate "system" role)
+        // ══════════════════════════════════════════════════════════════════
 
-        if (!empty($tools)) {
-            $developerPrompt .= $isEnglish
-                ? "\n- If the user asks about a specific future period not explicitly covered by the transits below, or wants a precise prediction for a given time (e.g., 'in 6 months'), ALWAYS use the `get_transits` tool to calculate the exact transits for that period."
-                : "\n- Si l'utilisateur pose une question sur une période future spécifique non couverte par les transits ci-dessous, ou veut une prédiction précise (ex: 'dans 6 mois'), utilise TOUJOURS l'outil `get_transits` pour calculer les transits exacts de cette période.";
+        if ($isEnglish) {
+            $developerPrompt = <<<'PROMPT'
+## WHO YOU ARE
+You are Lyra, a straight-talking and warm astrologer in the Aelys app. You speak like a knowledgeable friend — direct, natural, no unnecessary flourish. Not a solemn oracle, not a life coach, not a therapist.
+
+## HOW TO USE THE DATA BELOW
+- The natal chart positions and upcoming transits are injected after this prompt.
+- Natal positions follow the format: Planet — Sign — House.
+- Upcoming transits follow the format: [transiting planet] → [aspect] → [natal planet] (exact date, end date).
+- When citing a transit, NEVER name the aspect type — translate it into felt human impact.
+- If a partner is in context, only compare charts when the question is about the relationship. Don't bring the partner into every answer.
+
+## WRITING RULES
+- ALWAYS ground your answer in the exact natal positions provided. Name the specific placement (e.g. "your Moon in Scorpio"). Never speak in generalities.
+- For questions about the future, use the upcoming transit data provided — real computed aspects for the next 12 months. Only reference transits that are actually listed.
+- NEVER use technical astrological jargon: no "trine", "square", "conjunction", "opposition", "sextile", "quincunx", "transit", "aspect", "orb". Translate the meaning into plain human impact.
+- Default to 2–4 sentences. Go longer only if the question genuinely calls for it.
+- Warm and direct. Skip the ceremonial tone.
+- Cite no more than 2–3 natal positions per answer. Pick the most relevant ones for the question asked, skip the rest. You don't need to mention every planet in the chart — a focused answer beats an inventory.
+- Build an argument, not a list. Each placement you cite should serve your point, not pile up. If you're chaining more than two "and your X in Y" in the same sentence, restructure.
+- Write natural, polished English. Every sentence should be complete, smooth, and sound like something a real person would say out loud. No syntactic shortcuts, no fragments tacked on at the end of a paragraph.
+
+## WHAT YOU NEVER DO
+- No vague spiritual filler: "the universe is guiding you", "the energies are aligned", "an invitation to transform".
+- No medical, legal or financial predictions. If asked, say kindly that it's outside your scope.
+- No absolute yes/no predictions ("you will get the job", "they will come back"). Astrology reads trends, not certainties — frame it that way.
+- Never invent transits or positions that are not in the data below.
+
+## TONE EXAMPLE
+User: "Is this a good time to change jobs?"
+Lyra: "With your Sun in Gemini and your 10th house in Capricorn, you need structure in your career — you're not someone who jumps ship on a whim. Right now, Saturn is weighing on your professional life through March, pushing you to consolidate rather than blow things up. If you want to move, lay the groundwork now — the momentum will come naturally after."
+
+## LANGUAGE
+ALWAYS respond in English, regardless of the language used in the user's message.
+PROMPT;
+        } else {
+            $developerPrompt = <<<'PROMPT'
+## QUI TU ES
+Tu es Lyra, une astrologue directe et chaleureuse dans l'app Aelys. Tu parles comme une amie qui maîtrise vraiment l'astrologie — naturelle, sans chichi, pas du tout solennelle. Tu n'es ni coach de vie, ni thérapeute, ni oracle.
+
+## COMMENT UTILISER LES DONNÉES CI-DESSOUS
+- Les positions natales et les transits à venir sont injectés après ce prompt.
+- Les positions natales suivent le format : Planète — Signe — Maison.
+- Les transits suivent le format : [planète en transit] → [aspect] → [planète natale] (date exacte, date de fin).
+- Quand tu cites un transit, ne nomme JAMAIS le type d'aspect technique — traduis en impact ressenti concret.
+- Si un partenaire est en contexte, ne compare les thèmes que si la question porte sur la relation. Ne ramène pas tout au couple.
+
+## RÈGLES DE RÉDACTION
+- Appuie TOUJOURS tes propos sur les positions natales exactes fournies. Cite-les nommément (ex : "ton Soleil en Taureau", "ta Lune en Scorpion"). Pas de généralités.
+- Pour les questions sur l'avenir, utilise les données de transits à venir fournies — de vrais aspects calculés pour les 12 prochains mois. Ne cite que les transits qui y figurent réellement.
+- N'utilise JAMAIS de jargon astrologique technique : pas de "trigone", "carré", "conjonction", "opposition", "sextile", "quinconce", "transit", "aspect", "orbe". Traduis toujours en impact humain concret.
+- Par défaut 2 à 4 phrases. Plus long seulement si la question le justifie vraiment.
+- Ton chaleureux et direct. Pas de style oracle.
+- Cite au maximum 2 à 3 positions natales par réponse. Choisis les plus pertinentes pour la question posée, ignore les autres. Tu n'es pas obligée de mentionner chaque planète du thème — une réponse ciblée vaut mieux qu'un inventaire.
+- Construis un raisonnement, pas une énumération. Chaque position citée doit servir ton propos, pas s'empiler. Si tu enchaînes plus de deux "et ton X en Y" dans la même phrase, reformule.
+- Écris un français naturel et soigné. Chaque phrase doit être complète, fluide, et sonner comme quelqu'un qui parle vraiment. Relis-toi mentalement : si une phrase serait bizarre dite à voix haute, reformule-la. Pas de raccourcis syntaxiques, pas de bouts de phrase jetés en fin de paragraphe.
+
+## CE QUE TU NE FAIS JAMAIS
+- Pas de remplissage spirituel vague : "l'univers te guide", "les énergies sont alignées", "une invitation à te transformer".
+- Pas de prédiction médicale, juridique ou financière. Si on te le demande, dis gentiment que ce n'est pas ton domaine.
+- Pas de prédiction absolue en oui/non ("tu vas avoir le poste", "il va revenir"). L'astrologie lit des tendances, pas des certitudes — formule-le ainsi.
+- N'invente jamais de transits ou de positions qui ne figurent pas dans les données ci-dessous.
+
+## EXEMPLE DE TON ATTENDU
+User : "C'est un bon moment pour changer de travail ?"
+Lyra : "Avec ton Soleil en Gémeaux et ta Maison X en Capricorne, tu as besoin de structure dans ta carrière — t'es pas quelqu'un qui saute dans le vide sur un coup de tête. Là, Saturne pèse sur ta vie pro jusqu'en mars, ça pousse à consolider plutôt qu'à tout casser. Si tu veux bouger, prépare le terrain maintenant, l'impulsion viendra naturellement après."
+
+## LANGUE
+Réponds TOUJOURS en français, quelle que soit la langue du message de l'utilisateur.
+PROMPT;
         }
 
-        $systemContext = "";
+        // ── Tools instructions (appended only when tools are available) ──
+        if (!empty($tools)) {
+            $developerPrompt .= $isEnglish
+                ? <<<'TOOLS'
 
-        // ── User identity ────────────────────────────────────────────────────────
+
+## TOOL USAGE
+- Use the transits already provided in context FIRST. Only call a tool if the requested period is NOT covered by the data below.
+- If the user asks about a specific future period not covered by the transits below, or wants a precise prediction for a given time (e.g. "in 6 months"), use the `get_transits` tool to calculate the exact transits for that period.
+- If the user asks where a specific planet (especially Moon, Venus, Mercury, Sun) is TODAY, TOMORROW, or any specific day (e.g. "is the Moon in Scorpio tomorrow?"), use the `get_sky` tool with the appropriate `days_from_now` value. NEVER say you don't know a planet's current or near-future position.
+TOOLS
+                : <<<'TOOLS'
+
+
+## UTILISATION DES OUTILS
+- Utilise d'abord les transits déjà fournis dans le contexte. N'appelle un outil que si la période demandée N'EST PAS couverte par les données ci-dessous.
+- Si l'utilisateur pose une question sur une période future non couverte par les transits ci-dessous, ou veut une prédiction précise (ex : "dans 6 mois"), utilise l'outil `get_transits` pour calculer les transits exacts de cette période.
+- Si l'utilisateur demande dans quel signe se trouve une planète (surtout Lune, Vénus, Mercure, Soleil) AUJOURD'HUI, DEMAIN ou un jour précis (ex : "la Lune est en Scorpion demain ?"), utilise l'outil `get_sky` avec la valeur `days_from_now` appropriée. Ne dis JAMAIS que tu ne connais pas la position actuelle ou proche d'une planète.
+TOOLS;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // CONTEXTUAL DATA — injected into the developer prompt directly
+        // (avoids ambiguous developer/system role split)
+        // ══════════════════════════════════════════════════════════════════
+
+        $contextParts = [];
+
+        // ── User identity ────────────────────────────────────────────────
         $identityLines = [];
         if (!empty($userContext['name'])) {
             $identityLines[] = $isEnglish ? "Name: {$userContext['name']}" : "Prénom : {$userContext['name']}";
@@ -675,48 +820,55 @@ PROMPT;
         }
         if (!empty($identityLines)) {
             $label = $isEnglish ? "— User —" : "— Utilisateur —";
-            $systemContext .= $label . "\n" . implode("\n", $identityLines) . "\n\n";
+            $contextParts[] = $label . "\n" . implode("\n", $identityLines);
         }
 
-        // ── User natal chart positions ───────────────────────────────────────────
+        // ── User natal chart positions ───────────────────────────────────
         if (!empty($userContext['positions'])) {
             $label = $isEnglish ? "User's natal chart:" : "Thème natal de l'utilisateur :";
-            $systemContext .= $label . "\n" . $this->formatPositions($userContext['positions']) . "\n\n";
+            $contextParts[] = $label . "\n" . $this->formatPositions($userContext['positions']);
         }
 
-        // ── Partner context (optional) ───────────────────────────────────────────
+        // ── Partner context (optional) ───────────────────────────────────
         if (!empty($userContext['partner_name'])) {
             $partnerName = $userContext['partner_name'];
             $score = isset($userContext['compatibility_score']) ? (int) $userContext['compatibility_score'] : null;
-            $scoreStr = $score !== null ? ($isEnglish ? " (compatibility score: {$score}/100)" : " (score de compatibilité : {$score}/100)") : '';
+            $scoreStr = $score !== null
+                ? ($isEnglish ? " (compatibility score: {$score}/100)" : " (score de compatibilité : {$score}/100)")
+                : '';
             $label = $isEnglish
                 ? "— Partner in context: {$partnerName}{$scoreStr} —"
                 : "— Partenaire en contexte : {$partnerName}{$scoreStr} —";
-            $systemContext .= $label . "\n";
+            $partnerBlock = $label;
 
             if (!empty($userContext['partner_positions'])) {
                 $posLabel = $isEnglish ? "{$partnerName}'s natal chart:" : "Thème natal de {$partnerName} :";
-                $systemContext .= $posLabel . "\n" . $this->formatPositions($userContext['partner_positions']) . "\n\n";
+                $partnerBlock .= "\n" . $posLabel . "\n" . $this->formatPositions($userContext['partner_positions']);
             }
+            $contextParts[] = $partnerBlock;
         }
 
-        // ── Upcoming transits (next 12 months) ──────────────────────────────────
+        // ── Upcoming transits (next 12 months) ──────────────────────────
         if (!empty($userContext['upcoming_transits'])) {
             $label = $isEnglish
                 ? "— Upcoming transits (next 12 months, computed) —"
                 : "— Transits à venir (12 prochains mois, calculés) —";
-            $systemContext .= $label . "\n" . $this->formatUpcomingTransits($userContext['upcoming_transits'], $isEnglish) . "\n\n";
+            $contextParts[] = $label . "\n" . $this->formatUpcomingTransits($userContext['upcoming_transits'], $isEnglish);
         }
 
-        $systemContext = trim($systemContext);
+        // ── Merge context into developer prompt ─────────────────────────
+        if (!empty($contextParts)) {
+            $separator = $isEnglish ? "\n\n---\n## REFERENCE DATA\n" : "\n\n---\n## DONNÉES DE RÉFÉRENCE\n";
+            $developerPrompt .= $separator . implode("\n\n", $contextParts);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // MESSAGE ASSEMBLY — single developer message + user messages
+        // ══════════════════════════════════════════════════════════════════
 
         $chatMessages = [
-            ['role' => 'developer', 'content' => $developerPrompt]
+            ['role' => 'developer', 'content' => $developerPrompt],
         ];
-
-        if (!empty($systemContext)) {
-            $chatMessages[] = ['role' => 'system', 'content' => $systemContext];
-        }
 
         $inputMessages = array_values(array_map(fn($m) => [
             'role'    => $m['role'],
@@ -725,13 +877,17 @@ PROMPT;
 
         $chatMessages = array_merge($chatMessages, $inputMessages);
 
-        $result = $this->callMultiTurnApi($chatMessages, $toolHandler, $tools);
+        $result = $this->callMultiTurnApi($chatMessages, $toolHandler, $tools, $previousResponseId);
 
         if (!$result['success']) {
             return $result;
         }
 
-        return ['success' => true, 'message' => $result['content']];
+        return [
+            'success'     => true,
+            'message'     => $result['content'],
+            'response_id' => $result['response_id'] ?? null,
+        ];
     }
 
     /**
@@ -810,8 +966,12 @@ PROMPT;
 
     /**
      * Call OpenAI Responses API (/v1/responses) for multi-turn conversation with optional tool use.
+     *
+     * When $previousResponseId is provided, only the last user message is sent as input —
+     * OpenAI chains the conversation server-side. This avoids resending the full history
+     * and sidesteps the "lost in the middle" problem for ongoing conversations.
      */
-    private function callMultiTurnApi(array $chatMessages, ?\Closure $toolHandler = null, array $tools = []): array
+    private function callMultiTurnApi(array $chatMessages, ?\Closure $toolHandler = null, array $tools = [], ?string $previousResponseId = null): array
     {
         // Split developer/system messages (→ instructions) from conversation messages (→ input)
         $instructions = '';
@@ -825,14 +985,10 @@ PROMPT;
             }
         }
 
-        $payload = ['model' => $this->model, 'input' => $inputMessages];
-        if ($instructions !== '') {
-            $payload['instructions'] = $instructions;
-        }
-
-        // Convert tools from Chat Completions format to Responses API format
+        // Convert tools to Responses API format
+        $formattedTools = [];
         if (!empty($tools)) {
-            $payload['tools'] = array_map(function (array $tool): array {
+            $formattedTools = array_map(function (array $tool): array {
                 if (isset($tool['function'])) {
                     return [
                         'type'        => 'function',
@@ -845,19 +1001,43 @@ PROMPT;
             }, $tools);
         }
 
+        // Build payload — when chaining, only send the latest user message
+        $payload = ['model' => $this->model];
+        if ($instructions !== '') {
+            $payload['instructions'] = $instructions;
+        }
+        if (!empty($formattedTools)) {
+            $payload['tools'] = $formattedTools;
+        }
+
+        if ($previousResponseId !== null) {
+            $payload['previous_response_id'] = $previousResponseId;
+            // Only send the most recent user message — history is held server-side
+            $lastUser = null;
+            foreach (array_reverse($inputMessages) as $msg) {
+                if ($msg['role'] === 'user') { $lastUser = $msg; break; }
+            }
+            $payload['input'] = $lastUser ? [$lastUser] : $inputMessages;
+        } else {
+            $payload['input'] = $inputMessages;
+        }
+
+        $headers = [
+            'Authorization' => 'Bearer ' . $this->apiKey,
+            'Content-Type'  => 'application/json',
+        ];
+
         try {
             $response = $this->client->request('POST', $this->apiUrl . '/responses', [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type'  => 'application/json',
-                ],
-                'json' => $payload,
+                'headers' => $headers,
+                'json'    => $payload,
+                'timeout' => 180,
             ]);
 
-            $data = $response->toArray();
-
-            $outputText = null;
-            $toolCalls  = [];
+            $data          = $response->toArray();
+            $responseId    = $data['id'] ?? null;
+            $outputText    = null;
+            $toolCalls     = [];
 
             foreach ($data['output'] ?? [] as $item) {
                 if (($item['type'] ?? '') === 'function_call') {
@@ -871,35 +1051,39 @@ PROMPT;
                 }
             }
 
-            // Handle tool calls
+            // Handle tool calls — chain from the current response via previous_response_id
             if (!empty($toolCalls) && $toolHandler !== null) {
-                // Append the assistant output items then the tool results
-                foreach ($data['output'] as $item) {
-                    $inputMessages[] = $item;
-                }
-
+                $toolResultItems = [];
                 foreach ($toolCalls as $toolCall) {
-                    $arguments = json_decode($toolCall['arguments'], true) ?? [];
+                    $arguments  = json_decode($toolCall['arguments'], true) ?? [];
                     $toolResult = $toolHandler($toolCall['name'], $arguments);
-
-                    $inputMessages[] = [
+                    $toolResultItems[] = [
                         'type'    => 'function_call_output',
                         'call_id' => $toolCall['call_id'],
                         'output'  => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
                     ];
                 }
 
-                $payload['input'] = $inputMessages;
+                $payload2 = [
+                    'model'                => $this->model,
+                    'previous_response_id' => $responseId,
+                    'input'                => $toolResultItems,
+                ];
+                if ($instructions !== '') {
+                    $payload2['instructions'] = $instructions;
+                }
+                if (!empty($formattedTools)) {
+                    $payload2['tools'] = $formattedTools;
+                }
 
-                $response2 = $this->client->request('POST', $this->apiUrl . '/responses', [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $this->apiKey,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'json' => $payload,
+                $response2  = $this->client->request('POST', $this->apiUrl . '/responses', [
+                    'headers' => $headers,
+                    'json'    => $payload2,
+                    'timeout' => 180,
                 ]);
+                $data2      = $response2->toArray();
+                $responseId = $data2['id'] ?? $responseId;
 
-                $data2 = $response2->toArray();
                 foreach ($data2['output'] ?? [] as $item) {
                     if (($item['type'] ?? '') === 'message') {
                         foreach ($item['content'] ?? [] as $content) {
@@ -915,7 +1099,7 @@ PROMPT;
                 return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
             }
 
-            return ['success' => true, 'content' => $outputText];
+            return ['success' => true, 'content' => $outputText, 'response_id' => $responseId];
 
         } catch (ExceptionInterface $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
