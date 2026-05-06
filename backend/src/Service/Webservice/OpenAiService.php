@@ -1233,4 +1233,26 @@ INPUT;
             'interpretation' => trim($result['content']),
         ];
     }
+
+    /**
+     * Generic section generation for natal chart analysis.
+     * Public wrapper around callResponsesApi for NatalChartAnalysisService.
+     *
+     * @param string $input        The section prompt
+     * @param string $instructions System/persona instructions
+     * @return array {success: bool, content?: string, error?: string}
+     */
+    public function generateNatalChartSection(string $input, string $instructions): array
+    {
+        $result = $this->callResponsesApi($input, $instructions);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        return [
+            'success' => true,
+            'content' => $result['content'],
+        ];
+    }
 }

@@ -176,6 +176,8 @@ export default function RootLayout() {
                         <Stack.Screen name="partner-chart" options={{ headerShown: false }} />
                         <Stack.Screen name="notification-preferences" options={{ headerShown: false }} />
                         <Stack.Screen name="compatibility-result" options={{ headerShown: false }} />
+                        <Stack.Screen name="natal-chart-analysis" options={{ headerShown: false }} />
+                        <Stack.Screen name="natal-chart-section" options={{ headerShown: false }} />
                         {/* Legal Screens */}
                         <Stack.Screen name="privacy-policy" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="terms-of-service" options={{ headerShown: false, presentation: 'modal' }} />

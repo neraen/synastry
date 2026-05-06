@@ -562,3 +562,61 @@ export async function getMirrorInterpretation(
         ...(pinnedEvent ? { pinned_event: pinnedEvent } : {}),
     });
 }
+
+// ─── Natal Chart Analysis ─────────────────────────────────────────────────────
+
+export interface SynthesisAxis {
+    title: string;
+    description: string;
+}
+
+export interface SynthesisData {
+    axes: SynthesisAxis[];
+    portrait: string;
+    notable_configs: string[];
+}
+
+export interface AspectInterpretation {
+    planets: string;
+    type: string;
+    orb: number;
+    interpretation: string;
+}
+
+export interface AspectsData {
+    aspects: AspectInterpretation[];
+}
+
+export type NatalChartSectionContent = string | SynthesisData | AspectsData;
+
+export interface NatalChartSectionResponse {
+    success: boolean;
+    section?: string;
+    content?: NatalChartSectionContent;
+    error?: string;
+}
+
+export interface NatalChartPregenerateResponse {
+    success: boolean;
+    generated?: string[];
+    errors?: string[];
+}
+
+/**
+ * Get a single section of the natal chart analysis.
+ * Returns text for most sections, structured JSON for synthesis and aspects.
+ */
+export async function getNatalChartAnalysisSection(
+    section: string
+): Promise<NatalChartSectionResponse> {
+    return authApi.get<NatalChartSectionResponse>(
+        `/api/natal-chart/section/${encodeURIComponent(section)}`
+    );
+}
+
+/**
+ * Pre-generate all accessible sections in the background.
+ */
+export async function preGenerateNatalChartAnalysis(): Promise<NatalChartPregenerateResponse> {
+    return authApi.post<NatalChartPregenerateResponse>('/api/natal-chart/pregenerate');
+}

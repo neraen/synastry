@@ -50,6 +50,7 @@ class PlanetaryCalculator
         'Saturn'  => '♄',
         'Uranus'  => '♅',
         'Neptune' => '♆',
+        'Pluto'   => '♇',
         'Ascendant' => 'ASC',
         'Midheaven' => 'MC',
     ];
@@ -64,6 +65,7 @@ class PlanetaryCalculator
         'Saturn'  => 'Saturne',
         'Uranus'  => 'Uranus',
         'Neptune' => 'Neptune',
+        'Pluto'   => 'Pluton',
         'Ascendant' => 'Ascendant',
         'Midheaven' => 'Milieu du Ciel',
     ];
@@ -94,6 +96,51 @@ class PlanetaryCalculator
         'Libra'       => 'Venus',   'Scorpio'     => 'Mars',
         'Sagittarius' => 'Jupiter', 'Capricorn'   => 'Saturn',
         'Aquarius'    => 'Saturn',  'Pisces'      => 'Jupiter',
+    ];
+
+    // Modern rulers — used for natal chart analysis (ascendant_ruler, mc_ruler)
+    // Kept separate from SIGN_RULERS to avoid breaking compatibility scoring
+    const SIGN_RULERS_MODERN = [
+        'Aries'       => 'Mars',    'Taurus'      => 'Venus',
+        'Gemini'      => 'Mercury', 'Cancer'      => 'Moon',
+        'Leo'         => 'Sun',     'Virgo'       => 'Mercury',
+        'Libra'       => 'Venus',   'Scorpio'     => 'Pluto',
+        'Sagittarius' => 'Jupiter', 'Capricorn'   => 'Saturn',
+        'Aquarius'    => 'Uranus',  'Pisces'      => 'Neptune',
+    ];
+
+    const SIGN_MODALITIES = [
+        'Aries' => 'cardinal', 'Cancer' => 'cardinal', 'Libra' => 'cardinal', 'Capricorn' => 'cardinal',
+        'Taurus' => 'fixed', 'Leo' => 'fixed', 'Scorpio' => 'fixed', 'Aquarius' => 'fixed',
+        'Gemini' => 'mutable', 'Virgo' => 'mutable', 'Sagittarius' => 'mutable', 'Pisces' => 'mutable',
+    ];
+
+    const SIGN_OFFSETS = [
+        'Aries' => 0, 'Taurus' => 30, 'Gemini' => 60, 'Cancer' => 90,
+        'Leo' => 120, 'Virgo' => 150, 'Libra' => 180, 'Scorpio' => 210,
+        'Sagittarius' => 240, 'Capricorn' => 270, 'Aquarius' => 300, 'Pisces' => 330,
+    ];
+
+    // Weighted scoring for dominant element/modality
+    const PLANET_WEIGHTS = [
+        'Sun' => 3, 'Moon' => 3,
+        'Mercury' => 2, 'Venus' => 2, 'Mars' => 2,
+        'Jupiter' => 1, 'Saturn' => 1,
+        'Uranus' => 0.5, 'Neptune' => 0.5, 'Pluto' => 0.5,
+    ];
+
+    // Dignity tables: planet => [domicile => [signs], exaltation => [signs], exil => [signs], chute => [signs]]
+    const PLANET_DIGNITIES = [
+        'Sun'     => ['domicile' => ['Leo'],       'exaltation' => ['Aries'],       'exil' => ['Aquarius'],    'chute' => ['Libra']],
+        'Moon'    => ['domicile' => ['Cancer'],     'exaltation' => ['Taurus'],      'exil' => ['Capricorn'],   'chute' => ['Scorpio']],
+        'Mercury' => ['domicile' => ['Gemini', 'Virgo'], 'exaltation' => ['Virgo'],  'exil' => ['Sagittarius', 'Pisces'], 'chute' => ['Pisces']],
+        'Venus'   => ['domicile' => ['Taurus', 'Libra'], 'exaltation' => ['Pisces'], 'exil' => ['Aries', 'Scorpio'], 'chute' => ['Virgo']],
+        'Mars'    => ['domicile' => ['Aries', 'Scorpio'], 'exaltation' => ['Capricorn'], 'exil' => ['Taurus', 'Libra'], 'chute' => ['Cancer']],
+        'Jupiter' => ['domicile' => ['Sagittarius', 'Pisces'], 'exaltation' => ['Cancer'], 'exil' => ['Gemini', 'Virgo'], 'chute' => ['Capricorn']],
+        'Saturn'  => ['domicile' => ['Capricorn', 'Aquarius'], 'exaltation' => ['Libra'], 'exil' => ['Cancer', 'Leo'], 'chute' => ['Aries']],
+        'Uranus'  => ['domicile' => ['Aquarius'],  'exaltation' => ['Scorpio'],     'exil' => ['Leo'],         'chute' => ['Taurus']],
+        'Neptune' => ['domicile' => ['Pisces'],     'exaltation' => ['Cancer'],      'exil' => ['Virgo'],       'chute' => ['Capricorn']],
+        'Pluto'   => ['domicile' => ['Scorpio'],    'exaltation' => ['Leo'],         'exil' => ['Taurus'],      'chute' => ['Aquarius']],
     ];
 
     // Points per aspect type (positive = harmonious, negative = tense)
@@ -209,6 +256,14 @@ class PlanetaryCalculator
             'i0' => 1.769952,   'i1' => 0.0002257,
             'O0' => 131.784057, 'O1' => -0.0061651,
             'w0' => 48.123691,  'w1' => 0.0291587,
+        ],
+        'Pluto'   => [
+            'L0' => 238.92903833, 'L1' => 145.20780515,
+            'a'  => 39.48211675,
+            'e0' => 0.24882730,  'e1' => 0.00005170,
+            'i0' => 17.14001206, 'i1' => 0.00004818,
+            'O0' => 110.30393684,'O1' => -0.01183482,
+            'w0' => 224.06891629,'w1' => -0.04062942,
         ],
     ];
 
@@ -491,6 +546,7 @@ PROMPT;
             'Saturn'  => $this->getPlanet('Saturn'),
             'Uranus'  => $this->getPlanet('Uranus'),
             'Neptune' => $this->getPlanet('Neptune'),
+            'Pluto'   => $this->getPlanet('Pluto'),
         ];
     }
 
@@ -702,6 +758,49 @@ PROMPT;
             'Ascendant' => $this->getAscendant()['longitude'],
             default     => $this->getPlanet($name)['longitude'],
         };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NŒUD NORD (vrai)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Retourne le Nœud Nord vrai (True Node) de la Lune.
+     *
+     * La formule de base donne le nœud moyen (mean node). Le nœud vrai
+     * oscille autour du nœud moyen avec une amplitude de ~1.5°, ce qui
+     * peut provoquer un décalage de signe aux frontières (ex. Scorpion vs
+     * Sagittaire). On applique les principaux termes correctifs de Meeus
+     * pour obtenir la position réelle.
+     */
+    public function getNorthNode(): array
+    {
+        $T = $this->T;
+
+        // Nœud ascendant moyen (Meeus Eq. 47.7, simplifiée)
+        $omega = 125.0445479
+            - 1934.1362608 * $T
+            + 0.0020754   * $T * $T;
+        $omega = $this->normDeg($omega);
+
+        // Arguments fondamentaux lunaires — identiques à getMoon()
+        $D = $this->normDeg(297.8501921 + 445267.1114034 * $T - 0.0018819 * $T * $T);
+        $M = $this->normDeg(357.5291092 +  35999.0502909 * $T - 0.0001536 * $T * $T);
+        $F = $this->normDeg( 93.2720950 + 483202.0175233 * $T - 0.0036539 * $T * $T);
+
+        // Correction nœud moyen → nœud vrai (principaux termes périodiques, en degrés)
+        // Terme dominant : ~1.5° d'amplitude — critique aux frontières de signe
+        // Signe positif : le nœud vrai est en avance sur le nœud moyen (rétrograde)
+        $delta = +1.4979 * sin(deg2rad(2.0 * $F))
+                 + 0.1226 * sin(deg2rad(2.0 * $D))
+                 + 0.1150 * sin(deg2rad($M));
+
+        $trueLon = $this->normDeg($omega + $delta);
+
+        return array_merge(
+            $this->longitudeToSign($trueLon),
+            ['retrograde' => false]
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -1024,5 +1123,547 @@ PROMPT;
     public function getName(): string
     {
         return $this->name;
+    }
+
+    // =========================================================================
+    // NATAL CHART ANALYSIS — Full chart payload
+    // =========================================================================
+
+    /**
+     * Returns the complete natal chart payload for GPT analysis.
+     * This is additive — does not modify any existing method behavior.
+     */
+    public function getFullChartPayload(): array
+    {
+        $planets   = $this->getAllPlanets();
+        $ascendant = $this->getAscendant();
+        $midheaven = $this->getMidheaven();
+
+        // Descendant = ASC + 180°, IC = MC + 180°
+        $descendant = $this->longitudeToSign($this->normDeg($ascendant['longitude'] + 180));
+        $ic         = $this->longitudeToSign($this->normDeg($midheaven['longitude'] + 180));
+
+        // Houses (Equal House system)
+        $houseCusps = $this->calculateHouseCusps($ascendant['longitude']);
+
+        // Assign each planet to a house
+        $planetsWithHouses = [];
+        foreach ($planets as $name => $data) {
+            $house = $this->assignToHouse($data['longitude'], $houseCusps);
+            $dignity = $this->calculateDignity($name, $data['sign']);
+            $planetsWithHouses[$name] = [
+                'sign'    => $data['sign'],
+                'house'   => $house,
+                'degree'  => $data['degrees'] ?? (int) floor(fmod($data['longitude'], 30)),
+                'dignity' => $dignity,
+            ];
+        }
+
+        // Build houses array with signs and planets
+        $houses = $this->buildHousesArray($houseCusps, $planets);
+
+        // Lunar Nodes
+        $northNodeLon = $this->getMeanNorthNode();
+        $northNode    = $this->longitudeToSign($northNodeLon);
+        $southNode    = $this->longitudeToSign($this->normDeg($northNodeLon + 180));
+        $nodes = [
+            'north' => [
+                'sign'  => $northNode['sign'],
+                'house' => $this->assignToHouse($northNodeLon, $houseCusps),
+            ],
+            'south' => [
+                'sign'  => $southNode['sign'],
+                'house' => $this->assignToHouse($this->normDeg($northNodeLon + 180), $houseCusps),
+            ],
+        ];
+
+        // Angles
+        $angles = [
+            'ascendant'  => ['sign' => $ascendant['sign'],  'degree' => $ascendant['degrees']],
+            'midheaven'  => ['sign' => $midheaven['sign'],  'degree' => $midheaven['degrees']],
+            'descendant' => ['sign' => $descendant['sign'], 'degree' => $descendant['degrees']],
+            'ic'         => ['sign' => $ic['sign'],         'degree' => $ic['degrees']],
+        ];
+
+        // Aspects between natal planets
+        $natalAspects = $this->calculateNatalAspects($planets);
+
+        // Rulers
+        $ascRuler = $this->calculateRuler($ascendant['sign'], $planetsWithHouses);
+        $mcRuler  = $this->calculateRuler($midheaven['sign'], $planetsWithHouses);
+
+        // Dominants
+        $dominantElement  = $this->calculateDominantElement($planetsWithHouses);
+        $dominantModality = $this->calculateDominantModality($planetsWithHouses);
+        $dominantPlanets  = $this->calculateDominantPlanets(
+            $planetsWithHouses, $natalAspects, $ascendant['sign'], $midheaven['sign']
+        );
+
+        // Stelliums
+        $stelliums = $this->detectStelliums($planetsWithHouses);
+
+        // Chart pattern
+        $chartPattern = $this->calculateChartPattern($planets);
+
+        return [
+            'planets'            => $planetsWithHouses,
+            'angles'             => $angles,
+            'houses'             => $houses,
+            'nodes'              => $nodes,
+            'aspects'            => $natalAspects,
+            'ascendant_ruler'    => $ascRuler,
+            'mc_ruler'           => $mcRuler,
+            'dominant_element'   => $dominantElement,
+            'dominant_modality'  => $dominantModality,
+            'dominant_planets'   => $dominantPlanets,
+            'stelliums'          => $stelliums,
+            'chart_pattern'      => $chartPattern,
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Equal House System
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Calculate house cusps using the Equal House system.
+     * Each house spans exactly 30° starting from the Ascendant.
+     *
+     * @return float[] Array of 12 cusp longitudes (0-indexed: cusp[0] = house 1)
+     */
+    private function calculateHouseCusps(float $ascLongitude): array
+    {
+        $cusps = [];
+        for ($i = 0; $i < 12; $i++) {
+            $cusps[$i] = $this->normDeg($ascLongitude + ($i * 30));
+        }
+        return $cusps;
+    }
+
+    /**
+     * Assign a longitude to a house number (1-12).
+     */
+    private function assignToHouse(float $longitude, array $cusps): int
+    {
+        $lon = $this->normDeg($longitude);
+        for ($i = 11; $i >= 0; $i--) {
+            $cusp     = $cusps[$i];
+            $nextCusp = $cusps[($i + 1) % 12];
+
+            if ($nextCusp <= $cusp) {
+                // House wraps around 0°
+                if ($lon >= $cusp || $lon < $nextCusp) {
+                    return $i + 1;
+                }
+            } else {
+                if ($lon >= $cusp && $lon < $nextCusp) {
+                    return $i + 1;
+                }
+            }
+        }
+        return 1; // fallback
+    }
+
+    /**
+     * Build houses array: each house with its sign and list of planets.
+     */
+    private function buildHousesArray(array $cusps, array $planets): array
+    {
+        $houses = [];
+        for ($i = 0; $i < 12; $i++) {
+            $cuspSign = $this->longitudeToSign($cusps[$i]);
+            $housePlanets = [];
+            foreach ($planets as $name => $data) {
+                if ($this->assignToHouse($data['longitude'], $cusps) === $i + 1) {
+                    $housePlanets[] = $name;
+                }
+            }
+            $houses[$i + 1] = [
+                'sign'    => $cuspSign['sign'],
+                'planets' => $housePlanets,
+            ];
+        }
+        return $houses;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lunar Nodes
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Calculate Mean North Node longitude.
+     * Based on Meeus, Chapter 47.
+     */
+    private function getMeanNorthNode(): float
+    {
+        $T = $this->T;
+        // Mean longitude of the ascending node (Meeus)
+        $omega = 125.0445479
+            - 1934.1362891 * $T
+            + 0.0020754 * $T * $T
+            + $T * $T * $T / 467441.0
+            - $T * $T * $T * $T / 60616000.0;
+
+        return $this->normDeg($omega);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Dignities
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Calculate the dignity status of a planet in a sign.
+     */
+    private function calculateDignity(string $planet, string $sign): string
+    {
+        $dignities = self::PLANET_DIGNITIES[$planet] ?? null;
+        if (!$dignities) {
+            return 'neutral';
+        }
+
+        if (in_array($sign, $dignities['domicile'], true)) return 'domicile';
+        if (in_array($sign, $dignities['exaltation'], true)) return 'exaltation';
+        if (in_array($sign, $dignities['exil'], true)) return 'exil';
+        if (in_array($sign, $dignities['chute'], true)) return 'chute';
+
+        return 'neutral';
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Natal Aspects (between natal planets only)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Calculate aspects between all natal planets.
+     * Returns aspects with applying boolean.
+     */
+    private function calculateNatalAspects(array $planets): array
+    {
+        $planetNames = array_keys($planets);
+        $aspects = [];
+
+        for ($i = 0; $i < count($planetNames); $i++) {
+            for ($j = $i + 1; $j < count($planetNames); $j++) {
+                $nameA = $planetNames[$i];
+                $nameB = $planetNames[$j];
+                $lonA  = $planets[$nameA]['longitude'];
+                $lonB  = $planets[$nameB]['longitude'];
+
+                $aspect = $this->detectAspect($lonA, $lonB, $nameA, $nameB);
+                if ($aspect !== null) {
+                    // Determine if aspect is applying (planets getting closer)
+                    $applying = $this->isAspectApplying($nameA, $nameB, $aspect['type']);
+                    $aspect['applying'] = $applying;
+                    $aspects[] = $aspect;
+                }
+            }
+        }
+
+        usort($aspects, fn($a, $b) => $a['orb'] <=> $b['orb']);
+        return $aspects;
+    }
+
+    /**
+     * Determine if an aspect is applying (getting tighter) by comparing
+     * the aspect orb today vs tomorrow.
+     */
+    private function isAspectApplying(string $planetA, string $planetB, string $aspectType): bool
+    {
+        $targetAngle = self::ASPECTS[$aspectType][0] ?? 0;
+
+        $lonA = $this->getPlanetLongitude($planetA);
+        $lonB = $this->getPlanetLongitude($planetB);
+        $diff = abs($lonA - $lonB);
+        if ($diff > 180) $diff = 360 - $diff;
+        $currentOrb = abs($diff - $targetAngle);
+
+        // Compute tomorrow's positions
+        $jdOrig = $this->julianDay;
+        $T_orig = $this->T;
+
+        $this->julianDay = $jdOrig + 1;
+        $this->T = ($this->julianDay - 2451545.0) / 36525.0;
+
+        $lonA2 = $this->getPlanetLongitude($planetA);
+        $lonB2 = $this->getPlanetLongitude($planetB);
+
+        // Restore
+        $this->julianDay = $jdOrig;
+        $this->T = $T_orig;
+
+        $diff2 = abs($lonA2 - $lonB2);
+        if ($diff2 > 180) $diff2 = 360 - $diff2;
+        $futureOrb = abs($diff2 - $targetAngle);
+
+        return $futureOrb < $currentOrb;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Ruler calculations
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Find the ruler of a sign and its position.
+     * Uses modern rulers.
+     */
+    private function calculateRuler(string $sign, array $planetsWithHouses): array
+    {
+        $rulerName = self::SIGN_RULERS_MODERN[$sign] ?? 'Sun';
+        $rulerData = $planetsWithHouses[$rulerName] ?? null;
+
+        return [
+            'planet' => $rulerName,
+            'sign'   => $rulerData['sign'] ?? 'Aries',
+            'house'  => $rulerData['house'] ?? 1,
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Dominant calculations
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Calculate the dominant element by weighted scoring.
+     */
+    private function calculateDominantElement(array $planetsWithHouses): string
+    {
+        $scores = ['fire' => 0, 'earth' => 0, 'air' => 0, 'water' => 0];
+
+        foreach ($planetsWithHouses as $name => $data) {
+            $weight  = self::PLANET_WEIGHTS[$name] ?? 0;
+            $element = self::SIGN_ELEMENTS[$data['sign']] ?? null;
+            if ($element) {
+                $scores[$element] += $weight;
+            }
+        }
+
+        // Map to French
+        $frMap = ['fire' => 'feu', 'earth' => 'terre', 'air' => 'air', 'water' => 'eau'];
+        $winner = array_keys($scores, max($scores))[0];
+        return $frMap[$winner];
+    }
+
+    /**
+     * Calculate the dominant modality by weighted scoring.
+     */
+    private function calculateDominantModality(array $planetsWithHouses): string
+    {
+        $scores = ['cardinal' => 0, 'fixed' => 0, 'mutable' => 0];
+
+        foreach ($planetsWithHouses as $name => $data) {
+            $weight   = self::PLANET_WEIGHTS[$name] ?? 0;
+            $modality = self::SIGN_MODALITIES[$data['sign']] ?? null;
+            if ($modality) {
+                $scores[$modality] += $weight;
+            }
+        }
+
+        // Map to French
+        $frMap = ['cardinal' => 'cardinal', 'fixed' => 'fixe', 'mutable' => 'mutable'];
+        $winner = array_keys($scores, max($scores))[0];
+        return $frMap[$winner];
+    }
+
+    /**
+     * Calculate dominant planets based on 5 criteria.
+     * Returns max 3 planets with score > 3, sorted by score desc.
+     */
+    private function calculateDominantPlanets(
+        array $planetsWithHouses,
+        array $aspects,
+        string $ascSign,
+        string $mcSign
+    ): array {
+        $ascRuler = self::SIGN_RULERS_MODERN[$ascSign] ?? null;
+        $mcRuler  = self::SIGN_RULERS_MODERN[$mcSign] ?? null;
+
+        $scores = [];
+        foreach ($planetsWithHouses as $name => $data) {
+            $score = 0;
+
+            // 1. Dignity: domicile/exaltation +3, exil/chute -1
+            if ($data['dignity'] === 'domicile' || $data['dignity'] === 'exaltation') {
+                $score += 3;
+            } elseif ($data['dignity'] === 'exil' || $data['dignity'] === 'chute') {
+                $score -= 1;
+            }
+
+            // 2. Angular house (1, 4, 7, 10) +2
+            if (in_array($data['house'], [1, 4, 7, 10], true)) {
+                $score += 2;
+            }
+
+            // 3. Number of aspects (max +4)
+            $aspectCount = 0;
+            foreach ($aspects as $asp) {
+                if ($asp['planet_a'] === $name || $asp['planet_b'] === $name) {
+                    $aspectCount++;
+                }
+            }
+            $score += min(4, $aspectCount);
+
+            // 4. Ruler of ASC or MC +2
+            if ($name === $ascRuler || $name === $mcRuler) {
+                $score += 2;
+            }
+
+            // 5. Planet in house 1 +2
+            if ($data['house'] === 1) {
+                $score += 2;
+            }
+
+            $scores[$name] = $score;
+        }
+
+        arsort($scores);
+        $dominant = [];
+        foreach ($scores as $name => $score) {
+            if ($score > 3 && count($dominant) < 3) {
+                $dominant[] = $name;
+            }
+        }
+
+        return $dominant;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Stellium detection
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Detect stelliums (3+ planets in same sign or same house).
+     * Returns descriptive strings.
+     */
+    private function detectStelliums(array $planetsWithHouses): array
+    {
+        $stelliums = [];
+
+        // Group by sign
+        $bySign = [];
+        foreach ($planetsWithHouses as $name => $data) {
+            $bySign[$data['sign']][] = $name;
+        }
+        foreach ($bySign as $sign => $planets) {
+            if (count($planets) >= 3) {
+                $frSign = self::SIGNS_FR[array_search($sign, self::SIGNS)] ?? $sign;
+                $frPlanets = array_map(fn($p) => self::PLANETS_FR[$p] ?? $p, $planets);
+                $stelliums[] = "Stellium en {$frSign} (" . implode(', ', $frPlanets) . ")";
+            }
+        }
+
+        // Group by house
+        $byHouse = [];
+        foreach ($planetsWithHouses as $name => $data) {
+            $byHouse[$data['house']][] = $name;
+        }
+        foreach ($byHouse as $house => $planets) {
+            if (count($planets) >= 3) {
+                $frPlanets = array_map(fn($p) => self::PLANETS_FR[$p] ?? $p, $planets);
+                $stelliums[] = "Stellium en maison {$house} (" . implode(', ', $frPlanets) . ")";
+            }
+        }
+
+        return $stelliums;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Chart pattern
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Determine the chart pattern (Jones patterns).
+     * Uses absolute longitudes sorted around the circle.
+     */
+    private function calculateChartPattern(array $planets): string
+    {
+        // Collect all planet longitudes
+        $longitudes = [];
+        foreach ($planets as $data) {
+            $longitudes[] = $this->normDeg($data['longitude']);
+        }
+        sort($longitudes);
+        $n = count($longitudes);
+        if ($n < 2) return 'splash';
+
+        // Calculate gaps between consecutive planets on the circle
+        $gaps = [];
+        for ($i = 0; $i < $n; $i++) {
+            $next = ($i + 1) % $n;
+            $gap = $longitudes[$next] - $longitudes[$i];
+            if ($gap <= 0) $gap += 360;
+            $gaps[] = $gap;
+        }
+
+        $largestGap = max($gaps);
+        $occupiedArc = 360 - $largestGap;
+
+        // Count how many gaps are > 60°
+        $largeGaps = array_filter($gaps, fn($g) => $g > 60);
+        $largeGapCount = count($largeGaps);
+
+        // Count distinct signs
+        $signs = [];
+        foreach ($planets as $data) {
+            $signs[$data['sign']] = true;
+        }
+        $distinctSigns = count($signs);
+
+        // Classification in priority order per spec
+        // 1. Bundle: occupied arc ≤ 120°
+        if ($occupiedArc <= 120) {
+            return 'bundle';
+        }
+
+        // 2. Bucket: largest gap ≥ 180° and one isolated planet
+        if ($largestGap >= 180) {
+            $isolated = $this->countIsolatedPlanets($longitudes, $gaps);
+            if ($isolated === 1) {
+                return 'bucket';
+            }
+            // 3. Bowl: largest gap ≥ 180° (no isolated planet)
+            return 'bowl';
+        }
+
+        // 4. Seesaw: exactly 2 gaps > 60°
+        if ($largeGapCount === 2) {
+            return 'seesaw';
+        }
+
+        // 5. Locomotive: largest gap ≥ 120° and occupied arc ≤ 240°
+        if ($largestGap >= 120 && $occupiedArc <= 240) {
+            return 'locomotive';
+        }
+
+        // 6. Splash: planets in 7+ signs
+        if ($distinctSigns >= 7) {
+            return 'splash';
+        }
+
+        // 7. Default: splay
+        return 'splay';
+    }
+
+    /**
+     * Count how many planets are isolated on the other side of the largest gap.
+     * A planet is "isolated" if it's separated by > 60° from all others.
+     */
+    private function countIsolatedPlanets(array $sortedLongitudes, array $gaps): int
+    {
+        // Find index of largest gap
+        $maxGapIdx = array_keys($gaps, max($gaps))[0];
+        $n = count($sortedLongitudes);
+
+        // The "other side" of the gap starts at planet after the gap
+        // Check each planet: is it separated from its neighbors by > 60°?
+        $isolated = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $prevGap = $gaps[($i - 1 + $n) % $n];
+            $nextGap = $gaps[$i];
+            if ($prevGap > 60 && $nextGap > 60) {
+                $isolated++;
+            }
+        }
+
+        return $isolated;
     }
 }

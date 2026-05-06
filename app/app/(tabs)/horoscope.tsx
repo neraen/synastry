@@ -427,6 +427,12 @@ export default function HoroscopeTab() {
                     {/* ── Actions ──────────────────────────────────────────────── */}
                     {chart && (
                         <View style={styles.actions}>
+                            <GoldButton
+                                label="Portrait astral complet"
+                                onPress={() => router.push('/natal-chart-analysis')}
+                                rightIcon
+                            />
+                            <View style={{ height: spacing.md }} />
                             <GhostButton
                                 label={t('horoscope.compatibilityAnalysis')}
                                 onPress={() => router.push('/(tabs)/compatibility')}
