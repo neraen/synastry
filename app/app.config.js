@@ -82,6 +82,14 @@ export default {
       '@react-native-community/datetimepicker',
       'expo-localization',
       [
+        'expo-notifications',
+        {
+          icon: './assets/images/lunestia-icon.png',
+          color: '#4B0082',
+          sounds: [],
+        },
+      ],
+      [
         'expo-splash-screen',
         {
           image: './assets/images/lunestia-icon.png',
@@ -110,6 +118,9 @@ export default {
     },
 
     // Updates (OTA)
+    runtimeVersion: {
+      policy: 'appVersion',
+    },
     updates: {
       url: 'https://u.expo.dev/8968e738-730c-4db7-b676-9749546b6740',
     },
