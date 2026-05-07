@@ -363,9 +363,17 @@ Rédige une interprétation précise qui couvre :
      */
     public function getCompatibilityAnalysis(string $prompt, array $calculatedScores = []): array
     {
-        $instructions = $this->localeService->getLocale() === 'en'
+        $isEnglish = $this->localeService->getLocale() === 'en';
+        $instructions = $isEnglish
             ? "You are an experienced astrologer. Write a compatibility analysis based on the data provided. Respond ONLY with valid JSON, no text before or after."
             : "Tu es un astrologue expérimenté. Rédige une analyse de compatibilité à partir des données fournies. Réponds UNIQUEMENT en JSON valide, sans texte avant ou après.";
+
+        if (!empty($calculatedScores) && isset($calculatedScores['score_global'])) {
+            $score = $calculatedScores['score_global'];
+            $instructions .= $isEnglish
+                ? "\n\nA compatibility score of {$score}/100 has been pre-calculated. Use it as a reference for coherence in your analysis, but do not base your entire interpretation on it. Always nuance with the qualitative aspects of the charts."
+                : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence de ton analyse, mais ne base pas toute ton interprétation dessus. Nuance toujours avec les aspects qualitatifs du thème.";
+        }
 
         $result = $this->callResponsesApi($prompt, $instructions);
 

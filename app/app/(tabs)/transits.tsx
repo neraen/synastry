@@ -26,7 +26,6 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader } from '@/components/ui';
-import { TransitOnboarding, hasSeenTransitOnboarding } from '@/components/TransitOnboarding';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import { router } from 'expo-router';
@@ -948,24 +947,9 @@ export default function TransitsScreen() {
     // Tab state
     const [activeTab, setActiveTab] = useState<'timeline' | 'calendar' | 'mirror'>('timeline');
 
-    // Onboarding
-    const [onboardingVisible, setOnboardingVisible] = useState(false);
     const rootRef = useRef<View>(null);
     const tabsRef = useRef<View>(null);
-    const tab1Ref = useRef<View>(null);
-    const tab2Ref = useRef<View>(null);
-    const tab3Ref = useRef<View>(null);
-    const helpBtnRef = useRef<View>(null);
-    const tlAreaRef = useRef<View>(null);
-    const calAreaRef = useRef<View>(null);
-    const mirrorAreaRef = useRef<View>(null);
     const scrollRef = useRef<ScrollView>(null);
-
-    useEffect(() => {
-        hasSeenTransitOnboarding().then((done) => {
-            if (!done) setOnboardingVisible(true);
-        });
-    }, []);
 
     // Mirror lazy-mount: mount once the user first visits the tab
     const [mirrorEverVisited, setMirrorEverVisited] = useState(false);
@@ -1127,7 +1111,7 @@ export default function TransitsScreen() {
                     {/* Tab toggle */}
                     <View style={styles.tabToggleWrap}>
                         <View ref={tabsRef} style={styles.tabToggle}>
-                            <View ref={tab1Ref} collapsable={false} style={styles.tabBtnWrap}>
+                            <View style={styles.tabBtnWrap}>
                                 <Pressable
                                     style={[styles.tabBtn, activeTab === 'timeline' && styles.tabBtnActive]}
                                     onPress={() => setActiveTab('timeline')}
@@ -1142,7 +1126,7 @@ export default function TransitsScreen() {
                                     </Text>
                                 </Pressable>
                             </View>
-                            <View ref={tab2Ref} collapsable={false} style={styles.tabBtnWrap}>
+                            <View style={styles.tabBtnWrap}>
                                 <Pressable
                                     style={[styles.tabBtn, activeTab === 'calendar' && styles.tabBtnActive]}
                                     onPress={() => setActiveTab('calendar')}
@@ -1157,7 +1141,7 @@ export default function TransitsScreen() {
                                     </Text>
                                 </Pressable>
                             </View>
-                            <View ref={tab3Ref} collapsable={false} style={styles.tabBtnWrap}>
+                            <View style={styles.tabBtnWrap}>
                                 <Pressable
                                     style={[styles.tabBtn, activeTab === 'mirror' && styles.tabBtnActive]}
                                     onPress={() => setActiveTab('mirror')}
@@ -1173,7 +1157,7 @@ export default function TransitsScreen() {
                                 </Pressable>
                             </View>
                         </View>
-                        <View ref={helpBtnRef} collapsable={false}>
+                        <View>
                             <Pressable onPress={() => setHelpVisible(true)} hitSlop={12} style={styles.helpBtn}>
                                 <Feather name="help-circle" size={18} color={colors.onSurfaceMuted} />
                             </Pressable>
@@ -1183,7 +1167,7 @@ export default function TransitsScreen() {
                     {/* ── Timeline tab ── */}
                     {activeTab === 'timeline' && (
                         <>
-                            <View ref={tlAreaRef} style={styles.aiBadgeWrap}>
+                            <View style={styles.aiBadgeWrap}>
                                 <View style={styles.aiBadge}>
                                     <View style={styles.aiBadgeDot} />
                                     <Text style={styles.aiBadgeText}>{t('transits.aiBadge')}</Text>
@@ -1230,7 +1214,7 @@ export default function TransitsScreen() {
                     )}
 
                     {activeTab === 'calendar' && isPremium && (
-                        <View ref={calAreaRef} style={styles.calendarSection}>
+                        <View style={styles.calendarSection}>
 
                             {/* Month navigation */}
                             <View style={styles.calNavRow}>
@@ -1387,7 +1371,6 @@ export default function TransitsScreen() {
                     {/* ── Mirror tab ── mounted once, hidden when not active to preserve state */}
                     {mirrorEverVisited && (
                         <View
-                            ref={mirrorAreaRef}
                             style={[styles.mirrorWrap, { display: activeTab === 'mirror' ? 'flex' : 'none' }]}
                         >
                             <MirrorTabContent />
@@ -1410,16 +1393,6 @@ export default function TransitsScreen() {
 
             </SafeAreaView>
 
-            {onboardingVisible && (
-                <TransitOnboarding
-                    refs={{ tabs: tabsRef, tab1: tab1Ref, tab2: tab2Ref, tab3: tab3Ref, help: helpBtnRef, timeline: tlAreaRef, calendar: calAreaRef, mirror: mirrorAreaRef }}
-                    rootRef={rootRef}
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                    scrollRef={scrollRef}
-                    onDone={() => setOnboardingVisible(false)}
-                />
-            )}
         </View>
     );
 }

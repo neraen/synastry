@@ -4,7 +4,6 @@ import {
     Text,
     Pressable,
     StyleSheet,
-    KeyboardAvoidingView,
     Platform,
     ScrollView,
     Animated,
@@ -12,13 +11,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/contexts/AuthContext';
-import { loginWithGoogle } from '@/services/oauth';
-import { AppInput, InlineLoading } from '@/components/ui';
+import { loginWithGoogle, loginWithApple } from '@/services/oauth';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { InlineLoading } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -26,11 +25,10 @@ WebBrowser.maybeCompleteAuthSession();
 export default function Login() {
     const router = useRouter();
     const { t } = useTranslation();
-    const { login, refreshUser, isLoading } = useAuth();
-    const [email, setEmail] = useState('');
-    const [pwd, setPwd] = useState('');
+    const { refreshUser } = useAuth();
     const [error, setError] = useState<string | undefined>();
     const [googleLoading, setGoogleLoading] = useState(false);
+    const [appleLoading, setAppleLoading] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
@@ -75,17 +73,29 @@ export default function Login() {
         }
     }
 
-    async function handleLogin() {
-        if (!email || !pwd) {
-            setError(t('auth.errors.emailRequired'));
-            return;
-        }
+    async function handleAppleLogin() {
+        setAppleLoading(true);
         setError(undefined);
         try {
-            await login({ email, password: pwd });
+            const credential = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                ],
+            });
+            if (!credential.identityToken) throw new Error(t('auth.errors.loginFailed'));
+            await loginWithApple(credential.identityToken, {
+                email: credential.email ?? undefined,
+                fullName: credential.fullName ?? undefined,
+            });
+            await refreshUser();
             router.replace('/(tabs)');
-        } catch (err) {
-            setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
+        } catch (err: any) {
+            if (err?.code !== 'ERR_REQUEST_CANCELED') {
+                setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
+            }
+        } finally {
+            setAppleLoading(false);
         }
     }
 
@@ -99,15 +109,10 @@ export default function Login() {
             <View style={[styles.star, { top: 340, left: 56, width: 3, height: 3, opacity: 0.25 }]} />
 
             <SafeAreaView style={styles.safeArea}>
-                <KeyboardAvoidingView
-                    style={styles.kav}
-                    behavior="padding"
+                <ScrollView
+                    contentContainerStyle={styles.scroll}
+                    showsVerticalScrollIndicator={false}
                 >
-                    <ScrollView
-                        contentContainerStyle={styles.scroll}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
-                    >
                         <Animated.View
                             style={[styles.heroSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
                         >
@@ -134,27 +139,6 @@ export default function Login() {
                                 {t('login.description')}
                             </Text>
 
-                            {/* Avatar stack */}
-                            <View style={styles.avatarRow}>
-                                {['A', 'B', 'C'].map((l, i) => (
-                                    <View
-                                        key={l}
-                                        style={[
-                                            styles.avatarBubble,
-                                            { marginLeft: i === 0 ? 0 : -12, zIndex: 3 - i },
-                                        ]}
-                                    >
-                                        <Text style={styles.avatarLetter}>{l}</Text>
-                                    </View>
-                                ))}
-                                <View style={[styles.avatarBubble, { marginLeft: -12 }]}>
-                                    <Text style={styles.avatarPlus}>+12K</Text>
-                                </View>
-                            </View>
-                            <View style={styles.socialProof}>
-                                <View style={styles.proofDot} />
-                                <Text style={styles.proofText}>{t('login.socialProof', { count: '12,000+' })}</Text>
-                            </View>
                         </Animated.View>
 
                         {/* Bottom glass card */}
@@ -166,29 +150,6 @@ export default function Login() {
                                 {t('login.cardSubtitle')}
                             </Text>
 
-                            {/* Inputs */}
-                            <View style={styles.inputs}>
-                                <AppInput
-                                    label={t('auth.email')}
-                                    placeholder={t('auth.emailPlaceholder')}
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    value={email}
-                                    onChangeText={setEmail}
-                                    disabled={isLoading}
-                                />
-                                <View style={{ height: spacing.lg }} />
-                                <AppInput
-                                    label={t('auth.password')}
-                                    placeholder={t('auth.passwordPlaceholder')}
-                                    secureTextEntry
-                                    value={pwd}
-                                    onChangeText={setPwd}
-                                    disabled={isLoading}
-                                />
-                            </View>
-
                             {/* Error */}
                             {!!error && (
                                 <View style={styles.errorBox}>
@@ -196,69 +157,44 @@ export default function Login() {
                                 </View>
                             )}
 
-                            {/* Actions */}
-                            {isLoading ? (
+                            {/* OAuth buttons */}
+                            {(googleLoading || appleLoading) ? (
                                 <View style={styles.loadingWrap}>
                                     <InlineLoading />
                                     <Text style={styles.loadingText}>{t('auth.loggingIn')}</Text>
                                 </View>
                             ) : (
                                 <>
-                                    {/* Primary CTA */}
-                                    <Pressable onPress={handleLogin} style={styles.primaryBtn}>
-                                        <LinearGradient
-                                            colors={[colors.primary, colors.primaryContainer]}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                            style={styles.primaryBtnGradient}
-                                        >
-                                            <Text style={styles.primaryBtnText}>{t('login.signInBtn')}</Text>
-                                            <Feather name="arrow-right" size={16} color={colors.surfaceLowest} />
-                                        </LinearGradient>
-                                    </Pressable>
-
-                                    {/* Divider */}
-                                    <View style={styles.dividerRow}>
-                                        <View style={styles.dividerLine} />
-                                        <Text style={styles.dividerText}>{t('login.divider')}</Text>
-                                        <View style={styles.dividerLine} />
-                                    </View>
-
-                                    {/* Google Sign-In (Android only) */}
-                                    {Platform.OS === 'android' && (
-                                        <Pressable
-                                            style={[styles.googleBtn, (!request || googleLoading) && { opacity: 0.5 }]}
-                                            onPress={() => promptAsync()}
-                                            disabled={!request || googleLoading}
-                                        >
-                                            {googleLoading ? (
-                                                <InlineLoading />
-                                            ) : (
-                                                <>
-                                                    <View style={styles.googleIconWrap}>
-                                                        <MaterialCommunityIcons name="google" size={18} color={colors.primary} />
-                                                    </View>
-                                                    <Text style={styles.googleBtnText}>{t('auth.continueWithGoogle')}</Text>
-                                                </>
-                                            )}
-                                        </Pressable>
-                                    )}
-
-                                    {/* Spacing before signup */}
-                                    {Platform.OS === 'android' && <View style={{ height: spacing.lg }} />}
-
-                                    {/* Secondary */}
+                                    {/* Google Sign-In */}
                                     <Pressable
-                                        style={styles.secondaryBtn}
-                                        onPress={() => router.push('/signup')}
+                                        style={[styles.googleBtn, (!request || googleLoading) && { opacity: 0.5 }]}
+                                        onPress={() => promptAsync()}
+                                        disabled={!request || googleLoading}
                                     >
-                                        <Text style={styles.secondaryBtnText}>{t('login.createAccountBtn')}</Text>
+                                        <View style={styles.googleIconWrap}>
+                                            <MaterialCommunityIcons name="google" size={18} color={colors.primary} />
+                                        </View>
+                                        <Text style={styles.googleBtnText}>{t('auth.continueWithGoogle')}</Text>
                                     </Pressable>
+
+                                    {/* Apple Sign-In (iOS only) */}
+                                    {Platform.OS === 'ios' && (
+                                        <>
+                                            <View style={{ height: spacing.lg }} />
+                                            <Pressable
+                                                style={[styles.appleBtn, appleLoading && { opacity: 0.5 }]}
+                                                onPress={handleAppleLogin}
+                                                disabled={appleLoading}
+                                            >
+                                                <Feather name="smartphone" size={18} color={colors.onSurface} />
+                                                <Text style={styles.appleBtnText}>{t('auth.continueWithApple')}</Text>
+                                            </Pressable>
+                                        </>
+                                    )}
                                 </>
                             )}
                         </Animated.View>
-                    </ScrollView>
-                </KeyboardAvoidingView>
+                </ScrollView>
             </SafeAreaView>
         </View>
     );
@@ -270,7 +206,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surfaceLowest,
     },
     safeArea: { flex: 1 },
-    kav: { flex: 1 },
     scroll: {
         flexGrow: 1,
         justifyContent: 'space-between',
@@ -342,48 +277,6 @@ const styles = StyleSheet.create({
         color: colors.onSurfaceMuted,
         marginBottom: spacing.xxl,
     },
-    avatarRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.sm,
-    },
-    avatarBubble: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.surfaceContainerHigh,
-        borderWidth: 2,
-        borderColor: colors.surfaceLowest,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarLetter: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 14,
-        color: colors.onSurface,
-    },
-    avatarPlus: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 10,
-        color: colors.onSurfaceMuted,
-    },
-    socialProof: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    proofDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: colors.primary,
-    },
-    proofText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 13,
-        color: colors.onSurfaceMuted,
-    },
-
     // Card
     card: {
         backgroundColor: `${colors.surfaceLow}CC`,
@@ -408,9 +301,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         marginBottom: spacing.xl,
     },
-    inputs: {
-        marginBottom: spacing.xl,
-    },
     errorBox: {
         backgroundColor: `${colors.error}1A`,
         borderRadius: radius.md,
@@ -432,50 +322,6 @@ const styles = StyleSheet.create({
         fontFamily: fonts.body.regular,
         fontSize: 14,
         color: colors.onSurfaceMuted,
-    },
-    primaryBtn: {
-        borderRadius: radius.full,
-        overflow: 'hidden',
-        marginBottom: spacing.xl,
-    },
-    primaryBtnGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.md,
-        paddingVertical: spacing.lg,
-    },
-    primaryBtnText: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 15,
-        color: colors.surfaceLowest,
-        letterSpacing: 0.5,
-    },
-    dividerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.lg,
-        marginBottom: spacing.xl,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: `${colors.outline}33`,
-    },
-    dividerText: {
-        fontFamily: fonts.body.medium,
-        fontSize: 11,
-        letterSpacing: 1.5,
-        color: `${colors.onSurfaceMuted}99`,
-        textTransform: 'uppercase',
-    },
-    secondaryBtn: {
-        borderRadius: radius.full,
-        backgroundColor: `${colors.surfaceBright}99`,
-        borderWidth: 1,
-        borderColor: `${colors.outline}1A`,
-        paddingVertical: spacing.lg,
-        alignItems: 'center',
     },
     googleBtn: {
         flexDirection: 'row',
@@ -502,9 +348,19 @@ const styles = StyleSheet.create({
         color: colors.onSurface,
         letterSpacing: 0.2,
     },
-    secondaryBtnText: {
+    appleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.md,
+        borderRadius: radius.full,
+        backgroundColor: `${colors.onSurface}10`,
+        paddingVertical: spacing.lg,
+    },
+    appleBtnText: {
         fontFamily: fonts.body.semiBold,
         fontSize: 15,
         color: colors.onSurface,
+        letterSpacing: 0.2,
     },
 });

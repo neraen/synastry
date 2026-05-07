@@ -14,10 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, CopyableText, TabHeader, FormattedText } from '@/components/ui';
+import { GlassCard, GoldButton, CopyableText, TabHeader, FormattedText } from '@/components/ui';
 import {
     getNatalChart,
-    getNatalChartSummary,
     getNatalChartInterpretation,
     getPlanetInterpretation,
     NatalChart,
@@ -200,11 +199,9 @@ export default function HoroscopeTab() {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
-    const [isLoadingSummary, setIsLoadingSummary] = useState(false);
     const [isLoadingInterp, setIsLoadingInterp] = useState(false);
     const [error, setError] = useState<string>();
     const [chart, setChart] = useState<NatalChart | null>(null);
-    const [summary, setSummary] = useState<string | null>(null);
     const [interpretation, setInterpretation] = useState<string | null>(null);
 
     // Planet detail modal
@@ -235,7 +232,6 @@ export default function HoroscopeTab() {
             const response = await getNatalChart(refresh);
             if (response.success && response.chart) {
                 setChart(response.chart);
-                loadSummary();
             } else {
                 setError(response.error || t('horoscope.chartError'));
             }
@@ -243,20 +239,6 @@ export default function HoroscopeTab() {
             setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
         } finally {
             setIsLoading(false);
-        }
-    }
-
-    async function loadSummary() {
-        setIsLoadingSummary(true);
-        try {
-            const response = await getNatalChartSummary();
-            if (response.success && response.summary) {
-                setSummary(response.summary);
-            }
-        } catch {
-            // summary is optional — fail silently
-        } finally {
-            setIsLoadingSummary(false);
         }
     }
 
@@ -402,17 +384,10 @@ export default function HoroscopeTab() {
                                     </View>
                                 </GlassCard>
                             ) : (
-                                // Summary card (default state)
+                                // Default state — static guide text + CTA
                                 <GlassCard opacity="low" radius="xl">
-                                    {isLoadingSummary ? (
-                                        <View style={styles.interpLoading}>
-                                            <ActivityIndicator color={colors.primary} size="small" />
-                                        </View>
-                                    ) : summary ? (
-                                        <FormattedText text={summary} style={styles.interpText} />
-                                    ) : null}
-
-                                    <View style={{ marginTop: summary ? spacing.xl : 0 }}>
+                                    <Text style={styles.interpGuide}>{t('horoscope.chartGuide')}</Text>
+                                    <View style={{ marginTop: spacing.xl }}>
                                         <GoldButton
                                             label={t('horoscope.showDetailedProfile')}
                                             onPress={loadInterpretation}
@@ -424,21 +399,6 @@ export default function HoroscopeTab() {
                         </View>
                     )}
 
-                    {/* ── Actions ──────────────────────────────────────────────── */}
-                    {chart && (
-                        <View style={styles.actions}>
-                            <GoldButton
-                                label="Portrait astral complet"
-                                onPress={() => router.push('/natal-chart-analysis')}
-                                rightIcon
-                            />
-                            <View style={{ height: spacing.md }} />
-                            <GhostButton
-                                label={t('horoscope.compatibilityAnalysis')}
-                                onPress={() => router.push('/(tabs)/compatibility')}
-                            />
-                        </View>
-                    )}
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
@@ -610,6 +570,12 @@ const styles = StyleSheet.create({
         lineHeight: 26,
         color: colors.onSurface,
     },
+    interpGuide: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        lineHeight: 24,
+        color: colors.onSurfaceMuted,
+    },
     interpLoading: {
         alignItems: 'center',
         paddingVertical: spacing.lg,
@@ -625,13 +591,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: `${colors.onSurfaceMuted}80`,
     },
-    // Actions
-    actions: {
-        paddingHorizontal: spacing.xl,
-        alignItems: 'center',
-        marginBottom: spacing.xxl,
-    },
-
     // Error
     errorText: {
         fontFamily: fonts.body.regular,

@@ -54,13 +54,13 @@
     }
   },
   "login": {
-    "badge": "THE STARS ARE ALIGNING",
-    "heroTitle": "Discover your\ntrue",
-    "heroAccent": "compatibility",
-    "description": "Where ancient wisdom meets modern connection. Journey through the zodiac to find a soul that resonates with your celestial frequency.",
+    "badge": "YOUR PERSONAL ASTROLOGER",
+    "heroTitle": "Welcome to\nyour",
+    "heroAccent": "cosmos",
+    "description": "Your natal chart, your daily horoscope, your compatibility — and Lyra, your AI astrologer.",
     "socialProof": "Join {{count}} souls already connected",
-    "cardTitle": "Begin your journey",
-    "cardSubtitle": "Log in to access your astrological universe.",
+    "cardTitle": "Log in",
+    "cardSubtitle": "Choose how to connect and get started.",
     "signInBtn": "Log in",
     "createAccountBtn": "Create account",
     "divider": "OR"
@@ -76,10 +76,10 @@
     "completeProfile": "Complete my profile",
     "createProfile": "Create profile",
     "heroBadge": "DAILY ALIGNMENT",
-    "heroTitle": "Venus in\nRetrograde",
-    "heroSubtitle": "The stars favor deep connections today.",
-    "compatibilityCardTitle": "Your compatibility\ntoday",
-    "compatibilityCardDesc": "Celestial energy is 88% synchronized for new romantic ventures. The moon's position in Taurus stabilizes your emotional core.",
+    "heroTitle": "Your cosmos\ntoday",
+    "heroSubtitle": "Your stars, your path.",
+    "compatibilityCardTitle": "Compatibility\nanalysis",
+    "compatibilityCardDesc": "Enter someone's birth details to calculate your astrological compatibility.",
     "analyzeNewMatch": "ANALYZE A NEW MATCH",
     "birthChartTitle": "Your birth chart",
     "birthChartDesc": "Deep dive into your sun, moon, and rising signs to unlock your cosmic DNA.",
@@ -187,7 +187,7 @@
     },
     "badge": "COMPATIBILITY ANALYSIS",
     "formTitle": "Calculate your\ncompatibility",
-    "formSubtitle": "Enter your partner's details to discover your cosmic alignment.",
+    "formSubtitle": "Your compatibility in detail — beyond sun signs.",
     "partnerNamePlaceholder": "E.g. Marie",
     "birthDateLabel": "Birth date",
     "birthTimeLabel": "Birth time",
@@ -231,6 +231,7 @@
     "interpretationCta": "Get a personalized AI interpretation of your natal chart.",
     "getInterpretation": "GET INTERPRETATION",
     "showDetailedProfile": "See my detailed astro profile",
+    "chartGuide": "Explore your planetary positions at the moment of your birth. Each planet reveals a unique facet of your personality and life path.",
     "interpretationLoading": "Analyzing…",
     "interpretationLoadingHint": "This may take a few seconds",
     "compatibilityAnalysis": "COMPATIBILITY ANALYSIS",
@@ -378,11 +379,11 @@
   "transits": {
     "headerTitle": "Upcoming Transits",
     "heroTitle": "Alignments\nahead",
-    "heroSubtitle": "The 3 most significant transits of the next 30 days, tailored to your natal chart.",
+    "heroSubtitle": "The 3 most significant transits of the next 60 days, tailored to your natal chart.",
     "calendarHeroTitle": "Astral\ncalendar",
     "calendarHeroSubtitle": "Visualize the active aspects between planets and your natal chart, day by day.",
-    "mirrorHeroTitle": "Time\nmirror",
-    "mirrorHeroSubtitle": "Explore the cosmic energies at any age of your life.",
+    "mirrorHeroTitle": "Time\njourney",
+    "mirrorHeroSubtitle": "Explore your planetary transits at any age of your life.",
     "aiBadge": "PERSONALIZED AI ANALYSIS",
     "pullHint": "↓ Pull to refresh",
     "retry": "Retry",
@@ -476,10 +477,10 @@
   },
   "onboarding": {
     "hero": {
-      "tagline": "Astrology through the lens of your life",
+      "tagline": "Natal chart, compatibility, and Lyra — your AI astrologer",
       "value1": "A daily horoscope based on your real transits",
       "value2": "Astrological compatibility with anyone",
-      "value3": "Explore your life from 0 to 80 with Lyra",
+      "value3": "Chat with Lyra, your personal AI astrologer",
       "cta": "Discover"
     },
     "features": {
@@ -499,8 +500,8 @@
         "mockPerson1": "You",
         "mockPerson2": "Emma",
         "mockAspect1": "Love",
-        "mockAspect2": "Exchange",
-        "mockAspect3": "Karma"
+        "mockAspect2": "Communication",
+        "mockAspect3": "Long-term"
       },
       "mirror": {
         "badge": "Exploration",
