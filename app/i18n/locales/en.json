@@ -423,6 +423,7 @@
     "welcomeMessage": "Hello, I'm Lyra ✦ I'm here to guide you through the stars. What's on your mind today?",
     "inputPlaceholder": "Ask Lyra anything...",
     "errorMessage": "I couldn't reach the stars just now. Please try again.",
+    "plusTooltip": "Add someone's chart for an in-depth analysis.",
     "partnerPickerTitle": "Add a chart",
     "partnerPickerSubtitle": "Add someone's natal chart as context for this conversation.",
     "removePartner": "Remove partner context",

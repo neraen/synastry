@@ -708,13 +708,41 @@ PROMPT;
      */
     public function getChatResponse(array $messages, array $userContext, ?\Closure $toolHandler = null, array $tools = [], ?string $previousResponseId = null): array
     {
+        $chatMessages = $this->buildChatMessages($messages, $userContext, $tools);
+        $result = $this->callMultiTurnApi($chatMessages, $toolHandler, $tools, $previousResponseId);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        return [
+            'success'     => true,
+            'message'     => $result['content'],
+            'response_id' => $result['response_id'] ?? null,
+        ];
+    }
+
+    /**
+     * Build the assembled chat messages array (developer prompt + user messages).
+     * Used by both getChatResponse and the streaming endpoint.
+     */
+    public function buildChatMessages(array $messages, array $userContext, array $tools = []): array
+    {
         $isEnglish = $this->localeService->getLocale() === 'en';
+        $developerPrompt = $this->buildDeveloperPrompt($isEnglish, $userContext, $tools);
 
-        // ══════════════════════════════════════════════════════════════════
-        // DEVELOPER PROMPT — structured with markdown headers for clarity
-        // Everything goes in "developer" role (no separate "system" role)
-        // ══════════════════════════════════════════════════════════════════
+        $chatMessages = [['role' => 'developer', 'content' => $developerPrompt]];
+        foreach ($messages as $m) {
+            $chatMessages[] = ['role' => $m['role'], 'content' => trim((string) $m['content'])];
+        }
+        return $chatMessages;
+    }
 
+    /**
+     * Build the Lyra developer prompt including persona, tool instructions, and user context data.
+     */
+    private function buildDeveloperPrompt(bool $isEnglish, array $userContext, array $tools = []): string
+    {
         if ($isEnglish) {
             $developerPrompt = <<<'PROMPT'
 ## WHO YOU ARE
@@ -787,7 +815,7 @@ Réponds TOUJOURS en français, quelle que soit la langue du message de l'utilis
 PROMPT;
         }
 
-        // ── Tools instructions (appended only when tools are available) ──
+        // Tool instructions
         if (!empty($tools)) {
             $developerPrompt .= $isEnglish
                 ? <<<'TOOLS'
@@ -808,94 +836,45 @@ TOOLS
 TOOLS;
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // CONTEXTUAL DATA — injected into the developer prompt directly
-        // (avoids ambiguous developer/system role split)
-        // ══════════════════════════════════════════════════════════════════
-
+        // Context data
         $contextParts = [];
-
-        // ── User identity ────────────────────────────────────────────────
         $identityLines = [];
-        if (!empty($userContext['name'])) {
-            $identityLines[] = $isEnglish ? "Name: {$userContext['name']}" : "Prénom : {$userContext['name']}";
-        }
-        if (!empty($userContext['birth_date'])) {
-            $identityLines[] = $isEnglish ? "Born: {$userContext['birth_date']}" : "Naissance : {$userContext['birth_date']}";
-        }
-        if (!empty($userContext['birth_city'])) {
-            $identityLines[] = $isEnglish ? "City: {$userContext['birth_city']}" : "Ville : {$userContext['birth_city']}";
-        }
+        if (!empty($userContext['name']))       $identityLines[] = $isEnglish ? "Name: {$userContext['name']}"       : "Prénom : {$userContext['name']}";
+        if (!empty($userContext['birth_date'])) $identityLines[] = $isEnglish ? "Born: {$userContext['birth_date']}" : "Naissance : {$userContext['birth_date']}";
+        if (!empty($userContext['birth_city'])) $identityLines[] = $isEnglish ? "City: {$userContext['birth_city']}" : "Ville : {$userContext['birth_city']}";
         if (!empty($identityLines)) {
-            $label = $isEnglish ? "— User —" : "— Utilisateur —";
-            $contextParts[] = $label . "\n" . implode("\n", $identityLines);
+            $contextParts[] = ($isEnglish ? "— User —" : "— Utilisateur —") . "\n" . implode("\n", $identityLines);
         }
 
-        // ── User natal chart positions ───────────────────────────────────
         if (!empty($userContext['positions'])) {
             $label = $isEnglish ? "User's natal chart:" : "Thème natal de l'utilisateur :";
             $contextParts[] = $label . "\n" . $this->formatPositions($userContext['positions']);
         }
 
-        // ── Partner context (optional) ───────────────────────────────────
         if (!empty($userContext['partner_name'])) {
             $partnerName = $userContext['partner_name'];
-            $score = isset($userContext['compatibility_score']) ? (int) $userContext['compatibility_score'] : null;
-            $scoreStr = $score !== null
-                ? ($isEnglish ? " (compatibility score: {$score}/100)" : " (score de compatibilité : {$score}/100)")
-                : '';
-            $label = $isEnglish
-                ? "— Partner in context: {$partnerName}{$scoreStr} —"
-                : "— Partenaire en contexte : {$partnerName}{$scoreStr} —";
+            $score       = isset($userContext['compatibility_score']) ? (int) $userContext['compatibility_score'] : null;
+            $scoreStr    = $score !== null ? ($isEnglish ? " (compatibility score: {$score}/100)" : " (score de compatibilité : {$score}/100)") : '';
+            $label       = $isEnglish ? "— Partner in context: {$partnerName}{$scoreStr} —" : "— Partenaire en contexte : {$partnerName}{$scoreStr} —";
             $partnerBlock = $label;
-
             if (!empty($userContext['partner_positions'])) {
-                $posLabel = $isEnglish ? "{$partnerName}'s natal chart:" : "Thème natal de {$partnerName} :";
+                $posLabel    = $isEnglish ? "{$partnerName}'s natal chart:" : "Thème natal de {$partnerName} :";
                 $partnerBlock .= "\n" . $posLabel . "\n" . $this->formatPositions($userContext['partner_positions']);
             }
             $contextParts[] = $partnerBlock;
         }
 
-        // ── Upcoming transits (next 12 months) ──────────────────────────
         if (!empty($userContext['upcoming_transits'])) {
-            $label = $isEnglish
-                ? "— Upcoming transits (next 12 months, computed) —"
-                : "— Transits à venir (12 prochains mois, calculés) —";
+            $label = $isEnglish ? "— Upcoming transits (next 12 months, computed) —" : "— Transits à venir (12 prochains mois, calculés) —";
             $contextParts[] = $label . "\n" . $this->formatUpcomingTransits($userContext['upcoming_transits'], $isEnglish);
         }
 
-        // ── Merge context into developer prompt ─────────────────────────
         if (!empty($contextParts)) {
             $separator = $isEnglish ? "\n\n---\n## REFERENCE DATA\n" : "\n\n---\n## DONNÉES DE RÉFÉRENCE\n";
             $developerPrompt .= $separator . implode("\n\n", $contextParts);
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // MESSAGE ASSEMBLY — single developer message + user messages
-        // ══════════════════════════════════════════════════════════════════
-
-        $chatMessages = [
-            ['role' => 'developer', 'content' => $developerPrompt],
-        ];
-
-        $inputMessages = array_values(array_map(fn($m) => [
-            'role'    => $m['role'],
-            'content' => trim((string) $m['content']),
-        ], $messages));
-
-        $chatMessages = array_merge($chatMessages, $inputMessages);
-
-        $result = $this->callMultiTurnApi($chatMessages, $toolHandler, $tools, $previousResponseId);
-
-        if (!$result['success']) {
-            return $result;
-        }
-
-        return [
-            'success'     => true,
-            'message'     => $result['content'],
-            'response_id' => $result['response_id'] ?? null,
-        ];
+        return $developerPrompt;
     }
 
     /**
@@ -1112,6 +1091,174 @@ TOOLS;
         } catch (ExceptionInterface $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
+    }
+
+    /**
+     * Stream a multi-turn chat response via SSE.
+     * Calls $onDelta for each text token. Handles tool calls synchronously.
+     * Returns ['success' => bool, 'response_id' => string|null]
+     */
+    public function streamChatResponse(
+        array $chatMessages,
+        ?\Closure $toolHandler,
+        array $tools,
+        ?string $previousResponseId,
+        callable $onDelta
+    ): array {
+        $instructions = '';
+        $inputMessages = [];
+        foreach ($chatMessages as $msg) {
+            if (in_array($msg['role'], ['developer', 'system'], true)) {
+                $instructions .= ($instructions !== '' ? "\n\n" : '') . $msg['content'];
+            } else {
+                $inputMessages[] = ['role' => $msg['role'], 'content' => $msg['content']];
+            }
+        }
+
+        $formattedTools = [];
+        if (!empty($tools)) {
+            $formattedTools = array_map(function (array $tool): array {
+                if (isset($tool['function'])) {
+                    return [
+                        'type'        => 'function',
+                        'name'        => $tool['function']['name'],
+                        'description' => $tool['function']['description'] ?? '',
+                        'parameters'  => $tool['function']['parameters'] ?? new \stdClass(),
+                    ];
+                }
+                return $tool;
+            }, $tools);
+        }
+
+        $payload = ['model' => $this->model, 'stream' => true];
+        if ($instructions !== '') {
+            $payload['instructions'] = $instructions;
+        }
+        if (!empty($formattedTools)) {
+            $payload['tools'] = $formattedTools;
+        }
+        if ($previousResponseId !== null) {
+            $payload['previous_response_id'] = $previousResponseId;
+            $lastUser = null;
+            foreach (array_reverse($inputMessages) as $msg) {
+                if ($msg['role'] === 'user') { $lastUser = $msg; break; }
+            }
+            $payload['input'] = $lastUser ? [$lastUser] : $inputMessages;
+        } else {
+            $payload['input'] = $inputMessages;
+        }
+
+        $headers = [
+            'Authorization' => 'Bearer ' . $this->apiKey,
+            'Content-Type'  => 'application/json',
+        ];
+
+        try {
+            // ── Phase 1: stream the initial response ──────────────────────
+            [$responseId, $toolCalls] = $this->doStreamRequest($payload, $headers, $onDelta);
+
+            // ── Phase 2: if tool calls, execute them then stream result ───
+            if (!empty($toolCalls) && $toolHandler !== null) {
+                $toolResultItems = [];
+                foreach ($toolCalls as $toolCall) {
+                    $arguments  = json_decode($toolCall['arguments'], true) ?? [];
+                    $toolResult = $toolHandler($toolCall['name'], $arguments);
+                    $toolResultItems[] = [
+                        'type'    => 'function_call_output',
+                        'call_id' => $toolCall['call_id'],
+                        'output'  => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
+                    ];
+                }
+
+                $payload2 = [
+                    'model'                => $this->model,
+                    'stream'               => true,
+                    'previous_response_id' => $responseId,
+                    'input'                => $toolResultItems,
+                ];
+                if ($instructions !== '') $payload2['instructions'] = $instructions;
+                if (!empty($formattedTools)) $payload2['tools'] = $formattedTools;
+
+                [$responseId] = $this->doStreamRequest($payload2, $headers, $onDelta);
+            }
+
+            return ['success' => true, 'response_id' => $responseId];
+
+        } catch (ExceptionInterface $e) {
+            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Execute one streaming API call, invoking $onDelta for each text token.
+     * Returns [responseId, toolCalls[]]
+     */
+    private function doStreamRequest(array $payload, array $headers, callable $onDelta): array
+    {
+        $response = $this->client->request('POST', $this->apiUrl . '/responses', [
+            'headers' => $headers,
+            'json'    => $payload,
+            'timeout' => 180,
+            'buffer'  => false,
+        ]);
+
+        $buffer     = '';
+        $responseId = null;
+        $toolCalls  = [];
+        // Accumulate function call arguments per item_id
+        $toolCallAccum = [];
+
+        foreach ($this->client->stream($response) as $chunk) {
+            $buffer .= $chunk->getContent();
+
+            // Process complete SSE events (separated by \n\n)
+            while (($pos = strpos($buffer, "\n\n")) !== false) {
+                $rawEvent = substr($buffer, 0, $pos);
+                $buffer   = substr($buffer, $pos + 2);
+
+                $eventType = '';
+                $dataStr   = '';
+                foreach (explode("\n", $rawEvent) as $line) {
+                    if (str_starts_with($line, 'event: ')) {
+                        $eventType = substr($line, 7);
+                    } elseif (str_starts_with($line, 'data: ')) {
+                        $dataStr = substr($line, 6);
+                    }
+                }
+
+                if ($dataStr === '' || $dataStr === '[DONE]') continue;
+
+                $event = json_decode($dataStr, true);
+                if (!is_array($event)) continue;
+
+                $type = $event['type'] ?? '';
+
+                if ($type === 'response.output_text.delta') {
+                    $delta = $event['delta'] ?? '';
+                    if ($delta !== '') {
+                        $onDelta($delta);
+                    }
+                } elseif ($type === 'response.function_call_arguments.delta') {
+                    $itemId = $event['item_id'] ?? '';
+                    if ($itemId) {
+                        $toolCallAccum[$itemId]['args'] = ($toolCallAccum[$itemId]['args'] ?? '') . ($event['delta'] ?? '');
+                    }
+                } elseif ($type === 'response.output_item.done') {
+                    $item = $event['item'] ?? [];
+                    if (($item['type'] ?? '') === 'function_call') {
+                        $toolCalls[] = [
+                            'name'      => $item['name'] ?? '',
+                            'call_id'   => $item['call_id'] ?? '',
+                            'arguments' => $item['arguments'] ?? ($toolCallAccum[$item['id'] ?? '']['args'] ?? '{}'),
+                        ];
+                    }
+                } elseif ($type === 'response.completed') {
+                    $responseId = $event['response']['id'] ?? null;
+                }
+            }
+        }
+
+        return [$responseId, $toolCalls];
     }
 
     /**

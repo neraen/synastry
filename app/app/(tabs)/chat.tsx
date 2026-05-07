@@ -30,11 +30,12 @@ import { colors, spacing, radius, fonts } from '@/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { usePremium } from '@/hooks/usePremium';
 import {
-    sendChatMessage,
+    sendChatMessageStream,
     getChatPartners,
     ChatMessage,
     ChatPartner,
 } from '@/services/astrology';
+import * as FileSystem from 'expo-file-system';
 import { createChatSession, getChatSession, updateChatSession } from '@/services/chatSessions';
 
 // ─── Typing indicator ─────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ function TypingIndicator() {
 
 // ─── Message bubble ───────────────────────────────────────────────────────────
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStreaming?: boolean }) {
     const isUser = message.role === 'user';
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(8)).current;
@@ -107,7 +108,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                 </LinearGradient>
             ) : (
                 <View style={[styles.bubble, styles.bubbleAI]}>
-                    <Text selectable style={styles.bubbleTextAI}>{message.content}</Text>
+                    {isStreaming && message.content === '' ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                        <Text selectable style={styles.bubbleTextAI}>{message.content}</Text>
+                    )}
                 </View>
             )}
         </Animated.View>
@@ -241,7 +246,11 @@ export default function ChatScreen() {
     const [pickerVisible, setPickerVisible] = useState(false);
     const [remainingMessages, setRemainingMessages] = useState<number | null>(null);
     const [dailyLimitReached, setDailyLimitReached] = useState(false);
+    const [plusTooltipVisible, setPlusTooltipVisible] = useState(false);
+    const [freeUsed, setFreeUsed] = useState(false);
+    const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
     const listRef = useRef<FlatList>(null);
+    const tooltipAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         if (paramSessionId) {
@@ -275,6 +284,31 @@ export default function ChatScreen() {
             }
         }
     }, [paramSessionId]);
+
+    // ── Init: load free-use flag + tooltip state ──────────────────────────────
+    const FREE_USED_FILE    = FileSystem.documentDirectory ? `${FileSystem.documentDirectory}chat_free_used` : null;
+    const TOOLTIP_DONE_FILE = FileSystem.documentDirectory ? `${FileSystem.documentDirectory}chat_tooltip_done` : null;
+
+    useEffect(() => {
+        if (isPremium || !FREE_USED_FILE || !TOOLTIP_DONE_FILE) return;
+        Promise.all([
+            FileSystem.getInfoAsync(FREE_USED_FILE),
+            FileSystem.getInfoAsync(TOOLTIP_DONE_FILE),
+        ]).then(([freeInfo, tooltipInfo]) => {
+            if (freeInfo.exists) setFreeUsed(true);
+            if (!tooltipInfo.exists) {
+                setPlusTooltipVisible(true);
+                Animated.sequence([
+                    Animated.timing(tooltipAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+                    Animated.delay(3000),
+                    Animated.timing(tooltipAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+                ]).start(() => {
+                    setPlusTooltipVisible(false);
+                    FileSystem.writeAsStringAsync(TOOLTIP_DONE_FILE!, '1').catch(() => {});
+                });
+            }
+        });
+    }, [isPremium]);
 
     const handleSaveChat = async () => {
         if (!isPremium) return;
@@ -315,7 +349,13 @@ export default function ChatScreen() {
 
     const handleSend = useCallback(async () => {
         const text = inputText.trim();
-        if (!text || isTyping) return;
+        if (!text || isTyping || streamingMsgId) return;
+
+        // Non-premium: enforce 1 free use
+        if (!isPremium && freeUsed && !dailyLimitReached) {
+            router.push({ pathname: '/premium', params: { source: 'chat_free_limit' } });
+            return;
+        }
 
         const userMsg: ChatMessage = {
             id: Date.now().toString(),
@@ -324,6 +364,7 @@ export default function ChatScreen() {
             createdAt: new Date(),
         };
 
+        const tempId = (Date.now() + 1).toString();
         setInputText('');
         setMessages((prev) => [...prev, userMsg]);
         setIsTyping(true);
@@ -333,40 +374,64 @@ export default function ChatScreen() {
         );
 
         try {
-            const res = await sendChatMessage(history, activePartner?.id, lastResponseId ?? undefined);
+            // Placeholder assistant message — filled by stream
+            let streamedContent = '';
+            const placeholderMsg: ChatMessage = { id: tempId, role: 'assistant', content: '', createdAt: new Date() };
 
-            if (res.remaining_messages !== undefined) setRemainingMessages(res.remaining_messages);
-            if (res.daily_limit_reached) setDailyLimitReached(true);
-            if (res.response_id) setLastResponseId(res.response_id);
+            setStreamingMsgId(tempId);
+            setIsTyping(false);
+            setMessages((prev) => [...prev, placeholderMsg]);
 
-            const replyContent = res.success && res.message ? res.message : t('chat.errorMessage');
-            const newAssistantMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, createdAt: new Date() };
+            const result = await sendChatMessageStream(
+                history,
+                activePartner?.id,
+                lastResponseId ?? undefined,
+                (delta) => {
+                    streamedContent += delta;
+                    setMessages((prev) =>
+                        prev.map((m) => m.id === tempId ? { ...m, content: streamedContent } : m)
+                    );
+                },
+            );
+
+            if (result.remainingMessages !== null) setRemainingMessages(result.remainingMessages);
+            if (result.dailyLimitReached) setDailyLimitReached(true);
+            if (result.responseId) setLastResponseId(result.responseId);
+
+            // Mark 1 free use for non-premium
+            if (!isPremium && !freeUsed && FREE_USED_FILE) {
+                setFreeUsed(true);
+                FileSystem.writeAsStringAsync(FREE_USED_FILE, '1').catch(() => {});
+            }
 
             setMessages((prev) => {
-                const newMessages = [...prev, newAssistantMsg];
                 if (sessionId) {
-                    const toSave = newMessages.filter(m => m.id !== WELCOME_ID).map(m => ({ role: m.role, content: m.content }));
-                    updateChatSession(sessionId, toSave, res.response_id ?? lastResponseId).catch(e => console.warn(e));
+                    const toSave = prev.filter(m => m.id !== WELCOME_ID).map(m => ({ role: m.role, content: m.content }));
+                    updateChatSession(sessionId, toSave, result.responseId ?? lastResponseId).catch(e => console.warn(e));
                 }
-                return newMessages;
+                return prev;
             });
         } catch (err: any) {
             if (err?.status === 403 && err?.payload?.error === 'daily_limit_reached') {
                 setDailyLimitReached(true);
                 setRemainingMessages(0);
+                setMessages((prev) => prev.filter(m => m.id !== tempId));
+            } else {
+                setMessages((prev) =>
+                    prev.map((m) => m.id === tempId ? { ...m, content: t('chat.errorMessage') } : m)
+                );
             }
-            setMessages((prev) => [
-                ...prev,
-                { id: (Date.now() + 1).toString(), role: 'assistant', content: t('chat.errorMessage'), createdAt: new Date() },
-            ]);
         } finally {
             setIsTyping(false);
+            setStreamingMsgId(null);
         }
-    }, [inputText, isTyping, messages, activePartner, t]);
+    }, [inputText, isTyping, streamingMsgId, messages, activePartner, t, isPremium, freeUsed, dailyLimitReached]);
 
     const renderItem = useCallback(
-        ({ item }: { item: ChatMessage }) => <MessageBubble message={item} />,
-        []
+        ({ item }: { item: ChatMessage }) => (
+            <MessageBubble message={item} isStreaming={item.id === streamingMsgId && item.content === ''} />
+        ),
+        [streamingMsgId]
     );
 
     return (
@@ -451,28 +516,36 @@ export default function ChatScreen() {
 
                 {/* Input bar */}
                 <View style={styles.inputBar}>
-                    {/* Add partner button — premium only */}
-                    {isPremium ? (
-                        <Pressable
-                            onPress={() => setPickerVisible(true)}
-                            style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.7 }]}
-                            hitSlop={8}
-                        >
-                            <Feather
-                                name={activePartner ? 'users' : 'user-plus'}
-                                size={18}
-                                color={activePartner ? colors.primary : colors.onSurfaceMuted}
-                            />
-                        </Pressable>
-                    ) : (
-                        <Pressable
-                            onPress={() => router.push({ pathname: '/premium', params: { source: 'chat_partner_context' } })}
-                            style={[styles.addBtn, { opacity: 0.5 }]}
-                            hitSlop={8}
-                        >
-                            <Feather name="lock" size={18} color={colors.onSurfaceMuted} />
-                        </Pressable>
-                    )}
+                    {/* Add partner button */}
+                    <View>
+                        {/* Tooltip bubble (first display for non-premium) */}
+                        {plusTooltipVisible && !isPremium && (
+                            <Animated.View style={[styles.plusTooltip, { opacity: tooltipAnim, transform: [{ translateY: tooltipAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>
+                                <Text style={styles.plusTooltipText}>{t('chat.plusTooltip')}</Text>
+                            </Animated.View>
+                        )}
+                        {isPremium ? (
+                            <Pressable
+                                onPress={() => setPickerVisible(true)}
+                                style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.7 }]}
+                                hitSlop={8}
+                            >
+                                <Feather
+                                    name={activePartner ? 'users' : 'user-plus'}
+                                    size={18}
+                                    color={activePartner ? colors.primary : colors.onSurfaceMuted}
+                                />
+                            </Pressable>
+                        ) : (
+                            <Pressable
+                                onPress={() => router.push({ pathname: '/premium', params: { source: 'chat_partner_context' } })}
+                                style={[styles.addBtn, { opacity: 0.5 }]}
+                                hitSlop={8}
+                            >
+                                <Feather name="lock" size={18} color={colors.onSurfaceMuted} />
+                            </Pressable>
+                        )}
+                    </View>
 
                     <TextInput
                         style={[styles.input, (!isPremium && dailyLimitReached) && styles.inputDisabled]}
@@ -490,10 +563,10 @@ export default function ChatScreen() {
 
                     <Pressable
                         onPress={handleSend}
-                        disabled={!inputText.trim() || isTyping || (!isPremium && dailyLimitReached) || !canReply}
+                        disabled={!inputText.trim() || isTyping || !!streamingMsgId || (!isPremium && dailyLimitReached) || !canReply}
                         style={({ pressed }) => [
                             styles.sendBtn,
-                            (!inputText.trim() || isTyping || (!isPremium && dailyLimitReached) || !canReply) && styles.sendBtnDisabled,
+                            (!inputText.trim() || isTyping || !!streamingMsgId || (!isPremium && dailyLimitReached) || !canReply) && styles.sendBtnDisabled,
                             pressed && styles.sendBtnPressed,
                         ]}
                     >
@@ -644,6 +717,23 @@ const styles = StyleSheet.create({
         height: 44,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    plusTooltip: {
+        position: 'absolute',
+        bottom: 52,
+        left: -8,
+        backgroundColor: colors.surfaceContainerHigh,
+        borderRadius: radius.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        width: 180,
+        zIndex: 100,
+    },
+    plusTooltipText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: colors.onSurface,
+        lineHeight: 18,
     },
     input: {
         flex: 1,

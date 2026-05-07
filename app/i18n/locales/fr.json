@@ -423,6 +423,7 @@
     "welcomeMessage": "Bonjour, je suis Lyra ✦ Je suis là pour te guider à travers les étoiles. Qu'as-tu en tête aujourd'hui ?",
     "inputPlaceholder": "Pose ta question à Lyra...",
     "errorMessage": "Je n'ai pas pu atteindre les étoiles pour l'instant. Réessaie.",
+    "plusTooltip": "Ajoutez le thème d'un proche pour une analyse approfondie.",
     "partnerPickerTitle": "Ajouter un thème",
     "partnerPickerSubtitle": "Ajoute le thème natal de quelqu'un comme contexte de cette conversation.",
     "removePartner": "Retirer le partenaire",

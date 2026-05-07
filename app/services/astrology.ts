@@ -3,6 +3,9 @@
  */
 
 import { authApi } from './sessionManager';
+import { getToken } from './auth';
+import { getApiUrl } from './apiConfig';
+import { getCurrentLanguage } from '@/i18n';
 
 // Types
 export interface PlanetPosition {
@@ -471,6 +474,85 @@ export async function sendChatMessage(
         ...(partnerHistoryId ? { partnerHistoryId } : {}),
         ...(previousResponseId ? { previousResponseId } : {}),
     });
+}
+
+export interface ChatStreamResult {
+    responseId: string | null;
+    remainingMessages: number | null;
+    dailyLimitReached: boolean;
+}
+
+/**
+ * Send a chat message and receive the response as an SSE stream.
+ * Calls onDelta for each text token as it arrives.
+ */
+export async function sendChatMessageStream(
+    messages: Pick<ChatMessage, 'role' | 'content'>[],
+    partnerHistoryId: number | undefined,
+    previousResponseId: string | undefined,
+    onDelta: (delta: string) => void,
+): Promise<ChatStreamResult> {
+    const token = await getToken();
+    const locale = getCurrentLanguage();
+
+    const response = await fetch(`${getApiUrl()}/api/chat/stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'Accept-Language': locale,
+        },
+        body: JSON.stringify({
+            messages,
+            ...(partnerHistoryId ? { partnerHistoryId } : {}),
+            ...(previousResponseId ? { previousResponseId } : {}),
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const err: any = new Error(errorData.error ?? 'Stream error');
+        err.status = response.status;
+        err.payload = errorData;
+        throw err;
+    }
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let responseId: string | null = null;
+    let remainingMessages: number | null = null;
+    let dailyLimitReached = false;
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() ?? '';
+
+        for (const chunk of parts) {
+            const dataLine = chunk.split('\n').find((l) => l.startsWith('data: '));
+            if (!dataLine) continue;
+            try {
+                const data = JSON.parse(dataLine.slice(6));
+                if (data.type === 'delta') {
+                    onDelta(data.content ?? '');
+                } else if (data.type === 'done') {
+                    responseId = data.response_id ?? null;
+                    if (data.remaining_messages !== undefined) remainingMessages = data.remaining_messages;
+                    dailyLimitReached = data.daily_limit_reached ?? false;
+                } else if (data.type === 'error') {
+                    throw new Error(data.message ?? 'AI service error');
+                }
+            } catch {
+                // ignore malformed SSE lines
+            }
+        }
+    }
+
+    return { responseId, remainingMessages, dailyLimitReached };
 }
 
 /**

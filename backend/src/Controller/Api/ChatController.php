@@ -12,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -254,6 +255,209 @@ class ChatController extends AbstractController
         $result['daily_limit_reached'] = false;
 
         return $this->json($result);
+    }
+
+    /**
+     * Stream a chat response via SSE (text/event-stream).
+     * Mirrors /api/chat but streams tokens as they arrive from OpenAI.
+     */
+    #[Route('/stream', name: 'api_chat_stream', methods: ['POST'])]
+    public function chatStream(Request $request): Response
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+
+        if (empty($data['messages']) || !is_array($data['messages'])) {
+            return $this->json(['success' => false, 'error' => 'messages array is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Sanitize messages
+        $messages = [];
+        foreach ($data['messages'] as $msg) {
+            if (!isset($msg['role'], $msg['content'])) continue;
+            if (!in_array($msg['role'], ['user', 'assistant'], true)) continue;
+            $content = trim((string) $msg['content']);
+            if ($content === '') continue;
+            $messages[] = ['role' => $msg['role'], 'content' => $content];
+        }
+        if (empty($messages)) {
+            return $this->json(['success' => false, 'error' => 'No valid messages'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $previousResponseId = isset($data['previousResponseId']) && is_string($data['previousResponseId'])
+            ? $data['previousResponseId'] : null;
+
+        if (!$previousResponseId && count($messages) > 10) {
+            $first    = array_slice($messages, 0, 4);
+            $last     = array_slice($messages, -6);
+            $marker   = ['role' => 'assistant', 'content' => '[Début de conversation omis — derniers échanges ci-dessous]'];
+            $messages = array_merge($first, [$marker], $last);
+        }
+
+        // Daily limit
+        $remainingMessages = -1;
+        if (!$user->isPremium()) {
+            $today    = (new \DateTime())->format('Y-m-d');
+            $cacheKey = sprintf('chat_usage_%d_%s', $user->getId(), $today);
+            $count    = $this->cache->get($cacheKey, function (\Symfony\Contracts\Cache\ItemInterface $item) {
+                $item->expiresAt(new \DateTime('tomorrow midnight'));
+                return 0;
+            });
+            if ($count >= self::DAILY_FREE_LIMIT) {
+                return $this->json([
+                    'success' => false, 'error' => 'daily_limit_reached',
+                    'remaining_messages' => 0, 'daily_limit_reached' => true,
+                ], Response::HTTP_FORBIDDEN);
+            }
+            $newCount = $count + 1;
+            $this->cache->delete($cacheKey);
+            $this->cache->get($cacheKey, function (\Symfony\Contracts\Cache\ItemInterface $item) use ($newCount) {
+                $item->expiresAt(new \DateTime('tomorrow midnight'));
+                return $newCount;
+            });
+            $remainingMessages = self::DAILY_FREE_LIMIT - $newCount;
+        }
+
+        // Locale
+        $localeService = new PromptLocaleService();
+        $locale = $localeService->normalizeLocale($request->headers->get('Accept-Language', 'fr'));
+        $this->openAiService->setLocale($locale);
+
+        // Build user context (same as chat())
+        $userContext = [];
+        if ($user->hasBirthProfile()) {
+            $bp = $user->getBirthProfile();
+            if ($bp->getFirstName())  $userContext['name']       = $bp->getFirstName();
+            if ($bp->getBirthDate())  $userContext['birth_date'] = $bp->getBirthDate()->format('Y-m-d');
+            if ($bp->getBirthCity())  $userContext['birth_city'] = $bp->getBirthCity();
+        }
+        $natalChart = $this->natalChartRepository->findByUser($user);
+        if ($natalChart) {
+            $userContext['positions'] = $this->filterPositions($natalChart->getPlanetaryPositions());
+        }
+        if ($user->hasBirthProfile()) {
+            $transitCacheKey  = sprintf('chat_upcoming_transits_%d', $user->getId());
+            $upcomingTransits = $this->cache->get($transitCacheKey, function (\Symfony\Contracts\Cache\ItemInterface $item) use ($user) {
+                $item->expiresAfter(self::TRANSIT_CACHE_TTL);
+                return $this->astrologyAnalysisService->getUpcomingTransitSummary($user, 12);
+            });
+            if (!empty($upcomingTransits)) {
+                $userContext['upcoming_transits'] = $upcomingTransits;
+            }
+        }
+        $partnerHistoryId = isset($data['partnerHistoryId']) ? (int) $data['partnerHistoryId'] : null;
+        if ($partnerHistoryId) {
+            $history = $this->synastryHistoryRepository->findOneByUserAndId($user, $partnerHistoryId);
+            if ($history && $history->getPartnerPositions()) {
+                $userContext['partner_name']         = $history->getPartnerName();
+                $userContext['partner_positions']    = $this->filterPositions($history->getPartnerPositions());
+                $userContext['compatibility_score']  = $history->getCompatibilityScore();
+            }
+        }
+
+        // Tools
+        $tools = $this->buildChatTools($locale);
+        $toolHandler = function (string $functionName, array $arguments) use ($user) {
+            if ($functionName === 'get_transits') {
+                return $this->astrologyAnalysisService->getTransitsForSpecificMonth($user, (int) ($arguments['months_from_now'] ?? 0));
+            }
+            if ($functionName === 'get_sky') {
+                return $this->astrologyAnalysisService->getPlanetPositionsForDate((int) ($arguments['days_from_now'] ?? 0));
+            }
+            return ['error' => 'Unknown function'];
+        };
+
+        // Snapshot for closure
+        $openAiService      = $this->openAiService;
+        $remainingSnap      = $remainingMessages;
+
+        return new StreamedResponse(function () use (
+            $messages, $userContext, $toolHandler, $tools, $previousResponseId,
+            $openAiService, $remainingSnap
+        ) {
+            // Get the chat messages with developer prompt via getChatMessages helper
+            $chatMessages = $openAiService->buildChatMessages($messages, $userContext, $tools);
+
+            try {
+                $result = $openAiService->streamChatResponse(
+                    $chatMessages,
+                    $toolHandler,
+                    $tools,
+                    $previousResponseId,
+                    function (string $delta) {
+                        echo 'data: ' . json_encode(['type' => 'delta', 'content' => $delta]) . "\n\n";
+                        if (ob_get_level() > 0) ob_flush();
+                        flush();
+                    }
+                );
+
+                echo 'data: ' . json_encode([
+                    'type'               => 'done',
+                    'response_id'        => $result['response_id'] ?? null,
+                    'remaining_messages' => $remainingSnap,
+                    'daily_limit_reached' => false,
+                ]) . "\n\n";
+            } catch (\Throwable $e) {
+                echo 'data: ' . json_encode(['type' => 'error', 'message' => 'AI service error']) . "\n\n";
+            }
+            if (ob_get_level() > 0) ob_flush();
+            flush();
+        }, 200, [
+            'Content-Type'    => 'text/event-stream',
+            'Cache-Control'   => 'no-cache',
+            'X-Accel-Buffering' => 'no',
+            'Connection'      => 'keep-alive',
+        ]);
+    }
+
+    /**
+     * Build the tool definitions for the chat endpoint (shared by both actions).
+     */
+    private function buildChatTools(string $locale): array
+    {
+        $isEn = $locale === 'en';
+        return [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name'        => 'get_transits',
+                    'description' => $isEn
+                        ? 'Calculates exact planetary transits (slow planets only: Saturn, Jupiter, Uranus, Neptune, Pluto, Mars) for a specific number of months from now.'
+                        : 'Calcule les transits planétaires exacts (planètes lentes : Saturne, Jupiter, Uranus, Neptune, Pluton, Mars) pour un nombre précis de mois dans le futur.',
+                    'parameters'  => [
+                        'type'       => 'object',
+                        'properties' => [
+                            'months_from_now' => [
+                                'type'        => 'integer',
+                                'description' => $isEn ? 'The number of months in the future.' : 'Le nombre de mois dans le futur.',
+                            ],
+                        ],
+                        'required' => ['months_from_now'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name'        => 'get_sky',
+                    'description' => $isEn
+                        ? 'Returns the exact position of ALL planets including Moon for a given number of days from today.'
+                        : 'Retourne la position exacte de TOUTES les planètes incluant la Lune pour un nombre de jours à partir d\'aujourd\'hui.',
+                    'parameters'  => [
+                        'type'       => 'object',
+                        'properties' => [
+                            'days_from_now' => [
+                                'type'        => 'integer',
+                                'description' => $isEn ? 'Number of days from today. 0=today, 1=tomorrow.' : 'Nombre de jours à partir d\'aujourd\'hui. 0=aujourd\'hui.',
+                            ],
+                        ],
+                        'required' => ['days_from_now'],
+                    ],
+                ],
+            ],
+        ];
     }
 
     /**
