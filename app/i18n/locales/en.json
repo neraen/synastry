@@ -137,7 +137,9 @@
     "deleteError": "Unable to delete account. Please try again.",
     "historyCardTitle": "My compatibility analyses",
     "historyCardSubtitle": "History of your celestial connections",
-    "historyCardBtn": "VIEW"
+    "historyCardBtn": "VIEW",
+    "helpCenter": "Help Center",
+    "helpCenterSubtitle": "Guides, planets, aspects, glossary"
   },
   "birthProfile": {
     "title": "Birth profile",
@@ -224,7 +226,7 @@
     "refresh": "Refresh",
     "lastUpdated": "Last updated",
     "badge": "NATAL CHART",
-    "heroTitle": "Your cosmic\nDNA",
+    "heroTitle": "Your Astral\nPortrait",
     "heroSubtitle": "Your planetary positions at the exact moment of your birth.",
     "planetaryPositions": "PLANETARY POSITIONS",
     "interpretation": "INTERPRETATION",

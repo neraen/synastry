@@ -327,34 +327,38 @@ class ChatController extends AbstractController
 
         // Build user context (same as chat())
         $userContext = [];
-        if ($user->hasBirthProfile()) {
-            $bp = $user->getBirthProfile();
-            if ($bp->getFirstName())  $userContext['name']       = $bp->getFirstName();
-            if ($bp->getBirthDate())  $userContext['birth_date'] = $bp->getBirthDate()->format('Y-m-d');
-            if ($bp->getBirthCity())  $userContext['birth_city'] = $bp->getBirthCity();
-        }
-        $natalChart = $this->natalChartRepository->findByUser($user);
-        if ($natalChart) {
-            $userContext['positions'] = $this->filterPositions($natalChart->getPlanetaryPositions());
-        }
-        if ($user->hasBirthProfile()) {
-            $transitCacheKey  = sprintf('chat_upcoming_transits_%d', $user->getId());
-            $upcomingTransits = $this->cache->get($transitCacheKey, function (\Symfony\Contracts\Cache\ItemInterface $item) use ($user) {
-                $item->expiresAfter(self::TRANSIT_CACHE_TTL);
-                return $this->astrologyAnalysisService->getUpcomingTransitSummary($user, 12);
-            });
-            if (!empty($upcomingTransits)) {
-                $userContext['upcoming_transits'] = $upcomingTransits;
+        try {
+            if ($user->hasBirthProfile()) {
+                $bp = $user->getBirthProfile();
+                if ($bp->getFirstName())  $userContext['name']       = $bp->getFirstName();
+                if ($bp->getBirthDate())  $userContext['birth_date'] = $bp->getBirthDate()->format('Y-m-d');
+                if ($bp->getBirthCity())  $userContext['birth_city'] = $bp->getBirthCity();
             }
-        }
-        $partnerHistoryId = isset($data['partnerHistoryId']) ? (int) $data['partnerHistoryId'] : null;
-        if ($partnerHistoryId) {
-            $history = $this->synastryHistoryRepository->findOneByUserAndId($user, $partnerHistoryId);
-            if ($history && $history->getPartnerPositions()) {
-                $userContext['partner_name']         = $history->getPartnerName();
-                $userContext['partner_positions']    = $this->filterPositions($history->getPartnerPositions());
-                $userContext['compatibility_score']  = $history->getCompatibilityScore();
+            $natalChart = $this->natalChartRepository->findByUser($user);
+            if ($natalChart) {
+                $userContext['positions'] = $this->filterPositions($natalChart->getPlanetaryPositions());
             }
+            if ($user->hasBirthProfile()) {
+                $transitCacheKey  = sprintf('chat_upcoming_transits_%d', $user->getId());
+                $upcomingTransits = $this->cache->get($transitCacheKey, function (\Symfony\Contracts\Cache\ItemInterface $item) use ($user) {
+                    $item->expiresAfter(self::TRANSIT_CACHE_TTL);
+                    return $this->astrologyAnalysisService->getUpcomingTransitSummary($user, 12);
+                });
+                if (!empty($upcomingTransits)) {
+                    $userContext['upcoming_transits'] = $upcomingTransits;
+                }
+            }
+            $partnerHistoryId = isset($data['partnerHistoryId']) ? (int) $data['partnerHistoryId'] : null;
+            if ($partnerHistoryId) {
+                $history = $this->synastryHistoryRepository->findOneByUserAndId($user, $partnerHistoryId);
+                if ($history && $history->getPartnerPositions()) {
+                    $userContext['partner_name']         = $history->getPartnerName();
+                    $userContext['partner_positions']    = $this->filterPositions($history->getPartnerPositions());
+                    $userContext['compatibility_score']  = $history->getCompatibilityScore();
+                }
+            }
+        } catch (\Throwable $e) {
+            // Context enrichment failed (e.g. astrology calculation error) — continue with minimal context
         }
 
         // Tools
@@ -377,10 +381,8 @@ class ChatController extends AbstractController
             $messages, $userContext, $toolHandler, $tools, $previousResponseId,
             $openAiService, $remainingSnap
         ) {
-            // Get the chat messages with developer prompt via getChatMessages helper
-            $chatMessages = $openAiService->buildChatMessages($messages, $userContext, $tools);
-
             try {
+                $chatMessages = $openAiService->buildChatMessages($messages, $userContext, $tools);
                 $result = $openAiService->streamChatResponse(
                     $chatMessages,
                     $toolHandler,

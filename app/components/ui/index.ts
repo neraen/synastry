@@ -14,6 +14,8 @@ export { CosmicProgressRing } from './CosmicProgressRing';
 export { TransitCard } from './TransitCard';
 export { NavBar } from './NavBar';
 export { TabHeader } from './TabHeader';
+export { HelpModal } from './HelpModal';
+export type { HelpItem, HelpSection } from './HelpModal';
 export { FormattedText } from './FormattedText';
 export { PremiumGate } from './PremiumGate';
 export { PremiumLockedButton } from './PremiumLockedButton';

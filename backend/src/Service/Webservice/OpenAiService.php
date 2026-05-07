@@ -158,6 +158,15 @@ PERSONA;
     }
 
     /**
+     * Public wrapper around callResponsesApi for simple one-shot prompts.
+     * Returns ['success' => bool, 'content' => string, 'error' => string]
+     */
+    public function callSimplePrompt(string $prompt, ?string $instructions = null): array
+    {
+        return $this->callResponsesApi($prompt, $instructions);
+    }
+
+    /**
      * Translate theme data using the locale service
      */
     private function translateTheme(array $theme): array
@@ -643,32 +652,30 @@ Rédige une interprétation précise qui couvre :
             $prompt = <<<PROMPT
 Today is {$today}. Week of {$weekStart} – {$weekEnd}.
 
-Generate the weekly cosmic headline for this app. Consider real current planetary positions, major aspects, or significant transits happening this week.
+Generate the weekly headline for this astrology app. Consider the real planetary energy of this week.
 
 Respond ONLY with valid JSON (no text before or after):
 {"title": "...", "subtitle": "..."}
 
 Rules:
-- "title": 2–5 words max, poetic and striking. Examples: "Saturn Meets the Sun", "Eclipse Season Opens", "Venus Stations Direct"
-- "subtitle": exactly 1 sentence (max 12 words), describes the energy or invitation of this week
-- Do NOT use generic phrases like "cosmic energy" or "the universe"
-- Be specific to actual planetary events of the week
+- "title": 3–6 words, evocative and human — like a magazine cover line. Think about the *feeling* or *theme* of the week, not the mechanics. Examples: "A Week to Cut the Rope", "The Ground Shifts Tonight", "Everything Asks to be Rebuilt", "Slow Fire, Deep Change"
+- FORBIDDEN in title: aspect names (Trine, Square, Conjunction, Sextile, Opposition), the word "Direct", planet names alone with no context
+- "subtitle": exactly 1 sentence (max 12 words), specific to this week's energy — no generic phrases
 PROMPT;
         } else {
             $instructions = "Tu es un astrologue maître qui rédige le titre hebdomadaire d'une application astrologique premium. Ton ton est mystique, élégant et ancré — jamais kitsch.";
             $prompt = <<<PROMPT
 Aujourd'hui, le {$today}. Semaine du {$weekStart} au {$weekEnd}.
 
-Génère le titre cosmique hebdomadaire de cette application. Tiens compte des positions planétaires actuelles, des aspects majeurs ou des transits significatifs de cette semaine.
+Génère le titre hebdomadaire de cette application astrologique. Tiens compte de l'énergie planétaire réelle de cette semaine.
 
 Réponds UNIQUEMENT en JSON valide (sans texte avant ou après) :
 {"title": "...", "subtitle": "..."}
 
 Règles :
-- "title" : 2 à 5 mots maximum, poétique et percutant. Exemples : "Saturne affronte le Soleil", "Saison des Éclipses", "Vénus en Station Directe"
-- "subtitle" : exactement 1 phrase (12 mots max), décrit l'énergie ou l'invitation de cette semaine
-- N'utilise PAS de formules génériques comme "énergie cosmique" ou "l'univers"
-- Sois spécifique aux événements planétaires réels de la semaine
+- "title" : 3 à 6 mots, évocateur et humain — comme une couverture de magazine. Pense à ce que la semaine *fait ressentir* ou *quel thème elle impose*, pas aux mécaniques célestes. Exemples : "Une semaine pour trancher", "Tout demande à être reconstruit", "Le sol se dérobe", "Feu lent, changement profond"
+- INTERDIT dans le titre : noms d'aspects (Trigone, Carré, Conjonction, Sextile, Opposition), le mot "Station", les noms de planètes seuls sans contexte
+- "subtitle" : exactement 1 phrase (12 mots max), spécifique à l'énergie de cette semaine — pas de formules génériques
 PROMPT;
         }
 

@@ -25,7 +25,7 @@ import * as FileSystem from 'expo-file-system';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
-import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader, HelpModal } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import { router } from 'expo-router';
@@ -412,77 +412,6 @@ const PLANETS_INFO = (fr: boolean) => [
     { symbol: 'ASC', name: fr ? 'Ascendant' : 'Ascendant', color: colors.onSurfaceMuted, desc: fr ? 'Masque social, première impression, apparence extérieure. Le point de l\'horizon Est au moment de votre naissance — comment le monde vous perçoit.' : 'Social mask, first impression, outer appearance. The eastern horizon at birth — how the world perceives you.' },
 ];
 
-function HelpModal({ visible, onClose, locale }: { visible: boolean; onClose: () => void; locale: string }) {
-    const [tab, setTab] = useState<'aspects' | 'planets'>('aspects');
-    const fr = locale === 'fr';
-    const aspects = ASPECTS_INFO(fr);
-    const planets = PLANETS_INFO(fr);
-
-    return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.modalOverlay}>
-                <TouchableWithoutFeedback onPress={onClose}>
-                    <View style={StyleSheet.absoluteFill} />
-                </TouchableWithoutFeedback>
-                <View style={[styles.modalSheet, styles.helpSheet]}>
-                    <View style={styles.modalHandle} />
-                    <View style={styles.helpHeader}>
-                        <Text style={styles.helpTitle}>{fr ? 'Guide astrologique' : 'Astrology guide'}</Text>
-                        <Pressable onPress={onClose} hitSlop={12}>
-                            <Feather name="x" size={18} color={colors.onSurfaceMuted} />
-                        </Pressable>
-                    </View>
-                    <View style={styles.helpTabRow}>
-                        <Pressable
-                            style={[styles.helpTab, tab === 'aspects' && styles.helpTabActive]}
-                            onPress={() => setTab('aspects')}
-                        >
-                            <Text style={[styles.helpTabText, tab === 'aspects' && styles.helpTabTextActive]}>
-                                {fr ? 'Aspects' : 'Aspects'}
-                            </Text>
-                        </Pressable>
-                        <Pressable
-                            style={[styles.helpTab, tab === 'planets' && styles.helpTabActive]}
-                            onPress={() => setTab('planets')}
-                        >
-                            <Text style={[styles.helpTabText, tab === 'planets' && styles.helpTabTextActive]}>
-                                {fr ? 'Planètes' : 'Planets'}
-                            </Text>
-                        </Pressable>
-                    </View>
-                    <ScrollView showsVerticalScrollIndicator={false} style={styles.helpScroll}>
-                        {tab === 'aspects' && aspects.map((a, i) => (
-                            <View key={i} style={styles.helpItem}>
-                                <View style={[styles.helpIconWrap, { backgroundColor: `${a.color}20` }]}>
-                                    <Text style={[styles.helpSymbol, { color: a.color }]}>{a.symbol}</Text>
-                                </View>
-                                <View style={styles.helpItemBody}>
-                                    <View style={styles.helpItemHeader}>
-                                        <Text style={[styles.helpItemName, { color: a.color }]}>{a.name}</Text>
-                                        <Text style={styles.helpItemAngle}>{a.angle}</Text>
-                                    </View>
-                                    <Text style={styles.helpItemDesc}>{a.desc}</Text>
-                                </View>
-                            </View>
-                        ))}
-                        {tab === 'planets' && planets.map((p, i) => (
-                            <View key={i} style={styles.helpItem}>
-                                <View style={[styles.helpIconWrap, { backgroundColor: `${p.color}18` }]}>
-                                    <Text style={[styles.helpSymbol, { color: p.color, fontSize: p.symbol === 'ASC' ? 10 : 18 }]}>{p.symbol}</Text>
-                                </View>
-                                <View style={styles.helpItemBody}>
-                                    <Text style={[styles.helpItemName, { color: colors.onSurface, marginBottom: spacing.xs }]}>{p.name}</Text>
-                                    <Text style={styles.helpItemDesc}>{p.desc}</Text>
-                                </View>
-                            </View>
-                        ))}
-                        <View style={{ height: spacing.xl }} />
-                    </ScrollView>
-                </View>
-            </View>
-        </Modal>
-    );
-}
 
 // ─── Mirror: Constants & types ────────────────────────────────────────────────
 
@@ -1387,8 +1316,26 @@ export default function TransitsScreen() {
                 />
                 <HelpModal
                     visible={helpVisible}
-                    locale={locale}
                     onClose={() => setHelpVisible(false)}
+                    title={locale === 'fr' ? 'Guide astrologique' : 'Astrology guide'}
+                    sections={[
+                        {
+                            key: 'aspects',
+                            title: locale === 'fr' ? 'Aspects' : 'Aspects',
+                            items: ASPECTS_INFO(locale === 'fr').map(a => ({
+                                symbol: a.symbol, symbolColor: a.color,
+                                name: a.name, badge: a.angle, description: a.desc,
+                            })),
+                        },
+                        {
+                            key: 'planets',
+                            title: locale === 'fr' ? 'Planètes' : 'Planets',
+                            items: PLANETS_INFO(locale === 'fr').map(p => ({
+                                symbol: p.symbol, symbolColor: p.color,
+                                name: p.name, description: p.desc,
+                            })),
+                        },
+                    ]}
                 />
 
             </SafeAreaView>
@@ -1872,94 +1819,6 @@ const styles = StyleSheet.create({
     },
 
     // Help Modal
-    helpSheet: {
-        paddingBottom: spacing.xl,
-    },
-    helpHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: spacing.lg,
-    },
-    helpTitle: {
-        fontFamily: fonts.display.regular,
-        fontSize: 20,
-        color: colors.onSurface,
-        letterSpacing: 0.2,
-    },
-    helpTabRow: {
-        flexDirection: 'row',
-        backgroundColor: colors.surfaceContainerHigh,
-        borderRadius: radius.full,
-        padding: 3,
-        marginBottom: spacing.xl,
-    },
-    helpTab: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: 8,
-        borderRadius: radius.full,
-    },
-    helpTabActive: {
-        backgroundColor: colors.surfaceContainerHighest,
-    },
-    helpTabText: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 13,
-        color: colors.onSurfaceMuted,
-    },
-    helpTabTextActive: {
-        color: colors.onSurface,
-    },
-    helpScroll: {
-        maxHeight: WINDOW_HEIGHT * 0.55,
-    },
-    helpItem: {
-        flexDirection: 'row',
-        gap: spacing.md,
-        marginBottom: spacing.xl,
-    },
-    helpIconWrap: {
-        width: 44,
-        height: 44,
-        borderRadius: radius.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-    },
-    helpSymbol: {
-        fontSize: 18,
-        lineHeight: 22,
-    },
-    helpItemBody: {
-        flex: 1,
-    },
-    helpItemHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        marginBottom: spacing.xs,
-    },
-    helpItemName: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 14,
-    },
-    helpItemAngle: {
-        fontFamily: fonts.body.regular,
-        fontSize: 11,
-        color: colors.onSurfaceMuted,
-        backgroundColor: colors.surfaceContainerHigh,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: radius.full,
-    },
-    helpItemDesc: {
-        fontFamily: fonts.body.regular,
-        fontSize: 13,
-        lineHeight: 19,
-        color: colors.onSurfaceMuted,
-    },
-
     // Interpretation Modal
     modalOverlay: {
         flex: 1,

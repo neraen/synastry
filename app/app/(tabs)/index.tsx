@@ -1,16 +1,80 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, Text, Pressable, StyleSheet, Dimensions, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, TabHeader } from '@/components/ui';
-import { colors, spacing, fonts } from '@/theme';
-import { getCosmicHeadline } from '@/services/astrology';
+import { GlassCard, GoldButton, TabHeader, ProgressBar, CelestialChip } from '@/components/ui';
+import { colors, spacing, fonts, radius } from '@/theme';
+import { getCosmicHeadline, getHomeInsights, WeeklyEnergy, CurrentPeriod } from '@/services/astrology';
 
 const { width: W } = Dimensions.get('window');
 const CARD_WIDTH = (W - spacing.xl * 2 - spacing.md) / 2;
+
+// ─── Skeleton ──────────────────────────────────────────────────────────────────
+
+function SkeletonBlock({ width, height, style }: { width: number | string; height: number; style?: object }) {
+    const opacity = React.useRef(new Animated.Value(0.3)).current;
+
+    React.useEffect(() => {
+        const anim = Animated.loop(
+            Animated.sequence([
+                Animated.timing(opacity, { toValue: 0.6, duration: 800, useNativeDriver: true }),
+                Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+            ])
+        );
+        anim.start();
+        return () => anim.stop();
+    }, []);
+
+    return (
+        <Animated.View
+            style={[
+                { width, height, borderRadius: radius.md, backgroundColor: colors.surfaceContainerHigh },
+                { opacity },
+                style,
+            ]}
+        />
+    );
+}
+
+function WeeklyEnergySkeleton() {
+    return (
+        <GlassCard opacity="low" radius="xl">
+            <SkeletonBlock width="50%" height={14} style={{ marginBottom: spacing.sm }} />
+            <SkeletonBlock width="80%" height={20} style={{ marginBottom: spacing.lg }} />
+            <SkeletonBlock width="100%" height={12} style={{ marginBottom: spacing.sm }} />
+            <SkeletonBlock width="90%" height={12} style={{ marginBottom: spacing.xl }} />
+            <SkeletonBlock width="100%" height={6} style={{ borderRadius: radius.full, marginBottom: spacing.lg }} />
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <SkeletonBlock width={70} height={28} style={{ borderRadius: radius.full }} />
+                <SkeletonBlock width={60} height={28} style={{ borderRadius: radius.full }} />
+                <SkeletonBlock width={80} height={28} style={{ borderRadius: radius.full }} />
+            </View>
+        </GlassCard>
+    );
+}
+
+function CurrentPeriodSkeleton() {
+    return (
+        <GlassCard opacity="low" radius="xl">
+            <SkeletonBlock width="40%" height={14} style={{ marginBottom: spacing.sm }} />
+            <SkeletonBlock width="65%" height={20} style={{ marginBottom: spacing.lg }} />
+            <SkeletonBlock width="100%" height={12} style={{ marginBottom: spacing.sm }} />
+            <SkeletonBlock width="95%" height={12} style={{ marginBottom: spacing.sm }} />
+            <SkeletonBlock width="85%" height={12} />
+        </GlassCard>
+    );
+}
+
+// ─── Tonality dot ──────────────────────────────────────────────────────────────
+
+const TONALITY_COLOR: Record<string, string> = {
+    positive: '#6fcf97',
+    neutre: colors.onSurfaceMuted,
+    tendu: '#eb5757',
+};
 
 // ─── Feature Card ──────────────────────────────────────────────────────────────
 
@@ -37,8 +101,14 @@ function FeatureCard({ icon, label, route }: {
 export default function Home() {
     const router = useRouter();
     const { t } = useTranslation();
+    const { user } = useAuth();
     const [heroTitle, setHeroTitle] = useState<string | null>(null);
     const [heroSubtitle, setHeroSubtitle] = useState<string | null>(null);
+    const [weeklyEnergy, setWeeklyEnergy] = useState<WeeklyEnergy | null>(null);
+    const [currentPeriod, setCurrentPeriod] = useState<CurrentPeriod | null>(null);
+    const [insightsLoading, setInsightsLoading] = useState(false);
+    const [insightsError, setInsightsError] = useState(false);
+    const hasBirthProfile = user?.hasBirthProfile ?? false;
 
     useEffect(() => {
         getCosmicHeadline()
@@ -50,6 +120,23 @@ export default function Home() {
             })
             .catch(() => {});
     }, []);
+
+    useEffect(() => {
+        if (!hasBirthProfile) return;
+        setInsightsLoading(true);
+        setInsightsError(false);
+        getHomeInsights()
+            .then((res) => {
+                if (res.success) {
+                    setWeeklyEnergy(res.weeklyEnergy ?? null);
+                    setCurrentPeriod(res.currentPeriod ?? null);
+                } else {
+                    setInsightsError(true);
+                }
+            })
+            .catch(() => setInsightsError(true))
+            .finally(() => setInsightsLoading(false));
+    }, [hasBirthProfile]);
 
     return (
         <View style={styles.screen}>
@@ -66,6 +153,59 @@ export default function Home() {
                         <Text style={styles.heroTitle}>{heroTitle ?? t('home.heroTitle')}</Text>
                         <Text style={styles.heroSubtitle}>{heroSubtitle ?? t('home.heroSubtitle')}</Text>
                     </View>
+
+                    {/* ── Weekly Energy ─────────────────────────────────────── */}
+                    {hasBirthProfile && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionLabel}>{t('home.weeklyEnergyLabel', 'Énergie de la semaine')}</Text>
+                            {insightsLoading && !weeklyEnergy ? (
+                                <WeeklyEnergySkeleton />
+                            ) : weeklyEnergy ? (
+                                <GlassCard opacity="low" radius="xl">
+                                    <Text style={styles.insightTitle}>{weeklyEnergy.titre}</Text>
+                                    <Text style={styles.insightBody}>{weeklyEnergy.resume}</Text>
+                                    <View style={styles.intensiteRow}>
+                                        <Text style={styles.intensiteLabel}>{t('home.intensityLabel', 'Intensité')}</Text>
+                                        <Text style={styles.intensiteValue}>{weeklyEnergy.intensite}/10</Text>
+                                    </View>
+                                    <ProgressBar value={weeklyEnergy.intensite * 10} style={styles.progressBar} />
+                                    <View style={styles.chipRow}>
+                                        {weeklyEnergy.domaines.map((d) => (
+                                            <CelestialChip key={d} label={d} />
+                                        ))}
+                                    </View>
+                                    {weeklyEnergy.conseil ? (
+                                        <View style={styles.conseilBox}>
+                                            <Feather name="zap" size={14} color={colors.primary} />
+                                            <Text style={styles.conseilText}>{weeklyEnergy.conseil}</Text>
+                                        </View>
+                                    ) : null}
+                                </GlassCard>
+                            ) : null}
+                        </View>
+                    )}
+
+                    {/* ── Current Period ────────────────────────────────────── */}
+                    {hasBirthProfile && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionLabel}>{t('home.currentPeriodLabel', 'Ta période actuelle')}</Text>
+                            {insightsLoading && !currentPeriod ? (
+                                <CurrentPeriodSkeleton />
+                            ) : currentPeriod ? (
+                                <GlassCard opacity="low" radius="xl">
+                                    <View style={styles.periodHeader}>
+                                        <Text style={styles.insightTitle}>{currentPeriod.titre}</Text>
+                                        <View style={[styles.tonalityDot, { backgroundColor: TONALITY_COLOR[currentPeriod.tonalite] ?? colors.onSurfaceMuted }]} />
+                                    </View>
+                                    {currentPeriod.contenu.map((para, i) => (
+                                        <Text key={i} style={[styles.insightBody, i > 0 && { marginTop: spacing.md }]}>
+                                            {para}
+                                        </Text>
+                                    ))}
+                                </GlassCard>
+                            ) : null}
+                        </View>
+                    )}
 
                     {/* ── Synastry CTA ──────────────────────────────────────── */}
                     <View style={styles.section}>
@@ -129,6 +269,86 @@ const styles = StyleSheet.create({
     section: {
         paddingHorizontal: spacing.xl,
         marginTop: spacing.xxl,
+    },
+
+    sectionLabel: {
+        fontFamily: fonts.body.medium,
+        fontSize: 11,
+        letterSpacing: 1.5,
+        color: colors.onSurfaceMuted,
+        textTransform: 'uppercase',
+        marginBottom: spacing.md,
+    },
+
+    insightTitle: {
+        fontFamily: fonts.display.regular,
+        fontSize: 20,
+        lineHeight: 26,
+        color: colors.onSurface,
+        marginBottom: spacing.md,
+    },
+    insightBody: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        lineHeight: 22,
+        color: colors.onSurfaceMuted,
+        marginBottom: spacing.md,
+    },
+
+    intensiteRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: spacing.md,
+        marginBottom: spacing.sm,
+    },
+    intensiteLabel: {
+        fontFamily: fonts.body.medium,
+        fontSize: 12,
+        color: colors.onSurfaceMuted,
+    },
+    intensiteValue: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 12,
+        color: colors.onSurface,
+    },
+    progressBar: {
+        marginBottom: spacing.lg,
+    },
+
+    chipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.sm,
+        marginBottom: spacing.lg,
+    },
+
+    conseilBox: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: spacing.sm,
+        backgroundColor: `${colors.primary}12`,
+        borderRadius: radius.md,
+        padding: spacing.md,
+    },
+    conseilText: {
+        flex: 1,
+        fontFamily: fonts.body.regular,
+        fontSize: 13,
+        lineHeight: 20,
+        color: colors.onSurface,
+    },
+
+    periodHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: spacing.md,
+    },
+    tonalityDot: {
+        width: 8,
+        height: 8,
+        borderRadius: radius.full,
     },
 
     ctaTitle: {

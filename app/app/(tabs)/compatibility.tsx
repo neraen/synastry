@@ -3,6 +3,7 @@ import {
     View,
     Text,
     ScrollView,
+    Pressable,
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
@@ -13,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     GlassCard,
@@ -23,10 +25,70 @@ import {
     TabHeader,
     PremiumLockedButton,
     CityAutocomplete,
+    HelpModal,
 } from '@/components/ui';
+import type { HelpSection } from '@/components/ui';
 import { calculateSynastry } from '@/services/astrology';
 import { CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
 import { colors, spacing, radius, fonts } from '@/theme';
+
+// ─── Help content ─────────────────────────────────────────────────────────────
+
+const COMPATIBILITY_HELP = (fr: boolean): HelpSection[] => [{
+    key: 'synastry',
+    title: fr ? 'Synastrie' : 'Synastry',
+    items: [
+        {
+            name: fr ? 'La synastrie' : 'Synastry',
+            symbolColor: colors.primary,
+            description: fr
+                ? "Technique astrologique qui superpose vos deux thèmes natals pour révéler les dynamiques entre vous : attirance, défis, complémentarités et potentiel de durée."
+                : "Astrological technique that overlays two natal charts to reveal the dynamics between you: attraction, challenges, complementarities, and long-term potential.",
+        },
+        {
+            symbol: '★', symbolColor: '#e9c349',
+            name: fr ? 'Le score global' : 'Overall score',
+            description: fr
+                ? "Calculé automatiquement à partir de 5 dimensions clés. Une note élevée indique une forte résonance astrologique, mais ne garantit pas le succès — la volonté compte autant."
+                : "Automatically calculated from 5 key dimensions. A high score indicates strong astrological resonance, but doesn't guarantee success — intention matters as much.",
+        },
+        {
+            symbol: '☽', symbolColor: '#c8bfff',
+            name: fr ? 'Émotions & Valeurs' : 'Emotions & Values',
+            description: fr
+                ? "Résonance émotionnelle et partage de valeurs profondes. Fortement influencés par la Lune, Vénus et leurs aspects mutuels."
+                : "Emotional resonance and shared deep values. Strongly influenced by the Moon, Venus, and their mutual aspects.",
+        },
+        {
+            symbol: '☿', symbolColor: '#60a5fa',
+            name: fr ? 'Communication' : 'Communication',
+            description: fr
+                ? "Facilité de compréhension et d'échange intellectuel. Gouverné par Mercure et les aspects entre vos Mercures et Lunes respectifs."
+                : "Ease of understanding and intellectual exchange. Governed by Mercury and the aspects between your respective Mercuries and Moons.",
+        },
+        {
+            symbol: '♂', symbolColor: '#fb923c',
+            name: fr ? 'Passion & Désir' : 'Passion & Desire',
+            description: fr
+                ? "Intensité physique et magnétisme mutuel. Révélé par Mars, Vénus et leurs interactions — particulièrement les conjonctions et oppositions."
+                : "Physical intensity and mutual magnetism. Revealed by Mars, Venus, and their interactions — especially conjunctions and oppositions.",
+        },
+        {
+            symbol: '♄', symbolColor: '#a78bfa',
+            name: fr ? 'Stabilité' : 'Stability',
+            description: fr
+                ? "Potentiel de durée et de solidité de la relation. Influencé par Saturne, Jupiter et les aspects qui créent un sentiment de structure et de confiance."
+                : "Long-term potential and solidity. Influenced by Saturn, Jupiter, and aspects that create a sense of structure and trust.",
+        },
+        {
+            symbol: '☊', symbolColor: '#4ade80',
+            name: fr ? 'Destin & Âme' : 'Destiny & Soul',
+            description: fr
+                ? "Connexion karmique profonde. Liée aux Nœuds lunaires, à Pluton et aux aspects transpersonnels qui suggèrent une rencontre d'âmes au-delà du hasard."
+                : "Deep karmic connection. Linked to the lunar nodes, Pluto, and transpersonal aspects that suggest a soul meeting beyond chance.",
+        },
+    ],
+}];
 
 // ─── Empty state ───────────────────────────────────────────────────────────────
 function EmptyState({ emoji, message, actionLabel, onAction }: {
@@ -56,6 +118,7 @@ export default function CompatibilityTab() {
 
     const scrollRef = useRef<ScrollView>(null);
     const scrollYRef = useRef(0);
+    const [helpVisible, setHelpVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>();
     const [freeLimitReached, setFreeLimitReached] = useState(false);
@@ -190,9 +253,14 @@ export default function CompatibilityTab() {
 
                         {/* Hero */}
                         <View style={styles.hero}>
-                            <View style={styles.badge}>
-                                <View style={styles.badgeDot} />
-                                <Text style={styles.badgeText}>{t('synastry.badge')}</Text>
+                            <View style={styles.badgeRow}>
+                                <View style={styles.badge}>
+                                    <View style={styles.badgeDot} />
+                                    <Text style={styles.badgeText}>{t('synastry.badge')}</Text>
+                                </View>
+                                <Pressable onPress={() => setHelpVisible(true)} hitSlop={12}>
+                                    <Feather name="help-circle" size={16} color={colors.onSurfaceMuted} />
+                                </Pressable>
                             </View>
                             <Text style={styles.formTitle}>{t('synastry.formTitle')}</Text>
                             <Text style={styles.formSubtitle}>{t('synastry.formSubtitle')}</Text>
@@ -269,6 +337,12 @@ export default function CompatibilityTab() {
                     </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
+            <HelpModal
+                visible={helpVisible}
+                onClose={() => setHelpVisible(false)}
+                title={i18n.language === 'fr' ? 'Guide — Compatibilité' : 'Guide — Compatibility'}
+                sections={COMPATIBILITY_HELP(i18n.language === 'fr')}
+            />
         </View>
     );
 }
@@ -281,11 +355,14 @@ const styles = StyleSheet.create({
     scrollContent: { flexGrow: 1 },
 
     hero: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.xxxl },
+    badgeRow: {
+        flexDirection: 'row', alignItems: 'center',
+        gap: spacing.sm, marginBottom: spacing.xl,
+    },
     badge: {
-        flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+        flexDirection: 'row', alignItems: 'center',
         gap: spacing.sm, backgroundColor: colors.surfaceContainerHigh,
         borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 6,
-        marginBottom: spacing.xl,
     },
     badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
     badgeText: {

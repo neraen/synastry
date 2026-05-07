@@ -137,7 +137,9 @@
     "deleteError": "Impossible de supprimer le compte. Veuillez réessayer.",
     "historyCardTitle": "Mes analyses de compatibilité",
     "historyCardSubtitle": "Historique de vos connexions célestes",
-    "historyCardBtn": "VOIR"
+    "historyCardBtn": "VOIR",
+    "helpCenter": "Centre d'aide",
+    "helpCenterSubtitle": "Guides, planètes, aspects, glossaire"
   },
   "birthProfile": {
     "title": "Profil de naissance",
@@ -224,7 +226,7 @@
     "refresh": "Actualiser",
     "lastUpdated": "Dernière mise à jour",
     "badge": "THÈME NATAL",
-    "heroTitle": "Votre ADN\nCosmique",
+    "heroTitle": "Votre Portrait\nAstral",
     "heroSubtitle": "Vos positions planétaires au moment exact de votre naissance.",
     "planetaryPositions": "POSITIONS PLANÉTAIRES",
     "interpretation": "INTERPRÉTATION",

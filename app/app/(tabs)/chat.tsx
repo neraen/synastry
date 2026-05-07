@@ -109,7 +109,11 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
             ) : (
                 <View style={[styles.bubble, styles.bubbleAI]}>
                     {isStreaming && message.content === '' ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
+                        <View style={styles.typingRow}>
+                            <TypingDot delay={0} />
+                            <TypingDot delay={150} />
+                            <TypingDot delay={300} />
+                        </View>
                     ) : (
                         <Text selectable style={styles.bubbleTextAI}>{message.content}</Text>
                     )}
@@ -250,6 +254,9 @@ export default function ChatScreen() {
     const [freeUsed, setFreeUsed] = useState(false);
     const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
     const listRef = useRef<FlatList>(null);
+    const twRef = useRef<{ target: string; shown: number; interval: ReturnType<typeof setInterval> | null }>(
+        { target: '', shown: 0, interval: null }
+    );
     const tooltipAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -373,32 +380,45 @@ export default function ChatScreen() {
             ({ role, content }) => ({ role, content })
         );
 
-        try {
-            // Placeholder assistant message — filled by stream
-            let streamedContent = '';
-            const placeholderMsg: ChatMessage = { id: tempId, role: 'assistant', content: '', createdAt: new Date() };
+        // Reset typewriter
+        twRef.current.target = '';
+        twRef.current.shown = 0;
+        if (twRef.current.interval) {
+            clearInterval(twRef.current.interval);
+            twRef.current.interval = null;
+        }
 
+        try {
+            const placeholderMsg: ChatMessage = { id: tempId, role: 'assistant', content: '', createdAt: new Date() };
             setStreamingMsgId(tempId);
             setIsTyping(false);
             setMessages((prev) => [...prev, placeholderMsg]);
+
+            // Typewriter: reveal 4 chars every 16ms (~250 chars/sec)
+            twRef.current.interval = setInterval(() => {
+                const tw = twRef.current;
+                if (tw.shown >= tw.target.length) return;
+                tw.shown = Math.min(tw.shown + 4, tw.target.length);
+                const next = tw.target.slice(0, tw.shown);
+                setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, content: next } : m));
+            }, 16);
 
             const result = await sendChatMessageStream(
                 history,
                 activePartner?.id,
                 lastResponseId ?? undefined,
-                (delta) => {
-                    streamedContent += delta;
-                    setMessages((prev) =>
-                        prev.map((m) => m.id === tempId ? { ...m, content: streamedContent } : m)
-                    );
-                },
+                (delta) => { twRef.current.target += delta; },
             );
+
+            // Stream done — clear interval and fast-forward to full content
+            clearInterval(twRef.current.interval);
+            twRef.current.interval = null;
+            setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, content: twRef.current.target } : m));
 
             if (result.remainingMessages !== null) setRemainingMessages(result.remainingMessages);
             if (result.dailyLimitReached) setDailyLimitReached(true);
             if (result.responseId) setLastResponseId(result.responseId);
 
-            // Mark 1 free use for non-premium
             if (!isPremium && !freeUsed && FREE_USED_FILE) {
                 setFreeUsed(true);
                 FileSystem.writeAsStringAsync(FREE_USED_FILE, '1').catch(() => {});
@@ -412,6 +432,10 @@ export default function ChatScreen() {
                 return prev;
             });
         } catch (err: any) {
+            if (twRef.current.interval) {
+                clearInterval(twRef.current.interval);
+                twRef.current.interval = null;
+            }
             if (err?.status === 403 && err?.payload?.error === 'daily_limit_reached') {
                 setDailyLimitReached(true);
                 setRemainingMessages(0);

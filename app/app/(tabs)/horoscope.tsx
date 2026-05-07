@@ -12,12 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, CopyableText, TabHeader, FormattedText } from '@/components/ui';
+import { GlassCard, GoldButton, TabHeader, FormattedText, HelpModal } from '@/components/ui';
+import type { HelpSection } from '@/components/ui';
 import {
     getNatalChart,
-    getNatalChartInterpretation,
     getPlanetInterpretation,
     NatalChart,
     getMainPlanets,
@@ -25,6 +27,50 @@ import {
     formatDegree,
 } from '@/services/astrology';
 import { colors, spacing, radius, fonts } from '@/theme';
+
+// ─── Help content ─────────────────────────────────────────────────────────────
+
+const HOROSCOPE_HELP = (fr: boolean): HelpSection[] => [{
+    key: 'natal',
+    title: fr ? 'Thème natal' : 'Natal chart',
+    items: [
+        {
+            name: fr ? 'Le thème natal' : 'The natal chart',
+            symbolColor: colors.primary,
+            description: fr
+                ? "Votre carte du ciel au moment exact de votre naissance. La position de chaque planète dans un signe et une maison révèle différentes facettes de votre personnalité."
+                : "Your sky map at the exact moment of your birth. Each planet's position in a sign and house reveals different facets of your personality.",
+        },
+        {
+            symbol: '☉', symbolColor: '#e9c349',
+            name: fr ? 'Les planètes' : 'Planets',
+            description: fr
+                ? "Chaque planète représente une énergie (Soleil = identité, Lune = émotions, Mars = action…). Appuyez sur une planète pour voir son interprétation détaillée par l'IA."
+                : "Each planet represents an energy (Sun = identity, Moon = emotions, Mars = action…). Tap a planet to see its detailed AI interpretation.",
+        },
+        {
+            symbol: '♈', symbolColor: '#c8bfff',
+            name: fr ? 'Les signes' : 'Signs',
+            description: fr
+                ? "Le signe dans lequel se trouve une planète colore son expression. Ex : Mars en Cancer exprime son énergie de façon défensive et émotionnelle plutôt qu'assertive."
+                : "The sign a planet occupies colors its expression. E.g.: Mars in Cancer expresses its energy defensively and emotionally rather than assertively.",
+        },
+        {
+            symbol: '⌂', symbolColor: '#a78bfa',
+            name: fr ? 'Les maisons' : 'Houses',
+            description: fr
+                ? "Les 12 maisons correspondent aux domaines de vie (maison 1 = personnalité, maison 7 = relations, maison 10 = carrière…). La planète dans la maison agit dans ce domaine."
+                : "The 12 houses correspond to life areas (house 1 = personality, house 7 = relationships, house 10 = career…). A planet in a house acts in that domain.",
+        },
+        {
+            symbol: '△', symbolColor: '#4ade80',
+            name: fr ? 'Les aspects' : 'Aspects',
+            description: fr
+                ? "Les angles entre les planètes créent des harmonies (trigone, sextile) ou des tensions (carré, opposition). Consultez le Centre d'aide pour une description complète."
+                : "Angles between planets create harmonies (trine, sextile) or tensions (square, opposition). See the Help Center for a full description.",
+        },
+    ],
+}];
 
 // ─── Planet display data ────────────────────────────────────────────────────────
 const PLANET_SYMBOLS: Record<string, string> = {
@@ -199,10 +245,11 @@ export default function HoroscopeTab() {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
-    const [isLoadingInterp, setIsLoadingInterp] = useState(false);
     const [error, setError] = useState<string>();
     const [chart, setChart] = useState<NatalChart | null>(null);
-    const [interpretation, setInterpretation] = useState<string | null>(null);
+
+    // Help modal
+    const [helpVisible, setHelpVisible] = useState(false);
 
     // Planet detail modal
     const [selectedPlanet, setSelectedPlanet] = useState<string | null>(null);
@@ -239,23 +286,6 @@ export default function HoroscopeTab() {
             setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
         } finally {
             setIsLoading(false);
-        }
-    }
-
-    async function loadInterpretation() {
-        setIsLoadingInterp(true);
-        setError(undefined);
-        try {
-            const response = await getNatalChartInterpretation();
-            if (response.success && response.interpretation) {
-                setInterpretation(response.interpretation);
-            } else {
-                setError(response.error || t('horoscope.chartError'));
-            }
-        } catch (err: any) {
-            setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
-        } finally {
-            setIsLoadingInterp(false);
         }
     }
 
@@ -318,9 +348,14 @@ export default function HoroscopeTab() {
 
                     {/* ── Hero ────────────────────────────────────────────────── */}
                     <View style={styles.hero}>
-                        <View style={styles.badge}>
-                            <View style={styles.badgeDot} />
-                            <Text style={styles.badgeText}>{t('horoscope.badge')}</Text>
+                        <View style={styles.badgeRow}>
+                            <View style={styles.badge}>
+                                <View style={styles.badgeDot} />
+                                <Text style={styles.badgeText}>{t('horoscope.badge')}</Text>
+                            </View>
+                            <Pressable onPress={() => setHelpVisible(true)} hitSlop={12}>
+                                <Feather name="help-circle" size={16} color={colors.onSurfaceMuted} />
+                            </Pressable>
                         </View>
                         <Text style={styles.heroTitle}>{t('horoscope.heroTitle')}</Text>
                         <Text style={styles.heroSubtitle}>
@@ -365,37 +400,16 @@ export default function HoroscopeTab() {
                     {chart && (
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>{t('horoscope.interpretation')}</Text>
-
-                            {interpretation ? (
-                                // Full interpretation (replaces summary after button tap)
-                                <GlassCard opacity="low" radius="xl">
-                                    <CopyableText text={interpretation}>
-                                        <FormattedText text={interpretation} style={styles.interpText} />
-                                    </CopyableText>
-                                </GlassCard>
-                            ) : isLoadingInterp ? (
-                                <GlassCard opacity="low" radius="xl">
-                                    <View style={styles.interpLoading}>
-                                        <ActivityIndicator color={colors.primary} size="small" />
-                                        <Text style={styles.interpLoadingText}>{t('horoscope.interpretationLoading')}</Text>
-                                        <Text style={styles.interpLoadingHint}>
-                                            {t('horoscope.interpretationLoadingHint')}
-                                        </Text>
-                                    </View>
-                                </GlassCard>
-                            ) : (
-                                // Default state — static guide text + CTA
-                                <GlassCard opacity="low" radius="xl">
-                                    <Text style={styles.interpGuide}>{t('horoscope.chartGuide')}</Text>
-                                    <View style={{ marginTop: spacing.xl }}>
-                                        <GoldButton
-                                            label={t('horoscope.showDetailedProfile')}
-                                            onPress={loadInterpretation}
-                                            rightIcon
-                                        />
-                                    </View>
-                                </GlassCard>
-                            )}
+                            <GlassCard opacity="low" radius="xl">
+                                <Text style={styles.interpGuide}>{t('horoscope.chartGuide')}</Text>
+                                <View style={{ marginTop: spacing.xl }}>
+                                    <GoldButton
+                                        label={t('horoscope.showDetailedProfile')}
+                                        onPress={() => router.push('/natal-chart-analysis')}
+                                        rightIcon
+                                    />
+                                </View>
+                            </GlassCard>
                         </View>
                     )}
 
@@ -404,6 +418,12 @@ export default function HoroscopeTab() {
                 </ScrollView>
             </SafeAreaView>
 
+            <HelpModal
+                visible={helpVisible}
+                onClose={() => setHelpVisible(false)}
+                title={i18n.language === 'fr' ? 'Guide — Thème natal' : 'Guide — Natal Chart'}
+                sections={HOROSCOPE_HELP(i18n.language === 'fr')}
+            />
             <PlanetDetailModal
                 visible={!!selectedPlanet}
                 planet={selectedPlanet}
@@ -451,16 +471,20 @@ const styles = StyleSheet.create({
         paddingTop: spacing.xl,
         paddingBottom: spacing.xxxl,
     },
+    badgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        marginBottom: spacing.xl,
+    },
     badge: {
         flexDirection: 'row',
         alignItems: 'center',
-        alignSelf: 'flex-start',
         gap: spacing.sm,
         backgroundColor: colors.surfaceContainerHigh,
         borderRadius: radius.full,
         paddingHorizontal: spacing.md,
         paddingVertical: 6,
-        marginBottom: spacing.xl,
     },
     badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
     badgeText: {

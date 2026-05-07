@@ -486,57 +486,32 @@ export interface ChatStreamResult {
  * Send a chat message and receive the response as an SSE stream.
  * Calls onDelta for each text token as it arrives.
  */
-export async function sendChatMessageStream(
+export function sendChatMessageStream(
     messages: Pick<ChatMessage, 'role' | 'content'>[],
     partnerHistoryId: number | undefined,
     previousResponseId: string | undefined,
     onDelta: (delta: string) => void,
 ): Promise<ChatStreamResult> {
-    const token = await getToken();
-    const locale = i18n.language || 'fr';
+    return new Promise(async (resolve, reject) => {
+        const token = await getToken();
+        const locale = i18n.language || 'fr';
 
-    const response = await fetch(`${getApiUrl()}/api/chat/stream`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            'Accept-Language': locale,
-        },
-        body: JSON.stringify({
-            messages,
-            ...(partnerHistoryId ? { partnerHistoryId } : {}),
-            ...(previousResponseId ? { previousResponseId } : {}),
-        }),
-    });
+        let sseBuffer = '';
+        let processedLength = 0;
+        let responseId: string | null = null;
+        let remainingMessages: number | null = null;
+        let dailyLimitReached = false;
+        let settled = false;
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const err: any = new Error(errorData.error ?? 'Stream error');
-        err.status = response.status;
-        err.payload = errorData;
-        throw err;
-    }
-
-    const reader = response.body!.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let responseId: string | null = null;
-    let remainingMessages: number | null = null;
-    let dailyLimitReached = false;
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() ?? '';
-
-        for (const chunk of parts) {
-            const dataLine = chunk.split('\n').find((l) => l.startsWith('data: '));
-            if (!dataLine) continue;
-            try {
-                const data = JSON.parse(dataLine.slice(6));
+        const processText = (newText: string) => {
+            sseBuffer += newText;
+            const parts = sseBuffer.split('\n\n');
+            sseBuffer = parts.pop() ?? '';
+            for (const chunk of parts) {
+                const dataLine = chunk.split('\n').find((l) => l.startsWith('data: '));
+                if (!dataLine) continue;
+                let data: any;
+                try { data = JSON.parse(dataLine.slice(6)); } catch { continue; }
                 if (data.type === 'delta') {
                     onDelta(data.content ?? '');
                 } else if (data.type === 'done') {
@@ -544,15 +519,53 @@ export async function sendChatMessageStream(
                     if (data.remaining_messages !== undefined) remainingMessages = data.remaining_messages;
                     dailyLimitReached = data.daily_limit_reached ?? false;
                 } else if (data.type === 'error') {
-                    throw new Error(data.message ?? 'AI service error');
+                    if (!settled) { settled = true; reject(new Error(data.message ?? 'AI service error')); }
                 }
-            } catch {
-                // ignore malformed SSE lines
             }
-        }
-    }
+        };
 
-    return { responseId, remainingMessages, dailyLimitReached };
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${getApiUrl()}/api/chat/stream`);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.setRequestHeader('Accept-Language', locale);
+        xhr.timeout = 120000;
+
+        // onprogress fires incrementally as chunks arrive — true streaming in React Native
+        xhr.onprogress = () => {
+            const newText = xhr.responseText.slice(processedLength);
+            processedLength = xhr.responseText.length;
+            if (newText) processText(newText);
+        };
+
+        xhr.onload = () => {
+            if (settled) return;
+            if (xhr.status >= 400) {
+                settled = true;
+                let errorData: any = {};
+                try { errorData = JSON.parse(xhr.responseText); } catch {}
+                const err: any = new Error(errorData.error ?? 'Stream error');
+                err.status = xhr.status;
+                err.payload = errorData;
+                reject(err);
+                return;
+            }
+            // Flush any remaining text not caught by onprogress
+            const remaining = xhr.responseText.slice(processedLength);
+            if (remaining) processText(remaining);
+            settled = true;
+            resolve({ responseId, remainingMessages, dailyLimitReached });
+        };
+
+        xhr.onerror = () => { if (!settled) { settled = true; reject(new Error('Network error')); } };
+        xhr.ontimeout = () => { if (!settled) { settled = true; reject(new Error('Request timeout')); } };
+
+        xhr.send(JSON.stringify({
+            messages,
+            ...(partnerHistoryId ? { partnerHistoryId } : {}),
+            ...(previousResponseId ? { previousResponseId } : {}),
+        }));
+    });
 }
 
 /**
@@ -701,4 +714,34 @@ export async function getNatalChartAnalysisSection(
  */
 export async function preGenerateNatalChartAnalysis(): Promise<NatalChartPregenerateResponse> {
     return authApi.post<NatalChartPregenerateResponse>('/api/natal-chart/pregenerate');
+}
+
+// ─── Home Insights ────────────────────────────────────────────────────────────
+
+export interface WeeklyEnergy {
+    titre: string;
+    resume: string;
+    intensite: number;
+    domaines: string[];
+    conseil: string;
+}
+
+export interface CurrentPeriod {
+    titre: string;
+    contenu: string[];
+    tonalite: 'positive' | 'neutre' | 'tendu';
+}
+
+export interface HomeInsightsResponse {
+    success: boolean;
+    weeklyEnergy?: WeeklyEnergy | null;
+    currentPeriod?: CurrentPeriod | null;
+    error?: string;
+}
+
+/**
+ * Get personalized weekly energy and current period insights for the home page.
+ */
+export async function getHomeInsights(): Promise<HomeInsightsResponse> {
+    return authApi.get<HomeInsightsResponse>('/api/home/insights');
 }

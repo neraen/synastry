@@ -7,6 +7,7 @@ import {
     Platform,
     ScrollView,
     Animated,
+    TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -16,6 +17,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/contexts/AuthContext';
 import { loginWithGoogle, loginWithApple } from '@/services/oauth';
+import { login } from '@/services/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { InlineLoading } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -29,6 +31,9 @@ export default function Login() {
     const [error, setError] = useState<string | undefined>();
     const [googleLoading, setGoogleLoading] = useState(false);
     const [appleLoading, setAppleLoading] = useState(false);
+    const [devEmail, setDevEmail] = useState('');
+    const [devPassword, setDevPassword] = useState('');
+    const [devLoading, setDevLoading] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
@@ -70,6 +75,21 @@ export default function Login() {
             setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
         } finally {
             setGoogleLoading(false);
+        }
+    }
+
+    async function handleDevLogin() {
+        if (!devEmail || !devPassword) return;
+        setDevLoading(true);
+        setError(undefined);
+        try {
+            await login({ email: devEmail, password: devPassword });
+            await refreshUser();
+            router.replace('/(tabs)');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
+        } finally {
+            setDevLoading(false);
         }
     }
 
@@ -192,6 +212,42 @@ export default function Login() {
                                         </>
                                     )}
                                 </>
+                            )}
+                            {/* Dev-only email/password form */}
+                            {__DEV__ && (
+                                <View style={styles.devSection}>
+                                    <View style={styles.devDivider}>
+                                        <Text style={styles.devDividerText}>DEV ONLY</Text>
+                                    </View>
+                                    <TextInput
+                                        style={styles.devInput}
+                                        placeholder="Email"
+                                        placeholderTextColor={colors.onSurfaceMuted}
+                                        value={devEmail}
+                                        onChangeText={setDevEmail}
+                                        autoCapitalize="none"
+                                        keyboardType="email-address"
+                                        editable={!devLoading}
+                                    />
+                                    <TextInput
+                                        style={styles.devInput}
+                                        placeholder="Mot de passe"
+                                        placeholderTextColor={colors.onSurfaceMuted}
+                                        value={devPassword}
+                                        onChangeText={setDevPassword}
+                                        secureTextEntry
+                                        editable={!devLoading}
+                                    />
+                                    <Pressable
+                                        style={[styles.devBtn, (!devEmail || !devPassword || devLoading) && { opacity: 0.4 }]}
+                                        onPress={handleDevLogin}
+                                        disabled={!devEmail || !devPassword || devLoading}
+                                    >
+                                        <Text style={styles.devBtnText}>
+                                            {devLoading ? 'Connexion...' : 'Se connecter'}
+                                        </Text>
+                                    </Pressable>
+                                </View>
                             )}
                         </Animated.View>
                 </ScrollView>
@@ -362,5 +418,40 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: colors.onSurface,
         letterSpacing: 0.2,
+    },
+    devSection: {
+        marginTop: spacing.xl,
+        gap: spacing.md,
+    },
+    devDivider: {
+        alignItems: 'center',
+        paddingVertical: spacing.sm,
+    },
+    devDividerText: {
+        fontFamily: fonts.body.medium,
+        fontSize: 10,
+        letterSpacing: 2,
+        color: colors.onSurfaceMuted,
+        opacity: 0.5,
+    },
+    devInput: {
+        backgroundColor: `${colors.surfaceContainerHigh}80`,
+        borderRadius: radius.md,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.onSurface,
+    },
+    devBtn: {
+        backgroundColor: `${colors.surfaceContainerHigh}CC`,
+        borderRadius: radius.md,
+        paddingVertical: spacing.md,
+        alignItems: 'center',
+    },
+    devBtnText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
     },
 });
