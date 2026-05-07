@@ -5,7 +5,7 @@
 import { authApi } from './sessionManager';
 import { getToken } from './auth';
 import { getApiUrl } from './apiConfig';
-import { getCurrentLanguage } from '@/i18n';
+import i18n from 'i18next';
 
 // Types
 export interface PlanetPosition {
@@ -493,7 +493,7 @@ export async function sendChatMessageStream(
     onDelta: (delta: string) => void,
 ): Promise<ChatStreamResult> {
     const token = await getToken();
-    const locale = getCurrentLanguage();
+    const locale = i18n.language || 'fr';
 
     const response = await fetch(`${getApiUrl()}/api/chat/stream`, {
         method: 'POST',

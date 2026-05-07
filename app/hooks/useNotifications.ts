@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -8,11 +9,10 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const PUSH_TOKEN_KEY = 'lunestia_push_token';
 
-// Lazy-load expo-notifications — not available in Expo Go on Android (SDK 53+)
-let Notifications: typeof import('expo-notifications') | null = null;
+// Configure how notifications behave when the app is in the foreground.
+// Wrapped in try/catch: remote notifications are unavailable in Expo Go (SDK 53+).
 try {
-    Notifications = require('expo-notifications');
-    Notifications!.setNotificationHandler({
+    Notifications.setNotificationHandler({
         handleNotification: async () => ({
             shouldShowAlert: true,
             shouldPlaySound: false,
@@ -20,7 +20,7 @@ try {
         }),
     });
 } catch {
-    // Expo Go: push notifications unavailable, skip silently
+    // Expo Go: remote push notifications removed in SDK 53 — skip silently
 }
 
 /**
@@ -32,11 +32,11 @@ try {
 export function useNotifications() {
     const { isAuthenticated } = useAuth();
     const router = useRouter();
-    const notificationListener = useRef<any>(null);
-    const responseListener    = useRef<any>(null);
+    const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+    const responseListener    = useRef<Notifications.EventSubscription | null>(null);
 
     useEffect(() => {
-        if (!isAuthenticated || !Notifications) return;
+        if (!isAuthenticated) return;
 
         registerForPushNotifications();
 
@@ -57,8 +57,8 @@ export function useNotifications() {
 }
 
 async function registerForPushNotifications(): Promise<void> {
-    if (!Notifications || !Device.isDevice) {
-        console.log('[Push] Skipping: unavailable or not a physical device');
+    if (!Device.isDevice) {
+        console.log('[Push] Skipping: not a physical device');
         return;
     }
 
