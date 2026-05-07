@@ -3,8 +3,9 @@
  *
  * Step 0 : Hero / brand moment
  * Step 1 : App features showcase (horizontal pager)
- * Step 2 : Birth profile (name, date, time, city)
- * Step 3 : All set
+ * Step 2 : Help buttons tip
+ * Step 3 : Birth profile (name, date, time, city)
+ * Step 4 : All set
  */
 
 import React, { useState, useCallback, useRef } from 'react';
@@ -23,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Feather } from '@expo/vector-icons';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, AppDatePicker, AppTimePicker, CityAutocomplete } from '@/components/ui';
@@ -33,7 +35,7 @@ import {
 } from '@/services/birthProfile';
 
 const { width: W } = Dimensions.get('window');
-const STEPS = 4;
+const STEPS = 5;
 
 // ─── Decorative star positions ────────────────────────────────────────────────
 
@@ -214,7 +216,7 @@ export default function OnboardingScreen() {
                 timezoneName: timezoneName ?? undefined,
             });
             await refreshUser();
-            goTo(3);
+            goTo(4);
         } catch (err) {
             setError(err instanceof Error ? err.message : t('birthProfile.saveError'));
         } finally {
@@ -426,7 +428,7 @@ export default function OnboardingScreen() {
             featureScrollRef.current?.scrollTo({ x: next * W, animated: true });
             setFeaturePage(next);
         } else {
-            goTo(2);
+            goTo(2); // → help tip
         }
     }, [featurePage, goTo]);
 
@@ -516,7 +518,69 @@ export default function OnboardingScreen() {
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Step 2 — Birth profile
+    // Step 2 — Help tip
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const helpPulse = useRef(new Animated.Value(1)).current;
+    React.useEffect(() => {
+        if (step !== 2) return;
+        const anim = Animated.loop(
+            Animated.sequence([
+                Animated.timing(helpPulse, { toValue: 1.5, duration: 700, useNativeDriver: true }),
+                Animated.timing(helpPulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+            ])
+        );
+        anim.start();
+        return () => anim.stop();
+    }, [step]);
+
+    const mockPages = t('onboarding.helpTip.mockPages', { returnObjects: true }) as string[];
+
+    const stepHelpTip = (
+        <View style={styles.stepHelp}>
+            {/* Visual */}
+            <View style={styles.helpVisual}>
+                {/* Central ? orb with pulsing ring */}
+                <View style={styles.helpOrbWrap}>
+                    <Animated.View style={[styles.helpPulseRing, { transform: [{ scale: helpPulse }] }]} />
+                    <View style={styles.helpOrb}>
+                        <Feather name="help-circle" size={36} color={colors.primary} />
+                    </View>
+                </View>
+
+                {/* Mock page headers */}
+                <View style={styles.helpMockList}>
+                    {mockPages.map((pageName) => (
+                        <View key={pageName} style={styles.helpMockRow}>
+                            <View style={styles.helpMockDot} />
+                            <Text style={styles.helpMockPageName}>{pageName}</Text>
+                            <View style={styles.helpMockBtnWrap}>
+                                <Feather name="help-circle" size={14} color={`${colors.onSurfaceMuted}80`} />
+                            </View>
+                        </View>
+                    ))}
+                </View>
+            </View>
+
+            {/* Copy */}
+            <View style={styles.helpTextBlock}>
+                <View style={styles.helpBadge}>
+                    <Text style={styles.helpBadgeText}>{t('onboarding.helpTip.badge')}</Text>
+                </View>
+                <Text style={styles.helpTitle}>{t('onboarding.helpTip.title')}</Text>
+                <Text style={styles.helpDesc}>{t('onboarding.helpTip.description')}</Text>
+            </View>
+
+            <GoldButton
+                label={t('onboarding.helpTip.cta')}
+                onPress={() => goTo(3)}
+                size="lg"
+            />
+        </View>
+    );
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Step 3 — Birth profile
     // ─────────────────────────────────────────────────────────────────────────
 
     const stepBirthProfile = (
@@ -667,8 +731,9 @@ export default function OnboardingScreen() {
                 <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
                     {step === 0 && stepHero}
                     {step === 1 && stepFeatures}
-                    {step === 2 && stepBirthProfile}
-                    {step === 3 && stepDone}
+                    {step === 2 && stepHelpTip}
+                    {step === 3 && stepBirthProfile}
+                    {step === 4 && stepDone}
                 </Animated.View>
             </SafeAreaView>
         </View>
@@ -1062,7 +1127,106 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primary,
     },
 
-    // ── Step 2: Birth profile ─────────────────────────────────────────────────
+    // ── Step 2: Help tip ──────────────────────────────────────────────────────
+    stepHelp: {
+        flex: 1,
+        paddingHorizontal: spacing.xl,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xxl,
+    },
+    helpVisual: {
+        width: '100%',
+        alignItems: 'center',
+        gap: spacing.xl,
+    },
+    helpOrbWrap: {
+        width: 90,
+        height: 90,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    helpPulseRing: {
+        position: 'absolute',
+        width: 74,
+        height: 74,
+        borderRadius: 37,
+        backgroundColor: `${colors.primary}18`,
+    },
+    helpOrb: {
+        width: 74,
+        height: 74,
+        borderRadius: 37,
+        backgroundColor: `${colors.primary}14`,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    helpMockList: {
+        width: '100%',
+        gap: spacing.sm,
+    },
+    helpMockRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        backgroundColor: `${colors.onSurface}06`,
+        borderRadius: radius.md,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+    },
+    helpMockDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: `${colors.primary}60`,
+    },
+    helpMockPageName: {
+        flex: 1,
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.onSurface,
+    },
+    helpMockBtnWrap: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: `${colors.onSurface}08`,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    helpTextBlock: {
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    helpBadge: {
+        backgroundColor: `${colors.primary}18`,
+        borderRadius: radius.full,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.xs,
+    },
+    helpBadgeText: {
+        fontFamily: fonts.body.medium,
+        fontSize: 11,
+        letterSpacing: 1.2,
+        color: colors.primary,
+        textTransform: 'uppercase',
+    },
+    helpTitle: {
+        fontFamily: fonts.display.bold,
+        fontSize: 28,
+        color: colors.onSurface,
+        textAlign: 'center',
+    },
+    helpDesc: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        lineHeight: 23,
+        maxWidth: 300,
+    },
+
+    // ── Step 3: Birth profile ─────────────────────────────────────────────────
     stepScroll: {
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.lg,

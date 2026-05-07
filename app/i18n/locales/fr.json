@@ -515,6 +515,13 @@
       },
       "cta": "Personnaliser mon expérience"
     },
+    "helpTip": {
+      "badge": "GUIDE INTÉGRÉ",
+      "title": "L'aide est partout",
+      "description": "Sur chaque page, un bouton ? te donne des explications sur ce que tu vois — symboles, scores, aspects, tout est décrypté.",
+      "mockPages": ["Thème natal", "Compatibilité", "Transits", "Miroir temporel"],
+      "cta": "Compris !"
+    },
     "birth": {
       "title": "Ton thème natal",
       "subtitle": "Ces données permettent de calculer tes transits personnels et ton thème natal précis.",

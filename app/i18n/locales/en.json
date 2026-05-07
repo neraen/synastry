@@ -515,6 +515,13 @@
       },
       "cta": "Personalize my experience"
     },
+    "helpTip": {
+      "badge": "BUILT-IN GUIDE",
+      "title": "Help is everywhere",
+      "description": "On every page, a ? button gives you explanations for what you're seeing — symbols, scores, aspects, all decoded.",
+      "mockPages": ["Natal chart", "Compatibility", "Transits", "Time mirror"],
+      "cta": "Got it!"
+    },
     "birth": {
       "title": "Your natal chart",
       "subtitle": "This data is used to calculate your personal transits and precise natal chart.",
