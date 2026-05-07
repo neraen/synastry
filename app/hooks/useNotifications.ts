@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -9,14 +8,20 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const PUSH_TOKEN_KEY = 'lunestia_push_token';
 
-// Configure how notifications behave when the app is in the foreground
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: false,
-        shouldSetBadge: true,
-    }),
-});
+// Lazy-load expo-notifications — not available in Expo Go on Android (SDK 53+)
+let Notifications: typeof import('expo-notifications') | null = null;
+try {
+    Notifications = require('expo-notifications');
+    Notifications!.setNotificationHandler({
+        handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: false,
+            shouldSetBadge: true,
+        }),
+    });
+} catch {
+    // Expo Go: push notifications unavailable, skip silently
+}
 
 /**
  * Initializes push notifications:
@@ -27,21 +32,18 @@ Notifications.setNotificationHandler({
 export function useNotifications() {
     const { isAuthenticated } = useAuth();
     const router = useRouter();
-    const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-    const responseListener    = useRef<Notifications.EventSubscription | null>(null);
+    const notificationListener = useRef<any>(null);
+    const responseListener    = useRef<any>(null);
 
     useEffect(() => {
-        if (!isAuthenticated) return;
+        if (!isAuthenticated || !Notifications) return;
 
         registerForPushNotifications();
 
-        // Foreground: notification received while app is open
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-            // Badge count is updated automatically via shouldSetBadge: true
             console.log('[Push] Notification received:', notification.request.content.title);
         });
 
-        // Background/killed: user tapped the notification
         responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
             const data = response.notification.request.content.data as Record<string, string> | undefined;
             handleNotificationNavigation(data, router);
@@ -55,13 +57,11 @@ export function useNotifications() {
 }
 
 async function registerForPushNotifications(): Promise<void> {
-    // Push tokens only work on physical devices
-    if (!Device.isDevice) {
-        console.log('[Push] Skipping: not a physical device');
+    if (!Notifications || !Device.isDevice) {
+        console.log('[Push] Skipping: unavailable or not a physical device');
         return;
     }
 
-    // Android: create notification channel
     if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
             name: 'Lunestia',
