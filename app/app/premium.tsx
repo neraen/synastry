@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
+import { Feather } from '@expo/vector-icons';
 import { colors, typography, spacing, radius } from '@/theme';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GoldButton } from '@/components/ui/GoldButton';
@@ -186,6 +187,8 @@ export default function PremiumScreen() {
                 t('premium.monthlyFeature1'),
                 t('premium.monthlyFeature2'),
                 t('premium.monthlyFeature3'),
+                t('premium.monthlyFeature4'),
+                t('premium.monthlyFeature5'),
             ],
         },
     ];
@@ -269,6 +272,13 @@ export default function PremiumScreen() {
 
             <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
 
+                {/* Back button */}
+                <View style={styles.headerRow}>
+                    <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+                        <Feather name="arrow-left" size={20} color={colors.onSurface} />
+                    </Pressable>
+                </View>
+
                 <ScrollView
                     contentContainerStyle={styles.scroll}
                     showsVerticalScrollIndicator={false}
@@ -347,7 +357,21 @@ const styles = StyleSheet.create({
         flex: 1,
     },
 
-    // Close button
+    headerRow: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.md,
+        paddingBottom: spacing.sm,
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: radius.full,
+        backgroundColor: `${colors.onSurface}0a`,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    // Close button (unused — kept for reference)
     closeBtn: {
         position: 'absolute',
         top: spacing.xl,

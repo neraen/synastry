@@ -1,11 +1,10 @@
 /**
  * Onboarding — shown once after account creation.
  *
- * Step 0 : Hero / brand moment
- * Step 1 : App features showcase (horizontal pager)
- * Step 2 : Help buttons tip
- * Step 3 : Birth profile (name, date, time, city)
- * Step 4 : All set
+ * Step 0 : RGPD consent
+ * Step 1 : Help buttons tip
+ * Step 2 : Birth profile (name, date, time, city)
+ * Step 3 : All set
  */
 
 import React, { useState, useCallback, useRef } from 'react';
@@ -19,6 +18,7 @@ import {
     Platform,
     Dimensions,
     KeyboardAvoidingView,
+    Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,31 +35,7 @@ import {
 } from '@/services/birthProfile';
 
 const { width: W } = Dimensions.get('window');
-const STEPS = 5;
-
-// ─── Decorative star positions ────────────────────────────────────────────────
-
-const STARS = [
-    { top: '7%',  left: '10%', size: 2 },
-    { top: '13%', left: '82%', size: 3 },
-    { top: '20%', left: '42%', size: 1.5 },
-    { top: '32%', left: '91%', size: 2 },
-    { top: '4%',  left: '58%', size: 1.5 },
-    { top: '41%', left: '6%',  size: 2.5 },
-    { top: '17%', left: '27%', size: 1 },
-    { top: '26%', left: '68%', size: 2 },
-    { top: '9%',  left: '35%', size: 1.5 },
-    { top: '36%', left: '74%', size: 1 },
-];
-
-// Cardinal planet symbols orbiting the hero orb
-const ORBIT_PLANETS = [
-    { symbol: '☽', angle: 0 },
-    { symbol: '♀', angle: 90 },
-    { symbol: '♄', angle: 180 },
-    { symbol: '☿', angle: 270 },
-];
-const ORBIT_RADIUS = 92;
+const STEPS = 4;
 
 // ─── Progress dots ────────────────────────────────────────────────────────────
 
@@ -76,13 +52,24 @@ function ProgressDots({ step }: { step: number }) {
     );
 }
 
-// ─── Mock bar (used in feature mockups) ──────────────────────────────────────
+// ─── Checkbox ─────────────────────────────────────────────────────────────────
 
-function MockBar({ fill, color = colors.primary }: { fill: number; color?: string }) {
+function Checkbox({
+    checked,
+    onToggle,
+    children,
+}: {
+    checked: boolean;
+    onToggle: () => void;
+    children: React.ReactNode;
+}) {
     return (
-        <View style={styles.mockBarTrack}>
-            <View style={[styles.mockBarFill, { width: `${fill * 100}%`, backgroundColor: color }]} />
-        </View>
+        <Pressable style={styles.checkRow} onPress={onToggle} hitSlop={8}>
+            <View style={[styles.checkBox, checked && styles.checkBoxChecked]}>
+                {checked && <Feather name="check" size={13} color={colors.surfaceLowest} />}
+            </View>
+            <View style={styles.checkLabel}>{children}</View>
+        </Pressable>
     );
 }
 
@@ -134,11 +121,13 @@ export default function OnboardingScreen() {
     const { refreshUser } = useAuth();
 
     const [step, setStep] = useState(0);
-    const [featurePage, setFeaturePage] = useState(0);
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const scrollRef = useRef<ScrollView>(null);
-    const featureScrollRef = useRef<ScrollView>(null);
     const scrollYRef = useRef(0);
+
+    // RGPD consent state
+    const [acceptTerms, setAcceptTerms] = useState(false);
+    const [acceptAI, setAcceptAI] = useState(false);
 
     // Birth profile form state
     const [firstName, setFirstName] = useState('');
@@ -216,7 +205,7 @@ export default function OnboardingScreen() {
                 timezoneName: timezoneName ?? undefined,
             });
             await refreshUser();
-            goTo(4);
+            goTo(3);
         } catch (err) {
             setError(err instanceof Error ? err.message : t('birthProfile.saveError'));
         } finally {
@@ -225,305 +214,94 @@ export default function OnboardingScreen() {
     }, [birthDate, birthCity, latitude, longitude, firstName, birthTime, birthCountry, timezone, timezoneName, refreshUser, goTo, t]);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Step 0 — Hero
+    // Step 0 — RGPD consent
     // ─────────────────────────────────────────────────────────────────────────
 
-    const stepHero = (
-        <View style={styles.stepHero}>
-            {/* Star field */}
-            {STARS.map((s, i) => (
-                <View
-                    key={i}
-                    style={[
-                        styles.star,
-                        { top: s.top as any, left: s.left as any, width: s.size, height: s.size },
-                    ]}
-                />
-            ))}
+    const dataItems = t('onboarding.rgpd.dataItems', { returnObjects: true }) as string[];
+    const canContinue = acceptTerms && acceptAI;
 
-            {/* Orbital visual */}
-            <View style={styles.orbitContainer}>
-                {/* Rings */}
-                <View style={[styles.ring, styles.ringOuter]} />
-                <View style={[styles.ring, styles.ringMid]} />
-                <View style={[styles.ring, styles.ringInner]} />
-
-                {/* Central orb */}
-                <View style={styles.heroOrb}>
-                    <LinearGradient
-                        colors={[`${colors.primary}50`, `${colors.secondary}28`, 'transparent']}
-                        style={StyleSheet.absoluteFill}
-                        start={{ x: 0.5, y: 0 }}
-                        end={{ x: 0.5, y: 1 }}
-                    />
-                    <Text style={styles.heroOrbGlyph}>✦</Text>
-                </View>
-
-                {/* Cardinal planets */}
-                {ORBIT_PLANETS.map(({ symbol, angle }) => {
-                    const rad = (angle - 90) * (Math.PI / 180);
-                    const x = ORBIT_RADIUS * Math.cos(rad);
-                    const y = ORBIT_RADIUS * Math.sin(rad);
-                    return (
-                        <View
-                            key={symbol}
-                            style={[
-                                styles.orbitPlanet,
-                                {
-                                    transform: [
-                                        { translateX: x },
-                                        { translateY: y },
-                                    ],
-                                },
-                            ]}
-                        >
-                            <Text style={styles.orbitPlanetText}>{symbol}</Text>
-                        </View>
-                    );
-                })}
-            </View>
-
-            {/* App name + tagline */}
-            <View style={styles.heroTextBlock}>
-                <Text style={styles.heroAppName}>Lunestia</Text>
-                <Text style={styles.heroTagline}>{t('onboarding.hero.tagline')}</Text>
-            </View>
-
-            {/* Value props */}
-            <View style={styles.heroValues}>
-                {([
-                    ['☽', t('onboarding.hero.value1')],
-                    ['◈', t('onboarding.hero.value2')],
-                    ['⟡', t('onboarding.hero.value3')],
-                ] as [string, string][]).map(([icon, text]) => (
-                    <View key={icon} style={styles.heroValueRow}>
-                        <View style={styles.heroValueIcon}>
-                            <Text style={styles.heroValueIconText}>{icon}</Text>
-                        </View>
-                        <Text style={styles.heroValueText}>{text}</Text>
-                    </View>
-                ))}
-            </View>
-
-            <GoldButton
-                label={t('onboarding.hero.cta')}
-                onPress={() => goTo(1)}
-                size="lg"
-                rightIcon
-            />
-        </View>
-    );
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 1 — Features showcase (horizontal pager)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    const FEATURE_SLIDES = [
-        {
-            key: 'horoscope',
-            icon: '☽',
-            accentColor: colors.primary,
-            glyphs: ['☉', '♃', '☽', '♂'],
-            badge: t('onboarding.features.horoscope.badge'),
-            title: t('onboarding.features.horoscope.title'),
-            description: t('onboarding.features.horoscope.description'),
-            mock: (
-                <View style={styles.featureMock}>
-                    <View style={styles.mockPlanetRow}>
-                        {['☉ Sol', '♀ Vénus', '☿ Mercure'].map((p) => (
-                            <View key={p} style={[styles.mockPlanetTag, { backgroundColor: `${colors.primary}18` }]}>
-                                <Text style={[styles.mockPlanetText, { color: `${colors.primary}cc` }]}>{p}</Text>
-                            </View>
-                        ))}
-                    </View>
-                    <View style={styles.mockBarRow}>
-                        <Text style={styles.mockBarLabel}>{t('onboarding.features.horoscope.mockIntensity')}</Text>
-                        <MockBar fill={0.78} color={colors.primary} />
-                    </View>
-                    <View style={[styles.mockBarRow, { marginTop: 4 }]}>
-                        <Text style={styles.mockBarLabel}>{t('onboarding.features.horoscope.mockClarity')}</Text>
-                        <MockBar fill={0.65} color={colors.secondary} />
-                    </View>
-                    <View style={styles.mockQuoteBox}>
-                        <Text style={styles.mockQuoteText}>{t('onboarding.features.horoscope.mockQuote')}</Text>
-                    </View>
-                </View>
-            ),
-        },
-        {
-            key: 'synastry',
-            icon: '◈',
-            accentColor: colors.secondary,
-            glyphs: ['♊', '♏', '♋', '♑'],
-            badge: t('onboarding.features.synastry.badge'),
-            title: t('onboarding.features.synastry.title'),
-            description: t('onboarding.features.synastry.description'),
-            mock: (
-                <View style={styles.featureMock}>
-                    <View style={styles.synastryAvatarRow}>
-                        <View style={styles.synastryAvatarWrap}>
-                            <View style={[styles.synastryAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                                <Text style={styles.synastryAvatarGlyph}>♊</Text>
-                            </View>
-                            <Text style={styles.synastryAvatarLabel}>{t('onboarding.features.synastry.mockPerson1')}</Text>
-                        </View>
-                        <View style={[styles.synastryScoreBadge, { backgroundColor: `${colors.secondary}18` }]}>
-                            <Text style={[styles.synastryScoreText, { color: colors.secondary }]}>87%</Text>
-                        </View>
-                        <View style={styles.synastryAvatarWrap}>
-                            <View style={[styles.synastryAvatar, { backgroundColor: `${colors.secondary}20` }]}>
-                                <Text style={styles.synastryAvatarGlyph}>♏</Text>
-                            </View>
-                            <Text style={styles.synastryAvatarLabel}>{t('onboarding.features.synastry.mockPerson2')}</Text>
-                        </View>
-                    </View>
-                    <View style={{ gap: 6 }}>
-                        {([
-                            [t('onboarding.features.synastry.mockAspect1'), 0.85],
-                            [t('onboarding.features.synastry.mockAspect2'), 0.92],
-                            [t('onboarding.features.synastry.mockAspect3'), 0.71],
-                        ] as [string, number][]).map(([label, fill]) => (
-                            <View key={label} style={styles.mockBarRow}>
-                                <Text style={styles.mockBarLabel}>{label}</Text>
-                                <MockBar fill={fill} color={colors.secondary} />
-                            </View>
-                        ))}
-                    </View>
-                </View>
-            ),
-        },
-        {
-            key: 'mirror',
-            icon: '⟡',
-            accentColor: '#64c8b4',
-            glyphs: ['♄', '♃', '☿', '♅'],
-            badge: t('onboarding.features.mirror.badge'),
-            title: t('onboarding.features.mirror.title'),
-            description: t('onboarding.features.mirror.description'),
-            mock: (
-                <View style={styles.featureMock}>
-                    <View style={styles.mockSliderWrap}>
-                        <Text style={styles.mockSliderLabel}>0</Text>
-                        <View style={styles.mockSliderTrack}>
-                            <View style={[styles.mockSliderFill, { backgroundColor: `#64c8b460` }]} />
-                            <View style={[styles.mockSliderThumb, { backgroundColor: '#64c8b4' }]} />
-                        </View>
-                        <Text style={styles.mockSliderLabel}>80</Text>
-                        <View style={[styles.mockAgeBadge, { backgroundColor: `rgba(100,200,180,0.15)` }]}>
-                            <Text style={[styles.mockAgeText, { color: '#64c8b4' }]}>28 {t('onboarding.features.mirror.mockAgeUnit')}</Text>
-                        </View>
-                    </View>
-                    <View style={[styles.mockChatBubble, { backgroundColor: `rgba(100,200,180,0.1)` }]}>
-                        <Text style={[styles.mockChatName, { color: '#64c8b4' }]}>✦ Lyra</Text>
-                        <Text style={styles.mockChatText}>{t('onboarding.features.mirror.mockChatText')}</Text>
-                    </View>
-                </View>
-            ),
-        },
-    ];
-
-    const handleFeatureNext = useCallback(() => {
-        if (featurePage < FEATURE_SLIDES.length - 1) {
-            const next = featurePage + 1;
-            featureScrollRef.current?.scrollTo({ x: next * W, animated: true });
-            setFeaturePage(next);
-        } else {
-            goTo(2); // → help tip
-        }
-    }, [featurePage, goTo]);
-
-    const stepFeatures = (
-        <View style={styles.featurePagerRoot}>
+    const stepRGPD = (
+        <View style={styles.rgpdRoot}>
+            {/* Scrollable content */}
             <ScrollView
-                ref={featureScrollRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                scrollEventThrottle={16}
-                onMomentumScrollEnd={(e) => {
-                    const page = Math.round(e.nativeEvent.contentOffset.x / W);
-                    setFeaturePage(page);
-                }}
-                style={styles.featureHScroll}
+                contentContainerStyle={styles.rgpdScroll}
+                showsVerticalScrollIndicator={false}
             >
-                {FEATURE_SLIDES.map((feature) => (
-                    <View key={feature.key} style={styles.featureSlide}>
-                        {/* Visual hero area */}
-                        <View style={styles.featureVisual}>
-                            <LinearGradient
-                                colors={[`${feature.accentColor}22`, `${feature.accentColor}06`, 'transparent']}
-                                style={StyleSheet.absoluteFill}
-                                start={{ x: 0.5, y: 0 }}
-                                end={{ x: 0.5, y: 1 }}
-                            />
-                            {/* Floating glyph cloud */}
-                            {feature.glyphs.map((g, i) => (
-                                <Text
-                                    key={i}
-                                    style={[
-                                        styles.featureFloatGlyph,
-                                        {
-                                            color: `${feature.accentColor}${['28', '20', '30', '18'][i]}`,
-                                            fontSize: [28, 22, 20, 24][i],
-                                            top: ['18%', '55%', '22%', '60%'][i] as any,
-                                            left: ['10%', '75%', '72%', '15%'][i] as any,
-                                        },
-                                    ]}
-                                >
-                                    {g}
-                                </Text>
-                            ))}
-                            {/* Central icon */}
-                            <View style={[styles.featureIconOrb, { backgroundColor: `${feature.accentColor}14` }]}>
-                                <Text style={[styles.featureIconText, { color: feature.accentColor }]}>{feature.icon}</Text>
-                            </View>
-                        </View>
-
-                        {/* Content */}
-                        <View style={styles.featureContent}>
-                            <View style={[styles.featureBadge, { backgroundColor: `${feature.accentColor}18` }]}>
-                                <Text style={[styles.featureBadgeText, { color: feature.accentColor }]}>
-                                    {feature.badge}
-                                </Text>
-                            </View>
-                            <Text style={styles.featureTitle}>{feature.title}</Text>
-                            <Text style={styles.featureDesc}>{feature.description}</Text>
-                            {feature.mock}
-                        </View>
+                {/* Visual */}
+                <View style={styles.rgpdVisual}>
+                    <View style={styles.rgpdOrb}>
+                        <LinearGradient
+                            colors={[`${colors.primary}40`, `${colors.secondary}20`, 'transparent']}
+                            style={StyleSheet.absoluteFill}
+                            start={{ x: 0.5, y: 0 }}
+                            end={{ x: 0.5, y: 1 }}
+                        />
+                        <Feather name="shield" size={32} color={colors.primary} />
                     </View>
-                ))}
+                </View>
+
+                {/* Header */}
+                <View style={styles.rgpdHeader}>
+                    <View style={styles.rgpdBadge}>
+                        <Text style={styles.rgpdBadgeText}>{t('onboarding.rgpd.badge')}</Text>
+                    </View>
+                    <Text style={styles.rgpdTitle}>{t('onboarding.rgpd.title')}</Text>
+                    <Text style={styles.rgpdDescription}>{t('onboarding.rgpd.description')}</Text>
+                </View>
+
+                {/* Data collected */}
+                <GlassCard style={styles.rgpdDataCard}>
+                    <Text style={styles.rgpdDataTitle}>{t('onboarding.rgpd.dataTitle')}</Text>
+                    <View style={styles.rgpdDataList}>
+                        {dataItems.map((item, i) => (
+                            <View key={i} style={styles.rgpdDataRow}>
+                                <View style={styles.rgpdDataDot} />
+                                <Text style={styles.rgpdDataText}>{item}</Text>
+                            </View>
+                        ))}
+                    </View>
+                    <View style={styles.rgpdThirdParty}>
+                        <Feather name="info" size={12} color={`${colors.onSurfaceMuted}70`} style={{ marginTop: 1 }} />
+                        <Text style={styles.rgpdThirdPartyText}>{t('onboarding.rgpd.thirdParties')}</Text>
+                    </View>
+                </GlassCard>
             </ScrollView>
 
-            {/* Footer: sub-dots + next/CTA */}
-            <View style={styles.featurePagerFooter}>
-                <View style={styles.featureSubDots}>
-                    {FEATURE_SLIDES.map((_, i) => (
-                        <View
-                            key={i}
-                            style={[
-                                styles.featureSubDot,
-                                i === featurePage && styles.featureSubDotActive,
-                            ]}
-                        />
-                    ))}
-                </View>
+            {/* Sticky footer — always visible */}
+            <View style={styles.rgpdFooter}>
+                <Checkbox checked={acceptTerms} onToggle={() => setAcceptTerms(v => !v)}>
+                    <Text style={styles.checkText}>
+                        {t('onboarding.rgpd.checkTerms')}{' '}
+                        <Text
+                            style={styles.checkLink}
+                            onPress={() => router.push('/privacy-policy')}
+                        >
+                            {t('onboarding.rgpd.privacyLink')}
+                        </Text>
+                    </Text>
+                </Checkbox>
+
+                <Checkbox checked={acceptAI} onToggle={() => setAcceptAI(v => !v)}>
+                    <Text style={styles.checkText}>{t('onboarding.rgpd.checkAI')}</Text>
+                </Checkbox>
+
                 <GoldButton
-                    label={featurePage < FEATURE_SLIDES.length - 1 ? t('common.next') : t('onboarding.features.cta')}
-                    onPress={handleFeatureNext}
+                    label={t('onboarding.rgpd.cta')}
+                    onPress={() => goTo(1)}
                     size="lg"
-                    rightIcon={featurePage < FEATURE_SLIDES.length - 1}
+                    disabled={!canContinue}
                 />
             </View>
         </View>
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Step 2 — Help tip
+    // Step 1 — Help tip
     // ─────────────────────────────────────────────────────────────────────────
 
     const helpPulse = useRef(new Animated.Value(1)).current;
     React.useEffect(() => {
-        if (step !== 2) return;
+        if (step !== 1) return;
         const anim = Animated.loop(
             Animated.sequence([
                 Animated.timing(helpPulse, { toValue: 1.5, duration: 700, useNativeDriver: true }),
@@ -573,14 +351,14 @@ export default function OnboardingScreen() {
 
             <GoldButton
                 label={t('onboarding.helpTip.cta')}
-                onPress={() => goTo(3)}
+                onPress={() => goTo(2)}
                 size="lg"
             />
         </View>
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Step 3 — Birth profile
+    // Step 2 — Birth profile
     // ─────────────────────────────────────────────────────────────────────────
 
     const stepBirthProfile = (
@@ -729,11 +507,10 @@ export default function OnboardingScreen() {
                 <ProgressDots step={step} />
 
                 <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-                    {step === 0 && stepHero}
-                    {step === 1 && stepFeatures}
-                    {step === 2 && stepHelpTip}
-                    {step === 3 && stepBirthProfile}
-                    {step === 4 && stepDone}
+                    {step === 0 && stepRGPD}
+                    {step === 1 && stepHelpTip}
+                    {step === 2 && stepBirthProfile}
+                    {step === 3 && stepDone}
                 </Animated.View>
             </SafeAreaView>
         </View>
@@ -767,367 +544,156 @@ const styles = StyleSheet.create({
 
     content: { flex: 1 },
 
-    // ── Step 0: Hero ──────────────────────────────────────────────────────────
-    stepHero: {
+    // ── Step 0: RGPD ──────────────────────────────────────────────────────────
+    rgpdRoot: {
         flex: 1,
+    },
+    rgpdScroll: {
         paddingHorizontal: spacing.xl,
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.xl,
+        gap: spacing.xxl,
+    },
+    rgpdVisual: {
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.xl,
+        paddingTop: spacing.md,
     },
-    star: {
-        position: 'absolute',
-        borderRadius: 99,
-        backgroundColor: `${colors.primary}50`,
-    },
-    orbitContainer: {
-        width: 220,
-        height: 220,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    ring: {
-        position: 'absolute',
-        borderRadius: 999,
-        borderWidth: 1,
-    },
-    ringOuter: {
-        width: 218,
-        height: 218,
-        borderColor: `${colors.primary}14`,
-    },
-    ringMid: {
-        width: 170,
-        height: 170,
-        borderColor: `${colors.secondary}18`,
-    },
-    ringInner: {
-        width: 128,
-        height: 128,
-        borderColor: `${colors.primary}10`,
-    },
-    heroOrb: {
-        width: 88,
-        height: 88,
-        borderRadius: 44,
-        backgroundColor: `${colors.primary}14`,
+    rgpdOrb: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        backgroundColor: `${colors.primary}12`,
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
     },
-    heroOrbGlyph: {
-        fontSize: 40,
+    rgpdHeader: {
+        alignItems: 'center',
+        gap: spacing.lg,
+    },
+    rgpdBadge: {
+        backgroundColor: `${colors.primary}18`,
+        borderRadius: radius.full,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.xs,
+    },
+    rgpdBadgeText: {
+        fontFamily: fonts.body.medium,
+        fontSize: 11,
+        letterSpacing: 1.2,
         color: colors.primary,
+        textTransform: 'uppercase',
     },
-    orbitPlanet: {
-        position: 'absolute',
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: `${colors.surfaceLowest}cc`,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    orbitPlanetText: {
-        fontSize: 15,
-        color: `${colors.primary}cc`,
-    },
-    heroTextBlock: {
-        alignItems: 'center',
-        gap: spacing.xs,
-    },
-    heroAppName: {
+    rgpdTitle: {
         fontFamily: fonts.display.bold,
-        fontSize: 44,
+        fontSize: 30,
         color: colors.onSurface,
-        letterSpacing: -0.5,
+        textAlign: 'center',
     },
-    heroTagline: {
+    rgpdDescription: {
         fontFamily: fonts.body.regular,
         fontSize: 15,
         color: colors.onSurfaceMuted,
         textAlign: 'center',
-        fontStyle: 'italic',
-        lineHeight: 22,
-        maxWidth: 260,
+        lineHeight: 23,
+        maxWidth: 300,
     },
-    heroValues: {
-        width: '100%',
-        gap: spacing.sm,
+    rgpdDataCard: {
+        gap: spacing.lg,
+        padding: spacing.xl,
     },
-    heroValueRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        backgroundColor: `${colors.onSurface}06`,
-        borderRadius: radius.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-    },
-    heroValueIcon: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        backgroundColor: `${colors.primary}15`,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    heroValueIconText: {
-        fontSize: 17,
-        color: colors.primary,
-    },
-    heroValueText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 13,
+    rgpdDataTitle: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 12,
         color: colors.onSurface,
-        flex: 1,
-        lineHeight: 18,
-    },
-
-    // ── Step 1: Feature pager ─────────────────────────────────────────────────
-    featurePagerRoot: {
-        flex: 1,
-    },
-    featureHScroll: {
-        flex: 1,
-    },
-    featureSlide: {
-        width: W,
-        flex: 1,
-    },
-    featureVisual: {
-        height: 200,
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        position: 'relative',
-    },
-    featureFloatGlyph: {
-        position: 'absolute',
-        fontFamily: fonts.display.bold,
-    },
-    featureIconOrb: {
-        width: 96,
-        height: 96,
-        borderRadius: 48,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    featureIconText: {
-        fontSize: 52,
-    },
-    featureContent: {
-        paddingHorizontal: spacing.xl,
-        paddingTop: spacing.lg,
-        gap: spacing.sm,
-    },
-    featureBadge: {
-        alignSelf: 'flex-start',
-        borderRadius: radius.full,
-        paddingHorizontal: spacing.md,
-        paddingVertical: 4,
-        marginBottom: spacing.xs,
-    },
-    featureBadgeText: {
-        fontFamily: fonts.body.medium,
-        fontSize: 11,
         letterSpacing: 0.8,
         textTransform: 'uppercase',
     },
-    featureTitle: {
-        fontFamily: fonts.display.bold,
-        fontSize: 24,
-        color: colors.onSurface,
-        lineHeight: 30,
+    rgpdDataList: {
+        gap: spacing.md,
+        marginTop: spacing.sm,
     },
-    featureDesc: {
+    rgpdDataRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: spacing.md,
+    },
+    rgpdDataDot: {
+        width: 5,
+        height: 5,
+        borderRadius: 3,
+        backgroundColor: `${colors.primary}80`,
+        marginTop: 7,
+        flexShrink: 0,
+    },
+    rgpdDataText: {
         fontFamily: fonts.body.regular,
         fontSize: 14,
         color: colors.onSurfaceMuted,
         lineHeight: 21,
+        flex: 1,
     },
-
-    // Feature mock shared
-    featureMock: {
-        backgroundColor: `${colors.onSurface}05`,
+    rgpdThirdParty: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: spacing.md,
+        backgroundColor: `${colors.secondary}10`,
         borderRadius: radius.md,
         padding: spacing.md,
-        gap: spacing.sm,
-        marginTop: spacing.xs,
+        marginTop: spacing.sm,
     },
-    mockPlanetRow: {
-        flexDirection: 'row',
-        gap: spacing.xs,
-        flexWrap: 'wrap',
-        marginBottom: spacing.xs,
-    },
-    mockPlanetTag: {
-        borderRadius: radius.full,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3,
-    },
-    mockPlanetText: {
+    rgpdThirdPartyText: {
         fontFamily: fonts.body.regular,
-        fontSize: 11,
-    },
-    mockBarRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    mockBarLabel: {
-        fontFamily: fonts.body.regular,
-        fontSize: 11,
-        color: colors.onSurfaceMuted,
-        width: 72,
-    },
-    mockBarTrack: {
-        flex: 1,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: `${colors.onSurface}12`,
-        overflow: 'hidden',
-    },
-    mockBarFill: {
-        height: '100%',
-        borderRadius: 3,
-        opacity: 0.75,
-    },
-    mockQuoteBox: {
-        backgroundColor: `${colors.onSurface}06`,
-        borderRadius: radius.sm,
-        padding: spacing.sm,
-        marginTop: spacing.xs,
-    },
-    mockQuoteText: {
-        fontFamily: fonts.body.regular,
-        fontStyle: 'italic',
-        fontSize: 12,
+        fontSize: 13,
         color: `${colors.onSurfaceMuted}cc`,
-        lineHeight: 17,
-    },
-    synastryAvatarRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.lg,
-        marginBottom: spacing.sm,
-    },
-    synastryAvatarWrap: {
-        alignItems: 'center',
-        gap: spacing.xs,
-    },
-    synastryAvatar: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    synastryAvatarGlyph: {
-        fontSize: 20,
-        color: colors.onSurface,
-    },
-    synastryAvatarLabel: {
-        fontFamily: fonts.body.regular,
-        fontSize: 11,
-        color: colors.onSurfaceMuted,
-    },
-    synastryScoreBadge: {
-        borderRadius: radius.full,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.xs,
-    },
-    synastryScoreText: {
-        fontFamily: fonts.display.bold,
-        fontSize: 18,
-    },
-    mockSliderWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    mockSliderLabel: {
-        fontFamily: fonts.body.regular,
-        fontSize: 11,
-        color: `${colors.onSurfaceMuted}80`,
-        width: 14,
-    },
-    mockSliderTrack: {
+        lineHeight: 19,
         flex: 1,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: `${colors.onSurface}15`,
-        position: 'relative',
     },
-    mockSliderFill: {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: '38%',
-        borderRadius: 3,
-    },
-    mockSliderThumb: {
-        position: 'absolute',
-        left: '36%',
-        top: -5,
-        width: 15,
-        height: 15,
-        borderRadius: 8,
-        opacity: 0.85,
-    },
-    mockAgeBadge: {
-        borderRadius: radius.full,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3,
-    },
-    mockAgeText: {
-        fontFamily: fonts.body.medium,
-        fontSize: 11,
-    },
-    mockChatBubble: {
-        borderRadius: radius.md,
-        padding: spacing.sm,
-        gap: 4,
-    },
-    mockChatName: {
-        fontFamily: fonts.body.medium,
-        fontSize: 11,
-        letterSpacing: 0.3,
-    },
-    mockChatText: {
-        fontFamily: fonts.body.regular,
-        fontStyle: 'italic',
-        fontSize: 12,
-        color: `${colors.onSurfaceMuted}cc`,
-        lineHeight: 17,
-    },
-
-    // Feature pager footer
-    featurePagerFooter: {
+    rgpdFooter: {
         paddingHorizontal: spacing.xl,
+        paddingTop: spacing.lg,
         paddingBottom: spacing.xl,
-        paddingTop: spacing.md,
+        gap: spacing.lg,
+        backgroundColor: `${colors.surfaceLowest}f0`,
+        borderTopWidth: 1,
+        borderTopColor: `${colors.onSurface}08`,
+    },
+    checkRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
         gap: spacing.md,
     },
-    featureSubDots: {
-        flexDirection: 'row',
+    checkBox: {
+        width: 22,
+        height: 22,
+        borderRadius: 6,
+        backgroundColor: `${colors.onSurface}10`,
+        borderWidth: 1.5,
+        borderColor: `${colors.onSurfaceMuted}40`,
+        alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
+        flexShrink: 0,
+        marginTop: 1,
     },
-    featureSubDot: {
-        width: 5,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: `${colors.onSurfaceMuted}30`,
-    },
-    featureSubDotActive: {
-        width: 16,
+    checkBoxChecked: {
         backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    checkLabel: {
+        flex: 1,
+    },
+    checkText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 13,
+        color: colors.onSurfaceMuted,
+        lineHeight: 19,
+    },
+    checkLink: {
+        color: colors.primary,
+        textDecorationLine: 'underline',
     },
 
-    // ── Step 2: Help tip ──────────────────────────────────────────────────────
+    // ── Step 1: Help tip ──────────────────────────────────────────────────────
     stepHelp: {
         flex: 1,
         paddingHorizontal: spacing.xl,
@@ -1226,7 +792,7 @@ const styles = StyleSheet.create({
         maxWidth: 300,
     },
 
-    // ── Step 3: Birth profile ─────────────────────────────────────────────────
+    // ── Step 2: Birth profile ─────────────────────────────────────────────────
     stepScroll: {
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.lg,

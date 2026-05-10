@@ -16,7 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, TabHeader, FormattedText, HelpModal } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, TabHeader, FormattedText, HelpModal, NoBirthProfileCard } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
 import {
     getNatalChart,
@@ -320,17 +320,7 @@ export default function HoroscopeTab() {
 
     // ── No birth profile ──
     if (!user?.hasBirthProfile) {
-        return (
-            <View style={styles.screen}>
-                <SafeAreaView style={styles.safeArea} edges={['top']}>
-                    <View style={styles.centered}>
-                        <Text style={styles.emptyIcon}>✨</Text>
-                        <Text style={styles.emptyText}>{t('horoscope.profilePrompt')}</Text>
-                        <GoldButton label={t('horoscope.profileBtn')} onPress={() => router.push('/birth-profile')} />
-                    </View>
-                </SafeAreaView>
-            </View>
-        );
+        return <NoBirthProfileCard />;
     }
 
     const mainPlanets = chart ? getMainPlanets(chart.planetaryPositions) : {};

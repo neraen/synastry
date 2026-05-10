@@ -1,33 +1,75 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
+    Text,
+    TextInput,
     StyleSheet,
     ScrollView,
+    Platform,
+    KeyboardAvoidingView,
+    ActivityIndicator,
+    Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-    Screen,
-    AppInput,
-    AppButton,
-    AppHeading,
-    AppText,
-    AppCard,
-    Spacer,
-    LoadingState,
+    GlassCard,
+    GoldButton,
+    GhostButton,
     AppDatePicker,
     AppTimePicker,
     CityAutocomplete,
 } from '@/components/ui';
 import {
-    BirthProfile,
     getBirthProfile,
     saveBirthProfile,
     CitySearchResult,
 } from '@/services/birthProfile';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, radius, fonts } from '@/theme';
 
+// ─── Field ────────────────────────────────────────────────────────────────────
+
+function Field({
+    label,
+    value,
+    onChangeText,
+    placeholder,
+    hint,
+    disabled,
+}: {
+    label: string;
+    value: string;
+    onChangeText: (v: string) => void;
+    placeholder?: string;
+    hint?: string;
+    disabled?: boolean;
+}) {
+    const [focused, setFocused] = useState(false);
+    return (
+        <View style={styles.fieldWrap}>
+            <Text style={styles.fieldLabel}>{label}</Text>
+            <View style={[styles.fieldInput, focused && styles.fieldInputFocused, disabled && { opacity: 0.5 }]}>
+                <TextInput
+                    style={styles.fieldText}
+                    value={value}
+                    onChangeText={onChangeText}
+                    placeholder={placeholder}
+                    placeholderTextColor={`${colors.onSurfaceMuted}60`}
+                    editable={!disabled}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                />
+            </View>
+            {hint && <Text style={styles.fieldHint}>{hint}</Text>}
+        </View>
+    );
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function BirthProfileScreen() {
     const router = useRouter();
@@ -36,11 +78,11 @@ export default function BirthProfileScreen() {
 
     const scrollRef = useRef<ScrollView>(null);
     const scrollYRef = useRef(0);
+
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState<string>();
+    const [error, setError] = useState<string | undefined>();
 
-    // Form state
     const [firstName, setFirstName] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [birthTime, setBirthTime] = useState('');
@@ -49,21 +91,18 @@ export default function BirthProfileScreen() {
     const [latitude, setLatitude] = useState<number | null>(null);
     const [longitude, setLongitude] = useState<number | null>(null);
     const [timezone, setTimezone] = useState<number | null>(null);
-    const [timezoneName, setTimezoneName] = useState<string | null>(null); // IANA timezone name
+    const [timezoneName, setTimezoneName] = useState<string | null>(null);
 
-
-    // Redirect if not authenticated
     useEffect(() => {
         if (!isAuthenticated) {
             router.replace('/login');
         }
     }, [isAuthenticated, router]);
 
-    // Load existing profile
     useEffect(() => {
-        async function loadProfile() {
-            try {
-                const response = await getBirthProfile();
+        if (!isAuthenticated) return;
+        getBirthProfile()
+            .then(response => {
                 if (response.hasProfile && response.profile) {
                     const p = response.profile;
                     setFirstName(p.firstName || '');
@@ -76,16 +115,9 @@ export default function BirthProfileScreen() {
                     setTimezone(p.timezone || null);
                     setTimezoneName(p.timezoneName || null);
                 }
-            } catch (err) {
-                console.error('Error loading profile:', err);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-
-        if (isAuthenticated) {
-            loadProfile();
-        }
+            })
+            .catch(err => console.error('Error loading profile:', err))
+            .finally(() => setIsLoading(false));
     }, [isAuthenticated]);
 
     const handleSelectCity = useCallback((city: CitySearchResult) => {
@@ -106,26 +138,20 @@ export default function BirthProfileScreen() {
         setTimezoneName(null);
     }, []);
 
-    // Save profile
-    async function handleSave() {
+    const handleSave = useCallback(async () => {
         setError(undefined);
 
-        // Validation
         if (!birthDate) {
             setError(t('birthProfile.birthDateRequired'));
             return;
         }
-
         if (!birthCity || latitude === null || longitude === null) {
             setError(t('birthProfile.birthCityRequired'));
             return;
         }
 
         setIsSaving(true);
-
         try {
-            // Send timezoneName to backend - it will calculate the correct offset
-            // for the birth date (handles DST correctly)
             await saveBirthProfile({
                 firstName: firstName || undefined,
                 birthDate,
@@ -134,145 +160,224 @@ export default function BirthProfileScreen() {
                 birthCountry: birthCountry || undefined,
                 latitude,
                 longitude,
-                timezone: timezone || undefined,
-                timezoneName: timezoneName || undefined,
+                timezone: timezone ?? undefined,
+                timezoneName: timezoneName ?? undefined,
             });
-
-            // Refresh user data to update hasBirthProfile flag
             await refreshUser();
-
             router.back();
         } catch (err) {
-            const message = err instanceof Error ? err.message : t('birthProfile.saveError');
-            setError(message);
+            setError(err instanceof Error ? err.message : t('birthProfile.saveError'));
         } finally {
             setIsSaving(false);
         }
-    }
+    }, [birthDate, birthCity, latitude, longitude, firstName, birthTime, birthCountry, timezone, timezoneName, refreshUser, router, t]);
 
     if (isLoading) {
         return (
-            <Screen backgroundColor={colors.surfaceLowest}>
-                <LoadingState message={t('birthProfile.loadingProfile')} />
-            </Screen>
+            <View style={styles.root}>
+                <LinearGradient
+                    colors={[colors.surfaceLowest, '#1e0f3a', colors.surfaceLowest]}
+                    locations={[0, 0.5, 1]}
+                    style={StyleSheet.absoluteFill}
+                />
+                <SafeAreaView style={styles.safe}>
+                    <View style={styles.loadingWrap}>
+                        <ActivityIndicator color={colors.primary} size="large" />
+                    </View>
+                </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <Screen variant="form" backgroundColor={colors.surfaceLowest} scrollRef={scrollRef} scrollYRef={scrollYRef}>
-            <Spacer size="xl" />
-
-            {/* Header */}
-            <View style={styles.header}>
-                <AppText style={styles.headerIcon}>✨</AppText>
-                <AppHeading variant="h1" align="center">
-                    {t('birthProfile.screenTitle')}
-                </AppHeading>
-                <Spacer size="sm" />
-                <AppText variant="body" color="muted" align="center">
-                    {t('birthProfile.screenSubtitle')}
-                </AppText>
-            </View>
-
-            <Spacer size="2xl" />
-
-            {/* Form Card */}
-            <AppCard variant="elevated" style={styles.formCard}>
-                <AppInput
-                    label={t('birthProfile.firstName')}
-                    placeholder={t('birthProfile.firstNamePlaceholder')}
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    disabled={isSaving}
-                    hint={t('birthProfile.firstNameHint')}
-                />
-
-                <Spacer size="lg" />
-
-                <AppDatePicker
-                    label={t('birthProfile.birthDate')}
-                    value={birthDate}
-                    onChange={setBirthDate}
-                    disabled={isSaving}
-                    maximumDate={new Date()}
-                    placeholder={t('birthProfile.birthDatePlaceholder')}
-                />
-
-                <Spacer size="lg" />
-
-                <AppTimePicker
-                    label={t('birthProfile.birthTime')}
-                    value={birthTime}
-                    onChange={setBirthTime}
-                    disabled={isSaving}
-                    hint={t('birthProfile.birthTimeHint')}
-                    placeholder={t('birthProfile.birthTimePlaceholder')}
-                />
-
-                <Spacer size="lg" />
-
-                <CityAutocomplete
-                    label={t('birthProfile.birthCity')}
-                    placeholder={t('birthProfile.birthCityPlaceholder')}
-                    value={birthCity ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}` : ''}
-                    onSelect={handleSelectCity}
-                    onClear={handleClearCity}
-                    disabled={isSaving}
-                    scrollRef={scrollRef}
-                    scrollYRef={scrollYRef}
-                />
-            </AppCard>
-
-            {!!error && (
-                <>
-                    <Spacer size="lg" />
-                    <AppCard variant="outline" style={styles.errorCard}>
-                        <AppText variant="body" color="error" align="center">
-                            {error}
-                        </AppText>
-                    </AppCard>
-                </>
-            )}
-
-            <Spacer size="2xl" />
-
-            {/* Actions */}
-            <AppButton
-                title={t('birthProfile.saveBtn')}
-                onPress={handleSave}
-                variant="primary"
-                loading={isSaving}
-            />
-            <Spacer size="md" />
-            <AppButton
-                title={t('birthProfile.cancelBtn')}
-                onPress={() => router.back()}
-                variant="ghost"
-                disabled={isSaving}
+        <View style={styles.root}>
+            <LinearGradient
+                colors={[colors.surfaceLowest, '#1e0f3a', colors.surfaceLowest]}
+                locations={[0, 0.5, 1]}
+                style={StyleSheet.absoluteFill}
             />
 
-            <Spacer size="3xl" />
+            <SafeAreaView style={styles.safe}>
+                {/* Back button */}
+                <View style={styles.headerRow}>
+                    <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+                        <Feather name="arrow-left" size={20} color={colors.onSurface} />
+                    </Pressable>
+                </View>
 
-        </Screen>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
+                    <ScrollView
+                        ref={scrollRef}
+                        contentContainerStyle={styles.scroll}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+                        scrollEventThrottle={16}
+                    >
+                        <Text style={styles.title}>{t('birthProfile.screenTitle')}</Text>
+                        <Text style={styles.subtitle}>{t('birthProfile.screenSubtitle')}</Text>
+
+                        <GlassCard style={styles.formCard}>
+                            <Field
+                                label={t('birthProfile.firstName')}
+                                value={firstName}
+                                onChangeText={setFirstName}
+                                placeholder={t('birthProfile.firstNamePlaceholder')}
+                                hint={t('birthProfile.firstNameHint')}
+                                disabled={isSaving}
+                            />
+
+                            <View style={styles.fieldGap} />
+
+                            <AppDatePicker
+                                label={t('birthProfile.birthDate')}
+                                value={birthDate}
+                                onChange={setBirthDate}
+                                disabled={isSaving}
+                                maximumDate={new Date()}
+                                placeholder={t('birthProfile.birthDatePlaceholder')}
+                            />
+
+                            <View style={styles.fieldGap} />
+
+                            <AppTimePicker
+                                label={t('birthProfile.birthTime')}
+                                value={birthTime}
+                                onChange={setBirthTime}
+                                disabled={isSaving}
+                                hint={t('birthProfile.birthTimeHint')}
+                                placeholder={t('birthProfile.birthTimePlaceholder')}
+                            />
+
+                            <View style={styles.fieldGap} />
+
+                            <CityAutocomplete
+                                label={t('birthProfile.birthCity')}
+                                placeholder={t('birthProfile.birthCityPlaceholder')}
+                                value={birthCity ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}` : ''}
+                                onSelect={handleSelectCity}
+                                onClear={handleClearCity}
+                                disabled={isSaving}
+                                scrollRef={scrollRef}
+                                scrollYRef={scrollYRef}
+                            />
+                        </GlassCard>
+
+                        {!!error && (
+                            <View style={styles.errorBox}>
+                                <Text style={styles.errorText}>{error}</Text>
+                            </View>
+                        )}
+
+                        <View style={styles.actions}>
+                            <GoldButton
+                                label={isSaving ? t('common.loading') : t('birthProfile.saveBtn')}
+                                onPress={handleSave}
+                                loading={isSaving}
+                            />
+                            <GhostButton
+                                label={t('birthProfile.cancelBtn')}
+                                onPress={() => router.back()}
+                                disabled={isSaving}
+                            />
+                        </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    header: {
+    root: { flex: 1, backgroundColor: colors.surfaceLowest },
+    safe: { flex: 1 },
+    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+    headerRow: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.md,
+        paddingBottom: spacing.sm,
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: radius.full,
+        backgroundColor: `${colors.onSurface}0a`,
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    headerIcon: {
-        fontSize: 40,
-        marginBottom: spacing.md,
+
+    scroll: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.lg,
+        paddingBottom: spacing.xxxl,
+        gap: spacing.xl,
     },
+    title: {
+        fontFamily: fonts.display.bold,
+        fontSize: 24,
+        color: colors.onSurface,
+    },
+    subtitle: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        color: colors.onSurfaceMuted,
+        lineHeight: 20,
+        marginTop: -spacing.md,
+    },
+
     formCard: {
+        gap: 0,
         padding: spacing.xl,
     },
-    label: {
+    fieldGap: { height: spacing.lg },
+    fieldWrap: { width: '100%' },
+    fieldLabel: {
+        fontFamily: fonts.body.medium,
+        fontSize: 13,
+        color: colors.onSurfaceMuted,
         marginBottom: spacing.sm,
+        letterSpacing: 0.3,
     },
-    errorCard: {
-        borderColor: colors.status.error,
-        padding: spacing.lg,
+    fieldInput: {
+        backgroundColor: colors.surfaceContainerHigh,
+        borderRadius: radius.md,
+        minHeight: 52,
+        paddingHorizontal: spacing.lg,
+        justifyContent: 'center',
+    },
+    fieldInputFocused: {
+        borderWidth: 1,
+        borderColor: `${colors.primary}60`,
+    },
+    fieldText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 15,
+        color: colors.onSurface,
+    },
+    fieldHint: {
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: colors.onSurfaceMuted,
+        marginTop: spacing.xs,
+    },
+
+    errorBox: {
+        backgroundColor: `${colors.error}15`,
+        borderRadius: radius.md,
+        padding: spacing.md,
+    },
+    errorText: {
+        fontFamily: fonts.body.regular,
+        fontSize: 13,
+        color: colors.error,
+        textAlign: 'center',
+    },
+
+    actions: {
+        gap: spacing.md,
     },
 });

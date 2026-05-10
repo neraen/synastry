@@ -17,7 +17,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/contexts/AuthContext';
 import { loginWithGoogle, loginWithApple } from '@/services/oauth';
-import { login } from '@/services/auth';
+import { login, register } from '@/services/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { InlineLoading } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -34,6 +34,9 @@ export default function Login() {
     const [devEmail, setDevEmail] = useState('');
     const [devPassword, setDevPassword] = useState('');
     const [devLoading, setDevLoading] = useState(false);
+    const [regEmail, setRegEmail] = useState('');
+    const [regPassword, setRegPassword] = useState('');
+    const [regLoading, setRegLoading] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
@@ -75,6 +78,22 @@ export default function Login() {
             setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
         } finally {
             setGoogleLoading(false);
+        }
+    }
+
+    async function handleDevRegister() {
+        if (!regEmail || !regPassword) return;
+        setRegLoading(true);
+        setError(undefined);
+        try {
+            await register({ email: regEmail, password: regPassword });
+            await login({ email: regEmail, password: regPassword });
+            await refreshUser();
+            router.replace('/onboarding');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : t('auth.errors.signupFailed'));
+        } finally {
+            setRegLoading(false);
         }
     }
 
@@ -245,6 +264,37 @@ export default function Login() {
                                     >
                                         <Text style={styles.devBtnText}>
                                             {devLoading ? 'Connexion...' : 'Se connecter'}
+                                        </Text>
+                                    </Pressable>
+                                    <View style={styles.devDivider}>
+                                        <Text style={styles.devDividerText}>INSCRIPTION</Text>
+                                    </View>
+                                    <TextInput
+                                        style={styles.devInput}
+                                        placeholder="Email"
+                                        placeholderTextColor={colors.onSurfaceMuted}
+                                        value={regEmail}
+                                        onChangeText={setRegEmail}
+                                        autoCapitalize="none"
+                                        keyboardType="email-address"
+                                        editable={!regLoading}
+                                    />
+                                    <TextInput
+                                        style={styles.devInput}
+                                        placeholder="Mot de passe"
+                                        placeholderTextColor={colors.onSurfaceMuted}
+                                        value={regPassword}
+                                        onChangeText={setRegPassword}
+                                        secureTextEntry
+                                        editable={!regLoading}
+                                    />
+                                    <Pressable
+                                        style={[styles.devBtn, (!regEmail || !regPassword || regLoading) && { opacity: 0.4 }]}
+                                        onPress={handleDevRegister}
+                                        disabled={!regEmail || !regPassword || regLoading}
+                                    >
+                                        <Text style={styles.devBtnText}>
+                                            {regLoading ? 'Création...' : 'Créer un compte'}
                                         </Text>
                                     </Pressable>
                                 </View>

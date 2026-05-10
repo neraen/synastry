@@ -21,6 +21,7 @@ import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
 import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
 import { api } from '@/services/api';
+import { getToken } from '@/services/auth';
 import { getAiModel, setAiModel, MODEL_MINI, MODEL_PRO, MODEL_MINI5, AiModel } from '@/services/aiModelConfig';
 
 // ─── Preference Row ────────────────────────────────────────────────────────────
@@ -139,7 +140,8 @@ export default function ProfileTab() {
 
     async function forcePremium() {
         try {
-            await api.post('/api/dev/force-premium', {});
+            const token = await getToken();
+            await api.post('/api/dev/force-premium', {}, { headers: { Authorization: `Bearer ${token}` } });
             Alert.alert('✓ Premium activé', 'Reconnecte-toi pour que le statut se mette à jour.');
         } catch (e: any) {
             Alert.alert('Erreur', e?.message ?? 'Impossible d\'activer le premium');

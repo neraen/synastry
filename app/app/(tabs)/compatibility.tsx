@@ -26,6 +26,7 @@ import {
     PremiumLockedButton,
     CityAutocomplete,
     HelpModal,
+    NoBirthProfileCard,
 } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
 import { calculateSynastry } from '@/services/astrology';
@@ -223,14 +224,7 @@ export default function CompatibilityTab() {
     }
 
     if (!user?.hasBirthProfile) {
-        return (
-            <EmptyState
-                emoji="✨"
-                message={t('synastry.profilePrompt')}
-                actionLabel={t('synastry.profileBtn')}
-                onAction={() => router.push('/birth-profile')}
-            />
-        );
+        return <NoBirthProfileCard />;
     }
 
     return (

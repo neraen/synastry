@@ -25,7 +25,7 @@ import * as FileSystem from 'expo-file-system';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
-import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader, HelpModal } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader, HelpModal, NoBirthProfileCard } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import { router } from 'expo-router';
@@ -871,6 +871,7 @@ function MirrorTabContent() {
 export default function TransitsScreen() {
     const { t, i18n } = useTranslation();
     const { isPremium } = usePremium();
+    const { user } = useAuth();
     const locale = i18n.language?.startsWith('fr') ? 'fr' : 'en';
 
     // Tab state
@@ -1003,6 +1004,10 @@ export default function TransitsScreen() {
         const types = new Set(allSelectedAspects.map(a => a.aspect_type));
         return Object.keys(ASPECT_COLORS).filter(t => types.has(t));
     }, [allSelectedAspects]);
+
+    if (!user?.hasBirthProfile) {
+        return <NoBirthProfileCard />;
+    }
 
     return (
         <View ref={rootRef} style={styles.root}>

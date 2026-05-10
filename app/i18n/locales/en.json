@@ -156,8 +156,8 @@
     "birthCityPlaceholder": "Search for a city...",
     "save": "Save my profile",
     "saving": "Saving...",
-    "screenTitle": "My astrological profile",
-    "screenSubtitle": "This information is used to calculate your natal chart with precision",
+    "screenTitle": "Complete my profile",
+    "screenSubtitle": "This information is required to access all the features of the application.",
     "searchCity": "Search for a city",
     "citySearchPlaceholder": "Type the city name...",
     "noResults": "No results",
@@ -168,6 +168,12 @@
     "birthDateRequired": "Birth date is required",
     "birthCityRequired": "Please select a birth city",
     "saveError": "Error while saving"
+  },
+  "noBirthProfile": {
+    "badge": "INCOMPLETE PROFILE",
+    "title": "Almost there...",
+    "subtitle": "Complete your information to access your personalized analyses.",
+    "cta": "Complete my profile"
   },
   "synastry": {
     "title": "Compatibility",
@@ -326,10 +332,10 @@
     "terms": "Terms",
     "privacy": "Privacy",
     "memberBadge": "FOR PREMIUM MEMBERS",
-    "headline": "Unlock your full\ncompatibility",
-    "tagline": "Guided by the stars, refined for your soul",
+    "headline": "Understand your cycles.\nExplore your destiny",
+    "tagline": "Clear, modern, and personalized astrological analyses",
     "featureFullAnalysisTitle": "Unlimited analyses",
-    "featureFullAnalysisDesc": "Unlimited compatibility analyses, full temporal mirror from 0 to 80 years old, complete history of all your analyses.",
+    "featureFullAnalysisDesc": "Unlimited compatibility analyses, your astrological tendencies through time, complete history of all your analyses.",
     "featureUnlimitedTitle": "Unlimited chat with Lyra",
     "featureUnlimitedDesc": "Ask your AI astrologer anything, no daily limit, with partner context included.",
     "featureInsightsTitle": "Calendar & interpretations",
@@ -342,8 +348,10 @@
     "annualFeature1": "≈ €4.17/month",
     "annualFeature2": "All features included",
     "monthlyFeature1": "All features",
-    "monthlyFeature2": "Unlimited synastries",
-    "monthlyFeature3": "Full temporal mirror",
+    "monthlyFeature2": "Unlimited chat with your astrology advisor",
+    "monthlyFeature3": "Your life mission",
+    "monthlyFeature4": "Unlimited compatibility",
+    "monthlyFeature5": "Analysis of your future trends",
     "startPremiumBtn": "START PREMIUM",
     "processingBtn": "PROCESSING...",
     "legalNotice": "No commitment · Auto-renews",
@@ -425,6 +433,8 @@
     "welcomeMessage": "Hello, I'm Lyra ✦ I'm here to guide you through the stars. What's on your mind today?",
     "inputPlaceholder": "Ask Lyra anything...",
     "errorMessage": "I couldn't reach the stars just now. Please try again.",
+    "noBirthProfileBanner": "Complete your profile for answers personalized to your natal chart.",
+    "noBirthProfileBannerCta": "Complete",
     "plusTooltip": "Add someone's chart for an in-depth analysis.",
     "partnerPickerTitle": "Add a chart",
     "partnerPickerSubtitle": "Add someone's natal chart as context for this conversation.",
@@ -479,41 +489,22 @@
     "loadError": "Unable to load transits"
   },
   "onboarding": {
-    "hero": {
-      "tagline": "Natal chart, compatibility, and Lyra — your AI astrologer",
-      "value1": "A daily horoscope based on your real transits",
-      "value2": "Astrological compatibility with anyone",
-      "value3": "Chat with Lyra, your personal AI astrologer",
-      "cta": "Discover"
-    },
-    "features": {
-      "title": "Everything Lunestia can do",
-      "horoscope": {
-        "badge": "Horoscope",
-        "title": "Your sky, every day",
-        "description": "A personalized horoscope calculated from your real planetary transits, not just your sun sign",
-        "mockIntensity": "Intensity",
-        "mockClarity": "Clarity",
-        "mockQuote": "\"The stars invite you to express yourself with clarity and confidence...\""
-      },
-      "synastry": {
-        "badge": "Synastry",
-        "title": "Explore your synastries",
-        "description": "Analyze your astrological compatibility with anyone based on natal charts",
-        "mockPerson1": "You",
-        "mockPerson2": "Emma",
-        "mockAspect1": "Love",
-        "mockAspect2": "Communication",
-        "mockAspect3": "Long-term"
-      },
-      "mirror": {
-        "badge": "Exploration",
-        "title": "Journey through your life",
-        "description": "Explore your transits from age 0 to 80 and chat with Lyra, your personal AI astrologer",
-        "mockAgeUnit": "yrs",
-        "mockChatText": "\"At 28, Saturn's return opens a new chapter...\""
-      },
-      "cta": "Personalize my experience"
+    "rgpd": {
+      "badge": "YOUR PRIVACY",
+      "title": "Before we start",
+      "description": "Lunestia needs a few pieces of personal data to work. Here's exactly what we collect and what we do with it.",
+      "dataTitle": "What we collect",
+      "dataItems": [
+        "Your email address, collected via Google or Apple sign-in to identify your account",
+        "Your first name (optional), used only to personalize messages from Lyra",
+        "Your birth date, time (optional), and city — the core data used to calculate your natal chart and transits",
+        "Your conversations with Lyra, our AI astrologer, stored to maintain context across sessions"
+      ],
+      "thirdParties": "Your birth data is transmitted to OpenAI to generate your astrological analyses. It is never sold, never used for advertising, and never shared with any other third party.",
+      "checkTerms": "I accept the terms of use and the",
+      "privacyLink": "privacy policy",
+      "checkAI": "I accept that my birth data be transmitted to OpenAI solely to generate my personalized astrological analyses",
+      "cta": "Continue"
     },
     "helpTip": {
       "badge": "BUILT-IN GUIDE",

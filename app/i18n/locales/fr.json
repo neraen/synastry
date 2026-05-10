@@ -156,8 +156,8 @@
     "birthCityPlaceholder": "Rechercher une ville...",
     "save": "Enregistrer mon profil",
     "saving": "Enregistrement...",
-    "screenTitle": "Mon profil astrologique",
-    "screenSubtitle": "Ces informations permettent de calculer votre thème natal avec précision",
+    "screenTitle": "Compléter mon profil",
+    "screenSubtitle": "Ces informations sont nécessaires pour accéder à toutes les fonctionnalités de l'application.",
     "searchCity": "Rechercher une ville",
     "citySearchPlaceholder": "Tapez le nom de la ville...",
     "noResults": "Aucun résultat",
@@ -168,6 +168,12 @@
     "birthDateRequired": "La date de naissance est requise",
     "birthCityRequired": "Veuillez sélectionner une ville de naissance",
     "saveError": "Erreur lors de la sauvegarde"
+  },
+  "noBirthProfile": {
+    "badge": "PROFIL INCOMPLET",
+    "title": "On y est presque...",
+    "subtitle": "Complétez vos informations pour avoir accès à vos analyses personnalisées.",
+    "cta": "Compléter mon profil"
   },
   "synastry": {
     "title": "Compatibilité",
@@ -326,10 +332,10 @@
     "terms": "Conditions",
     "privacy": "Confidentialité",
     "memberBadge": "POUR LES MEMBRES PREMIUM",
-    "headline": "Révélez votre pleine\ncompatibilité",
-    "tagline": "Guidé par les astres, affiné pour votre âme",
+    "headline": "Comprenez vos cycles.\nExplorez votre destinée",
+    "tagline": "Des analyses astrologiques claires, modernes et personnalisées",
     "featureFullAnalysisTitle": "Analyses illimitées",
-    "featureFullAnalysisDesc": "Compatibilités à volonté, miroir temporel complet de 0 à 80 ans, historique intégral de toutes vos analyses.",
+    "featureFullAnalysisDesc": "Compatibilités à volonté, vos tendances astrologiques à travers le temps, historique intégral de toutes vos analyses.",
     "featureUnlimitedTitle": "Chat illimité avec Lyra",
     "featureUnlimitedDesc": "Posez toutes vos questions à votre astrologue IA, sans limite journalière, avec contexte partenaire inclus.",
     "featureInsightsTitle": "Calendrier & interprétations",
@@ -342,8 +348,10 @@
     "annualFeature1": "≈ 4,17 €/mois",
     "annualFeature2": "Toutes les fonctionnalités incluses",
     "monthlyFeature1": "Toutes les fonctionnalités",
-    "monthlyFeature2": "Synastries illimitées",
-    "monthlyFeature3": "Miroir temporel complet",
+    "monthlyFeature2": "Chat illimité avec votre conseiller astrologue",
+    "monthlyFeature3": "Votre mission de vie",
+    "monthlyFeature4": "Compatibilité illimitée",
+    "monthlyFeature5": "Analyse de vos tendances futures",
     "startPremiumBtn": "COMMENCER PREMIUM",
     "processingBtn": "TRAITEMENT...",
     "legalNotice": "Sans engagement · Renouvellement automatique",
@@ -425,6 +433,8 @@
     "welcomeMessage": "Bonjour, je suis Lyra ✦ Je suis là pour te guider à travers les étoiles. Qu'as-tu en tête aujourd'hui ?",
     "inputPlaceholder": "Pose ta question à Lyra...",
     "errorMessage": "Je n'ai pas pu atteindre les étoiles pour l'instant. Réessaie.",
+    "noBirthProfileBanner": "Complète ton profil pour des réponses personnalisées selon ton thème natal.",
+    "noBirthProfileBannerCta": "Compléter",
     "plusTooltip": "Ajoutez le thème d'un proche pour une analyse approfondie.",
     "partnerPickerTitle": "Ajouter un thème",
     "partnerPickerSubtitle": "Ajoute le thème natal de quelqu'un comme contexte de cette conversation.",
@@ -479,41 +489,22 @@
     "loadError": "Impossible de charger les transits"
   },
   "onboarding": {
-    "hero": {
-      "tagline": "Thème natal, compatibilité, et Lyra — ton astrologue IA",
-      "value1": "Un horoscope quotidien calculé depuis tes vrais transits",
-      "value2": "Compatibilité astrologique avec n'importe qui",
-      "value3": "Discute avec Lyra, ton astrologue IA personnelle",
-      "cta": "Découvrir"
-    },
-    "features": {
-      "title": "Tout ce que Lunestia peut faire",
-      "horoscope": {
-        "badge": "Horoscope",
-        "title": "Ton ciel, chaque jour",
-        "description": "Un horoscope personnalisé calculé à partir de tes transits planétaires réels, pas uniquement de ton signe solaire",
-        "mockIntensity": "Intensité",
-        "mockClarity": "Clarté",
-        "mockQuote": "\"Les astres t'invitent à t'exprimer avec clarté et confiance...\""
-      },
-      "synastry": {
-        "badge": "Synastrie",
-        "title": "Explore tes synastries",
-        "description": "Analyse ta compatibilité astrologique avec n'importe qui grâce à l'étude des thèmes natals",
-        "mockPerson1": "Toi",
-        "mockPerson2": "Emma",
-        "mockAspect1": "Amour",
-        "mockAspect2": "Communication",
-        "mockAspect3": "Long terme"
-      },
-      "mirror": {
-        "badge": "Exploration",
-        "title": "Voyage dans ta vie",
-        "description": "Explore tes transits de 0 à 80 ans et discute avec Lyra, ton astrologue IA personnelle",
-        "mockAgeUnit": "ans",
-        "mockChatText": "\"À 28 ans, le retour de Saturne ouvre un nouveau chapitre...\""
-      },
-      "cta": "Personnaliser mon expérience"
+    "rgpd": {
+      "badge": "CONFIDENTIALITÉ",
+      "title": "Avant de commencer",
+      "description": "Lunestia a besoin de quelques données personnelles pour fonctionner. Voici exactement ce que nous collectons et ce que nous en faisons.",
+      "dataTitle": "Ce que nous collectons",
+      "dataItems": [
+        "Ton adresse e-mail, collectée via Google ou Apple pour identifier ton compte",
+        "Ton prénom (optionnel), utilisé uniquement pour personnaliser les messages de Lyra",
+        "Ta date, heure (optionnelle) et ville de naissance — les données essentielles pour calculer ton thème natal et tes transits",
+        "Tes échanges avec Lyra, notre astrologue IA, conservés pour maintenir le contexte entre les sessions"
+      ],
+      "thirdParties": "Tes données de naissance sont transmises à OpenAI pour générer tes analyses astrologiques. Elles ne sont jamais revendues, jamais utilisées à des fins publicitaires, ni partagées avec un autre tiers.",
+      "checkTerms": "J'accepte les conditions d'utilisation et la",
+      "privacyLink": "politique de confidentialité",
+      "checkAI": "J'accepte que mes données de naissance soient transmises à OpenAI uniquement pour générer mes analyses astrologiques personnalisées",
+      "cta": "Continuer"
     },
     "helpTip": {
       "badge": "GUIDE INTÉGRÉ",

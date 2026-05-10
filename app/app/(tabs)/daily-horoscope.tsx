@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, TabHeader, NoBirthProfileCard } from '@/components/ui';
 import { getDailyHoroscope, DailyHoroscope } from '@/services/astrology';
 import { aiDisclaimerText } from '@/constants/legalTexts';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -124,14 +124,7 @@ export default function DailyHoroscopeTab() {
 
     // No birth profile
     if (!user?.hasBirthProfile) {
-        return (
-            <EmptyState
-                emoji="🌙"
-                message={t('dailyHoroscope.profilePrompt')}
-                actionLabel={t('dailyHoroscope.profileBtn')}
-                onAction={() => router.push('/birth-profile')}
-            />
-        );
+        return <NoBirthProfileCard />;
     }
 
     const SECTIONS = getSections(t);

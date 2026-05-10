@@ -29,6 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { usePremium } from '@/hooks/usePremium';
+import { useAuth } from '@/contexts/AuthContext';
 import {
     sendChatMessageStream,
     getChatPartners,
@@ -227,6 +228,7 @@ const WELCOME_ID = '__welcome__';
 export default function ChatScreen() {
     const { t } = useTranslation();
     const { isPremium } = usePremium();
+    const { user } = useAuth();
     const { sessionId: paramSessionId } = useLocalSearchParams<{ sessionId?: string }>();
     
     const [sessionId, setSessionId] = useState<number | null>(null);
@@ -487,6 +489,18 @@ export default function ChatScreen() {
                     )}
                 </View>
             </View>
+
+            {/* No birth profile — subtle banner */}
+            {!user?.hasBirthProfile && (
+                <Pressable
+                    style={styles.noBirthBanner}
+                    onPress={() => router.push('/birth-profile')}
+                >
+                    <Text style={styles.noBirthBannerIcon}>✦</Text>
+                    <Text style={styles.noBirthBannerText}>{t('chat.noBirthProfileBanner')}</Text>
+                    <Text style={styles.noBirthBannerCta}>{t('chat.noBirthProfileBannerCta')} →</Text>
+                </Pressable>
+            )}
 
             <KeyboardAvoidingView
                 style={styles.flex}
@@ -783,6 +797,34 @@ const styles = StyleSheet.create({
     sendBtnDisabled: { backgroundColor: `${colors.primary}40` },
     sendBtnPressed: { opacity: 0.8, transform: [{ scale: 0.95 }] },
     inputDisabled: { opacity: 0.5 },
+
+    // No birth profile banner
+    noBirthBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.md,
+        backgroundColor: `${colors.primary}10`,
+        borderBottomWidth: 1,
+        borderBottomColor: `${colors.primary}18`,
+    },
+    noBirthBannerIcon: {
+        fontSize: 12,
+        color: colors.primary,
+    },
+    noBirthBannerText: {
+        flex: 1,
+        fontFamily: fonts.body.regular,
+        fontSize: 12,
+        color: colors.onSurfaceMuted,
+        lineHeight: 17,
+    },
+    noBirthBannerCta: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 12,
+        color: colors.primary,
+    },
 
     // Limit banner / counter
     limitBanner: {
