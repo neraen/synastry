@@ -9,9 +9,9 @@ const IS_PREVIEW = process.env.APP_VARIANT === 'preview';
 const IS_PROD = process.env.APP_VARIANT === 'production' || (!IS_DEV && !IS_PREVIEW);
 
 const getUniqueIdentifier = () => {
-  if (IS_DEV) return 'com.astromatch.app.dev';
-  if (IS_PREVIEW) return 'com.astromatch.app.preview';
-  return 'com.astromatch.app';
+  if (IS_DEV) return 'com.clementsilvestre.lunestia.dev';
+  if (IS_PREVIEW) return 'com.clementsilvestre.lunestia.preview';
+  return 'com.clementsilvestre.lunestia';
 };
 
 const getAppName = () => {
