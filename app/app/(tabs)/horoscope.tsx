@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import {
     View,
     Text,
@@ -52,8 +53,8 @@ const HOROSCOPE_HELP = (fr: boolean): HelpSection[] => [{
             symbol: '♈', symbolColor: '#c8bfff',
             name: fr ? 'Les signes' : 'Signs',
             description: fr
-                ? "Le signe dans lequel se trouve une planète colore son expression. Ex : Mars en Cancer exprime son énergie de façon défensive et émotionnelle plutôt qu'assertive."
-                : "The sign a planet occupies colors its expression. E.g.: Mars in Cancer expresses its energy defensively and emotionally rather than assertively.",
+                ? "Le signe colore la façon dont une planète s'exprime. C'est le \"comment\". Ex : la Lune représente vos émotions — en Scorpion, vous les vivez intensément et en profondeur ; en Gémeaux, vous les exprimez avec légèreté et en parlant."
+                : "The sign colors how a planet expresses itself — it's the \"how\". E.g.: the Moon represents your emotions — in Scorpio, you feel them deeply and intensely; in Gemini, you express them lightly, through words.",
         },
         {
             symbol: '⌂', symbolColor: '#a78bfa',
@@ -68,6 +69,13 @@ const HOROSCOPE_HELP = (fr: boolean): HelpSection[] => [{
             description: fr
                 ? "Les angles entre les planètes créent des harmonies (trigone, sextile) ou des tensions (carré, opposition). Consultez le Centre d'aide pour une description complète."
                 : "Angles between planets create harmonies (trine, sextile) or tensions (square, opposition). See the Help Center for a full description.",
+        },
+        {
+            symbol: '℞', symbolColor: '#f87171',
+            name: fr ? 'Rétrograde' : 'Retrograde',
+            description: fr
+                ? "Quand une planète est rétrograde (℞), elle semble reculer dans le ciel. Son énergie se tourne davantage vers l'intérieur : c'est un temps de révision, de relecture et d'introspection plutôt que d'action vers l'extérieur."
+                : "When a planet is retrograde (℞), it appears to move backward in the sky. Its energy turns more inward — a time for revision, reflection, and introspection rather than outward action.",
         },
     ],
 }];
@@ -102,24 +110,54 @@ function PlanetCard({
     data,
     tint,
     onPress,
+    showHalo = false,
 }: {
     planet: string;
     data: any;
     tint: string;
     onPress: () => void;
+    showHalo?: boolean;
 }) {
     const symbol = PLANET_SYMBOLS[planet] || '✦';
     const isRetrograde = data.Retrograde === 'Yes';
+    const haloAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (!showHalo) return;
+        const pulse = Animated.loop(
+            Animated.sequence([
+                Animated.timing(haloAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+                Animated.timing(haloAnim, { toValue: 0, duration: 900, useNativeDriver: true }),
+            ]),
+            { iterations: 4 },
+        );
+        pulse.start();
+        return () => pulse.stop();
+    }, [showHalo]);
 
     return (
         <Pressable onPress={onPress} style={styles.planetCardWrap}>
+            {showHalo && (
+                <Animated.View
+                    pointerEvents="none"
+                    style={[
+                        styles.halo,
+                        {
+                            opacity: haloAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.55] }),
+                            transform: [{ scale: haloAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }],
+                        },
+                    ]}
+                />
+            )}
             <GlassCard opacity="low" radius="xl" style={styles.planetCard}>
                 <View style={[styles.symbolBubble, { backgroundColor: `${tint}1A` }]}>
                     <Text style={[styles.planetSymbol, { color: tint }]}>{symbol}</Text>
                 </View>
                 <View style={styles.planetContent}>
                     <View style={styles.planetNameRow}>
-                        <Text style={styles.planetName}>{getPlanetNameFr(planet)}</Text>
+                        <Text style={styles.planetName}>
+                            {getPlanetNameFr(planet)}{planet === 'Sun' ? ' (signe)' : ''}
+                        </Text>
                         {isRetrograde && (
                             <View style={styles.retroBadge}>
                                 <Text style={styles.retroText}>℞</Text>
@@ -251,6 +289,9 @@ export default function HoroscopeTab() {
     // Help modal
     const [helpVisible, setHelpVisible] = useState(false);
 
+    // First-visit halo hint
+    const [showHalo, setShowHalo] = useState(false);
+
     // Planet detail modal
     const [selectedPlanet, setSelectedPlanet] = useState<string | null>(null);
     const [selectedData, setSelectedData] = useState<any | null>(null);
@@ -272,6 +313,20 @@ export default function HoroscopeTab() {
         if (isAuthenticated && user?.hasBirthProfile) loadChart();
         else setIsLoading(false);
     }, [isAuthenticated, user, isAuthLoading]);
+
+    useEffect(() => {
+        SecureStore.getItemAsync('halo_planet_seen').then((val) => {
+            if (!val) setShowHalo(true);
+        });
+    }, []);
+
+    const handleFirstCardPress = useCallback((planet: string, data: any, tint: string) => {
+        if (showHalo) {
+            setShowHalo(false);
+            SecureStore.setItemAsync('halo_planet_seen', '1');
+        }
+        openPlanetDetail(planet, data, tint);
+    }, [showHalo, openPlanetDetail]);
 
     async function loadChart(refresh = false) {
         try {
@@ -372,13 +427,18 @@ export default function HoroscopeTab() {
                             <View style={styles.grid}>
                                 {planetEntries.map(([planet, data], index) => {
                                     const tint = PLANET_TINTS[index % PLANET_TINTS.length];
+                                    const isFirst = index === 0;
                                     return (
                                         <PlanetCard
                                             key={planet}
                                             planet={planet}
                                             data={data}
                                             tint={tint}
-                                            onPress={() => openPlanetDetail(planet, data, tint)}
+                                            showHalo={isFirst && showHalo}
+                                            onPress={() => isFirst
+                                                ? handleFirstCardPress(planet, data, tint)
+                                                : openPlanetDetail(planet, data, tint)
+                                            }
                                         />
                                     );
                                 })}
@@ -516,6 +576,13 @@ const styles = StyleSheet.create({
         color: colors.onSurfaceMuted,
         textTransform: 'uppercase',
         marginBottom: spacing.md,
+    },
+
+    halo: {
+        ...StyleSheet.absoluteFillObject,
+        borderRadius: radius.xl,
+        backgroundColor: `${colors.primary}`,
+        zIndex: 1,
     },
 
     // Planet grid

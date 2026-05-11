@@ -13,8 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/contexts/AuthContext';
 import { loginWithGoogle, loginWithApple } from '@/services/oauth';
 import { login, register } from '@/services/auth';
@@ -22,7 +20,25 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { InlineLoading } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 
-WebBrowser.maybeCompleteAuthSession();
+// Dynamically import Google Sign-In (native module not available in Expo Go)
+let GoogleSignin: any = null;
+let statusCodes: any = {};
+let isErrorWithCode: any = () => false;
+let googleSignInAvailable = false;
+
+try {
+    const mod = require('@react-native-google-signin/google-signin');
+    GoogleSignin = mod.GoogleSignin;
+    statusCodes = mod.statusCodes;
+    isErrorWithCode = mod.isErrorWithCode;
+    GoogleSignin.configure({
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+        offlineAccess: false,
+    });
+    googleSignInAvailable = true;
+} catch (e) {
+    console.warn('Google Sign-In native module not available:', e);
+}
 
 export default function Login() {
     const router = useRouter();
@@ -41,12 +57,6 @@ export default function Login() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
 
-    const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        androidClientId: GOOGLE_CLIENT_ID,
-        scopes: ['openid', 'profile', 'email'],
-    });
-
     useEffect(() => {
         Animated.parallel([
             Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
@@ -54,27 +64,35 @@ export default function Login() {
         ]).start();
     }, []);
 
-    useEffect(() => {
-        if (response?.type === 'success') {
-            const idToken = response.authentication?.idToken ?? response.params?.id_token;
-            if (idToken) {
-                handleGoogleLogin(idToken);
-            } else {
-                setError(t('auth.errors.loginFailed'));
-            }
-        } else if (response?.type === 'error') {
-            setError(t('auth.errors.loginFailed'));
+    async function handleGoogleSignIn() {
+        if (!googleSignInAvailable) {
+            setError('Google Sign-In non disponible (module natif requis)');
+            return;
         }
-    }, [response]);
-
-    async function handleGoogleLogin(idToken: string) {
         setGoogleLoading(true);
         setError(undefined);
         try {
+            await GoogleSignin.hasPlayServices();
+            const response = await GoogleSignin.signIn();
+            const idToken = response?.data?.idToken;
+            if (!idToken) {
+                throw new Error(t('auth.errors.loginFailed'));
+            }
             await loginWithGoogle(idToken);
             await refreshUser();
             router.replace('/(tabs)');
         } catch (err) {
+            if (isErrorWithCode(err)) {
+                if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+                    // User cancelled — do nothing
+                    setGoogleLoading(false);
+                    return;
+                }
+                if (err.code === statusCodes.IN_PROGRESS) {
+                    setGoogleLoading(false);
+                    return;
+                }
+            }
             setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
         } finally {
             setGoogleLoading(false);
@@ -138,14 +156,21 @@ export default function Login() {
         }
     }
 
+    const features = [
+        { icon: 'moon' as const, label: t('login.featureNatal', { defaultValue: 'Thème natal détaillé' }) },
+        { icon: 'heart' as const, label: t('login.featureCompat', { defaultValue: 'Compatibilité amoureuse' }) },
+        { icon: 'message-circle' as const, label: t('login.featureAI', { defaultValue: 'Lyra, astrologue IA' }) },
+    ];
+
     return (
         <View style={styles.screen}>
             {/* Star decorations */}
             <View style={[styles.star, { top: 80, right: 48, width: 4, height: 4, opacity: 0.4 }]} />
             <View style={[styles.star, { top: 130, right: 96, width: 2, height: 2, opacity: 0.3 }]} />
             <View style={[styles.star, { top: 200, left: 32, width: 4, height: 4, opacity: 0.2 }]} />
-            <View style={[styles.star, { top: 260, right: 32, width: 2, height: 2, opacity: 0.4 }]} />
-            <View style={[styles.star, { top: 340, left: 56, width: 3, height: 3, opacity: 0.25 }]} />
+            <View style={[styles.star, { top: 420, right: 32, width: 2, height: 2, opacity: 0.4 }]} />
+            <View style={[styles.star, { top: 500, left: 56, width: 3, height: 3, opacity: 0.25 }]} />
+            <View style={[styles.star, { top: 360, right: 72, width: 3, height: 3, opacity: 0.15 }]} />
 
             <SafeAreaView style={styles.safeArea}>
                 <ScrollView
@@ -178,9 +203,21 @@ export default function Login() {
                                 {t('login.description')}
                             </Text>
 
+                            {/* Feature highlights */}
+                            <View style={styles.featuresRow}>
+                                {features.map((f, i) => (
+                                    <View key={i} style={styles.featureItem}>
+                                        <View style={styles.featureIconWrap}>
+                                            <Feather name={f.icon} size={18} color={colors.primary} />
+                                        </View>
+                                        <Text style={styles.featureLabel}>{f.label}</Text>
+                                    </View>
+                                ))}
+                            </View>
+
                         </Animated.View>
 
-                        {/* Bottom glass card */}
+                        {/* Sign-in card */}
                         <Animated.View
                             style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
                         >
@@ -206,9 +243,9 @@ export default function Login() {
                                 <>
                                     {/* Google Sign-In */}
                                     <Pressable
-                                        style={[styles.googleBtn, (!request || googleLoading) && { opacity: 0.5 }]}
-                                        onPress={() => promptAsync()}
-                                        disabled={!request || googleLoading}
+                                        style={[styles.googleBtn, googleLoading && { opacity: 0.5 }]}
+                                        onPress={handleGoogleSignIn}
+                                        disabled={googleLoading}
                                     >
                                         <View style={styles.googleIconWrap}>
                                             <MaterialCommunityIcons name="google" size={18} color={colors.primary} />
@@ -232,6 +269,12 @@ export default function Login() {
                                     )}
                                 </>
                             )}
+
+                            {/* Subtle separator + privacy note */}
+                            <Text style={styles.privacyNote}>
+                                {t('login.privacyNote', { defaultValue: 'En continuant, vous acceptez nos conditions d\'utilisation.' })}
+                            </Text>
+
                             {/* Dev-only email/password form */}
                             {__DEV__ && (
                                 <View style={styles.devSection}>
@@ -314,7 +357,7 @@ const styles = StyleSheet.create({
     safeArea: { flex: 1 },
     scroll: {
         flexGrow: 1,
-        justifyContent: 'space-between',
+        justifyContent: 'flex-end',
     },
 
     // Star decorations
@@ -327,14 +370,14 @@ const styles = StyleSheet.create({
     // Hero
     heroSection: {
         paddingHorizontal: spacing.xl,
-        paddingTop: spacing.xxl,
-        paddingBottom: spacing.xxl,
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.lg,
     },
     logo: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.sm,
-        marginBottom: spacing.xxl,
+        marginBottom: spacing.xl,
     },
     logoIcon: {
         fontSize: 14,
@@ -356,7 +399,7 @@ const styles = StyleSheet.create({
         borderRadius: radius.full,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.sm,
-        marginBottom: spacing.xxl,
+        marginBottom: spacing.xl,
     },
     badgeText: {
         fontFamily: fonts.body.medium,
@@ -367,10 +410,10 @@ const styles = StyleSheet.create({
     },
     heroTitle: {
         fontFamily: fonts.display.regular,
-        fontSize: 40,
-        lineHeight: 48,
+        fontSize: 36,
+        lineHeight: 44,
         color: colors.onSurface,
-        marginBottom: spacing.xl,
+        marginBottom: spacing.md,
     },
     heroAccent: {
         color: colors.primary,
@@ -378,11 +421,42 @@ const styles = StyleSheet.create({
     },
     description: {
         fontFamily: fonts.body.regular,
-        fontSize: 15,
-        lineHeight: 24,
+        fontSize: 14,
+        lineHeight: 22,
         color: colors.onSurfaceMuted,
-        marginBottom: spacing.xxl,
+        marginBottom: spacing.xl,
     },
+
+    // Feature highlights
+    featuresRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: spacing.md,
+        marginBottom: spacing.sm,
+    },
+    featureItem: {
+        flex: 1,
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    featureIconWrap: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: `${colors.primary}15`,
+        borderWidth: 1,
+        borderColor: `${colors.primary}25`,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    featureLabel: {
+        fontFamily: fonts.body.medium,
+        fontSize: 11,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        lineHeight: 15,
+    },
+
     // Card
     card: {
         backgroundColor: `${colors.surfaceLow}CC`,
@@ -503,5 +577,14 @@ const styles = StyleSheet.create({
         fontFamily: fonts.body.semiBold,
         fontSize: 14,
         color: colors.onSurfaceMuted,
+    },
+    privacyNote: {
+        fontFamily: fonts.body.regular,
+        fontSize: 11,
+        color: colors.onSurfaceMuted,
+        opacity: 0.5,
+        textAlign: 'center',
+        marginTop: spacing.xl,
+        lineHeight: 16,
     },
 });

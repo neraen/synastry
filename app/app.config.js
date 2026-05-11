@@ -81,6 +81,7 @@ export default {
       'expo-secure-store',
       '@react-native-community/datetimepicker',
       'expo-localization',
+      '@react-native-google-signin/google-signin',
       [
         'expo-notifications',
         {

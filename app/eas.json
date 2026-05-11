@@ -23,7 +23,9 @@
       "env": {
         "APP_VARIANT": "preview",
         "EXPO_PUBLIC_API_URL_LOCAL": "http://192.168.1.12:8000",
-        "EXPO_PUBLIC_API_URL_PROD": "https://astro-api.clement-silvestre.com"
+        "EXPO_PUBLIC_API_URL_PROD": "https://astro-api.clement-silvestre.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "301620877035-u4uokf0m08isee4ni9lalqv1qhbdsq29.apps.googleusercontent.com",
+        "EXPO_PUBLIC_RC_API_KEY_ANDROID": "goog_kBFHulCYXySxXDUyfFAiSCpNVfk"
       },
       "ios": {
         "resourceClass": "m-medium"
@@ -37,7 +39,9 @@
       "env": {
         "APP_VARIANT": "production",
         "EXPO_PUBLIC_API_URL_LOCAL": "http://192.168.1.12:8000",
-        "EXPO_PUBLIC_API_URL_PROD": "https://astro-api.clement-silvestre.com"
+        "EXPO_PUBLIC_API_URL_PROD": "https://astro-api.clement-silvestre.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "301620877035-u4uokf0m08isee4ni9lalqv1qhbdsq29.apps.googleusercontent.com",
+        "EXPO_PUBLIC_RC_API_KEY_ANDROID": "goog_kBFHulCYXySxXDUyfFAiSCpNVfk"
       },
       "ios": {
         "resourceClass": "m-medium"
