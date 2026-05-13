@@ -90,7 +90,7 @@ export function CompatibilityShareCard({
                 )}
 
                 {/* Footer */}
-                <Text style={styles.footer}>AstroMatch</Text>
+                <Text style={styles.footer}>Lunestia</Text>
             </LinearGradient>
         </View>
     );

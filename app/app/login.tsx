@@ -73,14 +73,15 @@ export default function Login() {
         setError(undefined);
         try {
             await GoogleSignin.hasPlayServices();
+            await GoogleSignin.signOut();
             const response = await GoogleSignin.signIn();
             const idToken = response?.data?.idToken;
             if (!idToken) {
                 throw new Error(t('auth.errors.loginFailed'));
             }
-            await loginWithGoogle(idToken);
+            const loggedInUser = await loginWithGoogle(idToken);
             await refreshUser();
-            router.replace('/(tabs)');
+            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)' : '/onboarding');
         } catch (err) {
             if (isErrorWithCode(err)) {
                 if (err.code === statusCodes.SIGN_IN_CANCELLED) {
@@ -141,12 +142,12 @@ export default function Login() {
                 ],
             });
             if (!credential.identityToken) throw new Error(t('auth.errors.loginFailed'));
-            await loginWithApple(credential.identityToken, {
+            const loggedInUser = await loginWithApple(credential.identityToken, {
                 email: credential.email ?? undefined,
                 fullName: credential.fullName ?? undefined,
             });
             await refreshUser();
-            router.replace('/(tabs)');
+            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)' : '/onboarding');
         } catch (err: any) {
             if (err?.code !== 'ERR_REQUEST_CANCELED') {
                 setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
@@ -196,6 +197,7 @@ export default function Login() {
                             <Text style={styles.heroTitle}>
                                 {t('login.heroTitle')}{' '}
                                 <Text style={styles.heroAccent}>{t('login.heroAccent')}</Text>
+                                {t('login.heroTitleSuffix', { defaultValue: '' })}
                             </Text>
 
                             {/* Description */}

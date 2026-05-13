@@ -8,12 +8,18 @@
     "scheme": "lunestia",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "8968e738-730c-4db7-b676-9749546b6740"
+      }
+    },
     "ios": {
       "supportsTablet": true,
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "com.clementsilvestre.lunestia"
     },
     "android": {
-      "package": "com.lunestia.app",
+      "package": "com.clementsilvestre.lunestia",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

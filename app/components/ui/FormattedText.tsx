@@ -44,7 +44,7 @@ export function FormattedText({ text, style, containerStyle }: FormattedTextProp
                 const headingMatch = line.match(/^#{2,3}\s+(.*)/);
                 if (headingMatch) {
                     return (
-                        <Text key={i} style={[HEADING, { marginTop: i === 0 ? 0 : spacing.xl, marginBottom: spacing.xs }]}>
+                        <Text key={i} selectable style={[HEADING, { marginTop: i === 0 ? 0 : spacing.xl, marginBottom: spacing.xs }]}>
                             {headingMatch[1]}
                         </Text>
                     );
@@ -54,7 +54,7 @@ export function FormattedText({ text, style, containerStyle }: FormattedTextProp
                 const numberedMatch = line.match(/^(\d+\.)\s*(.*)/s);
                 if (numberedMatch) {
                     return (
-                        <Text key={i} style={[style, { marginTop: i === 0 ? 0 : spacing.lg, marginBottom: spacing.xs }]}>
+                        <Text key={i} selectable style={[style, { marginTop: i === 0 ? 0 : spacing.lg, marginBottom: spacing.xs }]}>
                             <Text style={GOLD}>{numberedMatch[1]} </Text>
                             {inlineSegments(numberedMatch[2])}
                         </Text>
@@ -67,7 +67,7 @@ export function FormattedText({ text, style, containerStyle }: FormattedTextProp
                 }
 
                 return (
-                    <Text key={i} style={style}>
+                    <Text key={i} selectable style={style}>
                         {inlineSegments(line)}
                     </Text>
                 );

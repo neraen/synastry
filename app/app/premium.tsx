@@ -28,6 +28,8 @@ import {
     purchasePackage,
     restorePurchases,
     verifyPremiumWithBackend,
+    isExpoGo,
+    isConfigured,
     type Offering,
 } from '@/services/purchases';
 import type { PurchasesPackage } from 'react-native-purchases';
@@ -221,11 +223,25 @@ export default function PremiumScreen() {
     const handleStartPremium = useCallback(async () => {
         const pkg = getPackageForPlan(selectedPlan);
         if (!pkg) {
-            // RC not configured yet — show informational alert
-            Alert.alert(
-                t('premium.comingSoon'),
-                t('premium.comingSoonDesc'),
-            );
+            if (isExpoGo()) {
+                // Local dev in Expo Go — native modules not available
+                Alert.alert(
+                    t('premium.devModeTitle'),
+                    t('premium.devModeDesc'),
+                );
+            } else if (!isConfigured()) {
+                // Custom build but RC failed to configure (missing keys, etc.)
+                Alert.alert(
+                    t('common.error'),
+                    t('premium.rcNotConfigured'),
+                );
+            } else {
+                // RC configured but offerings unavailable (network / dashboard issue)
+                Alert.alert(
+                    t('common.error'),
+                    t('premium.offeringsUnavailable'),
+                );
+            }
             return;
         }
 

@@ -22,6 +22,7 @@ import {
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system';
+import { cacheGet, cacheSet, cacheInvalidatePrefix } from '@/services/cache';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -413,6 +414,10 @@ const PLANETS_INFO = (fr: boolean) => [
 ];
 
 
+// ─── Mirror: In-memory session cache ──────────────────────────────────────────
+// Keyed by age, survives tab switches within the same app session.
+const mirrorTransitsCache = new Map<number, MirrorTransitsData>();
+
 // ─── Mirror: Constants & types ────────────────────────────────────────────────
 
 const MAX_AGE = 80;
@@ -703,6 +708,7 @@ function MirrorPremiumModal({ visible, unlockedRanges, onClose }: {
 function MirrorTabContent() {
     const { user } = useAuth();
     const { t } = useTranslation();
+    const userId = user?.id;
 
     const initialAge = useMemo<number>(() => {
         const bd = user?.birthProfile?.birthDate;
@@ -725,6 +731,27 @@ function MirrorTabContent() {
 
     useEffect(() => { loadPins().then(setPinnedEvents); }, []);
 
+    // When birth profile changes, flush all cached mirror data for this user
+    const prevBirthProfileKey = useRef<string | null>(null);
+    const birthProfileKey = user?.birthProfile
+        ? `${user.birthProfile.birthDate}_${user.birthProfile.birthCity}`
+        : null;
+    useEffect(() => {
+        if (
+            prevBirthProfileKey.current !== null &&
+            birthProfileKey !== null &&
+            prevBirthProfileKey.current !== birthProfileKey &&
+            userId
+        ) {
+            mirrorTransitsCache.clear();
+            cacheInvalidatePrefix(`u${userId}_mirror`);
+            setMirrorTransits(null);
+            setInterpretation('');
+        }
+        prevBirthProfileKey.current = birthProfileKey;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [birthProfileKey]);
+
     const handlePremiumError = useCallback((err: unknown) => {
         const payload = (err as any)?.payload;
         if ((err as any)?.status === 403 && payload?.error === 'premium_required') {
@@ -734,12 +761,19 @@ function MirrorTabContent() {
     }, []);
 
     const fetchTransits = useCallback(async (targetAge: number) => {
+        // In-memory session cache hit
+        const memCached = mirrorTransitsCache.get(targetAge);
+        if (memCached) {
+            setMirrorTransits(memCached);
+            setUnlockedRanges(null);
+            return;
+        }
         setIsLoadingTransits(true);
         setMirrorTransits(null);
         setInterpretation('');
         try {
             const res = await getMirrorTransits(targetAge);
-            setMirrorTransits({
+            const data: MirrorTransitsData = {
                 age: res.age!,
                 target_date: res.target_date!,
                 target_year: res.target_year!,
@@ -747,7 +781,9 @@ function MirrorTabContent() {
                 transit_positions: res.transit_positions!,
                 aspects: res.aspects,
                 global_intensity: res.global_intensity!,
-            });
+            };
+            mirrorTransitsCache.set(targetAge, data);
+            setMirrorTransits(data);
             setUnlockedRanges(null);
         } catch (err) {
             handlePremiumError(err);
@@ -757,12 +793,25 @@ function MirrorTabContent() {
     }, [handlePremiumError]);
 
     const fetchInterpretation = useCallback(async (targetAge: number) => {
+        // File cache: interpretations are expensive AI calls, TTL 7 days — scoped by user
+        const cacheKey = `u${userId}_mirror_interp_${targetAge}`;
+        const cached = await cacheGet<string>(cacheKey);
+        if (cached) {
+            setInterpretation(cached);
+            return;
+        }
         setIsLoadingInterp(true);
         setInterpretation('');
         try {
             const pin = pinnedEvents.find((p) => p.age === targetAge);
             const res = await getMirrorInterpretation(targetAge, pin?.label);
-            if (res.interpretation) setInterpretation(res.interpretation);
+            if (res.interpretation) {
+                setInterpretation(res.interpretation);
+                // Don't cache pinned-event interpretations (they're personalised to the note)
+                if (!pin?.label && userId) {
+                    await cacheSet(cacheKey, res.interpretation, 7 * 24 * 3600);
+                }
+            }
         } catch (err) {
             handlePremiumError(err);
         } finally {
@@ -872,6 +921,7 @@ export default function TransitsScreen() {
     const { t, i18n } = useTranslation();
     const { isPremium } = usePremium();
     const { user } = useAuth();
+    const userId = user?.id;
     const locale = i18n.language?.startsWith('fr') ? 'fr' : 'en';
 
     // Tab state
@@ -912,13 +962,21 @@ export default function TransitsScreen() {
     const loadTimeline = useCallback(async (isRefresh = false) => {
         // Skip if already loaded and not a manual refresh
         if (transits.length > 0 && !isRefresh) return;
+        if (!isRefresh && userId) {
+            const cached = await cacheGet<UpcomingTransit[]>(`u${userId}_upcoming_transits`);
+            if (cached) { setTransits(cached); setTlLoading(false); return; }
+        }
         if (isRefresh) setTlRefreshing(true);
         else setTlLoading(true);
         setTlError(null);
         try {
             const res = await getUpcomingTransits();
-            if (res.success && res.transits) setTransits(res.transits);
-            else setTlError(res.error ?? t('transits.loadError'));
+            if (res.success && res.transits) {
+                setTransits(res.transits);
+                if (userId) await cacheSet(`u${userId}_upcoming_transits`, res.transits, 24 * 3600);
+            } else {
+                setTlError(res.error ?? t('transits.loadError'));
+            }
         } catch {
             setTlError(t('transits.loadError'));
         } finally {

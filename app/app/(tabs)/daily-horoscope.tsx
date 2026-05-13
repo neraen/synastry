@@ -27,7 +27,7 @@ function HoroscopeSection({ icon, label, content, color }: {
                 <Text style={[styles.sectionIcon, { color }]}>{icon}</Text>
                 <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
             </View>
-            <Text style={styles.sectionContent}>{content} </Text>
+            <Text selectable style={styles.sectionContent}>{content} </Text>
         </GlassCard>
     );
 }

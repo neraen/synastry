@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, TabHeader, ProgressBar, CelestialChip } from '@/components/ui';
 import { colors, spacing, fonts, radius } from '@/theme';
 import { getCosmicHeadline, getHomeInsights, WeeklyEnergy, CurrentPeriod } from '@/services/astrology';
+import { cacheGet, cacheSet, cacheInvalidatePrefix } from '@/services/cache';
 
 const { width: W } = Dimensions.get('window');
 const CARD_WIDTH = (W - spacing.xl * 2 - spacing.md) / 2;
@@ -110,33 +111,79 @@ export default function Home() {
     const [insightsError, setInsightsError] = useState(false);
     const hasBirthProfile = user?.hasBirthProfile ?? false;
 
+    // Detect birth profile changes (date or city) to bust stale personalized caches
+    const prevBirthProfileKey = React.useRef<string | null>(null);
+    const birthProfileKey = user?.birthProfile
+        ? `${user.birthProfile.birthDate}_${user.birthProfile.birthCity}`
+        : null;
+    React.useEffect(() => {
+        if (
+            prevBirthProfileKey.current !== null &&
+            birthProfileKey !== null &&
+            prevBirthProfileKey.current !== birthProfileKey &&
+            user?.id
+        ) {
+            cacheInvalidatePrefix(`u${user.id}_`);
+            setWeeklyEnergy(null);
+            setCurrentPeriod(null);
+        }
+        prevBirthProfileKey.current = birthProfileKey;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [birthProfileKey]);
+
     useEffect(() => {
-        getCosmicHeadline()
-            .then((res) => {
+        // Cosmic headline is global (not user-specific), safe without user scope
+        (async () => {
+            const cached = await cacheGet<{ title: string; subtitle: string }>('cosmic_headline');
+            if (cached) {
+                setHeroTitle(cached.title);
+                setHeroSubtitle(cached.subtitle);
+                return;
+            }
+            try {
+                const res = await getCosmicHeadline();
                 if (res.success && res.headline) {
                     setHeroTitle(res.headline.title);
                     setHeroSubtitle(res.headline.subtitle);
+                    await cacheSet('cosmic_headline', { title: res.headline.title, subtitle: res.headline.subtitle }, 24 * 3600);
                 }
-            })
-            .catch(() => {});
+            } catch {}
+        })();
     }, []);
 
     useEffect(() => {
-        if (!hasBirthProfile) return;
-        setInsightsLoading(true);
-        setInsightsError(false);
-        getHomeInsights()
-            .then((res) => {
+        if (!hasBirthProfile || !user?.id) return;
+        (async () => {
+            // Scoped by user ID so two accounts on the same device don't share data
+            const cacheKey = `u${user.id}_home_insights`;
+            const cached = await cacheGet<{ weeklyEnergy: WeeklyEnergy; currentPeriod: CurrentPeriod }>(cacheKey);
+            if (cached) {
+                setWeeklyEnergy(cached.weeklyEnergy ?? null);
+                setCurrentPeriod(cached.currentPeriod ?? null);
+                return;
+            }
+            setInsightsLoading(true);
+            setInsightsError(false);
+            try {
+                const res = await getHomeInsights();
                 if (res.success) {
                     setWeeklyEnergy(res.weeklyEnergy ?? null);
                     setCurrentPeriod(res.currentPeriod ?? null);
+                    if (res.weeklyEnergy && res.currentPeriod) {
+                        await cacheSet(cacheKey, { weeklyEnergy: res.weeklyEnergy, currentPeriod: res.currentPeriod }, 12 * 3600);
+                    }
                 } else {
                     setInsightsError(true);
                 }
-            })
-            .catch(() => setInsightsError(true))
-            .finally(() => setInsightsLoading(false));
-    }, [hasBirthProfile]);
+            } catch {
+                setInsightsError(true);
+            } finally {
+                setInsightsLoading(false);
+            }
+        })();
+    // Re-run if birth profile was invalidated (weeklyEnergy reset to null triggers re-fetch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasBirthProfile, user?.id, weeklyEnergy === null ? birthProfileKey : null]);
 
     return (
         <View style={styles.screen}>

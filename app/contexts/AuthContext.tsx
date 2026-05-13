@@ -18,6 +18,7 @@ import {
 } from '@/services/oauth';
 import { onSessionExpired } from '@/services/sessionManager';
 import * as SecureStore from 'expo-secure-store';
+import { cacheInvalidatePrefix } from '@/services/cache';
 
 interface AuthContextType {
     user: User | null;
@@ -98,22 +99,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const logout = useCallback(async () => {
         setIsLoading(true);
         try {
+            // Capture user id before clearing state so we can flush their cache
+            const currentUserId = user?.id;
             await authLogout();
+            if (currentUserId) {
+                await cacheInvalidatePrefix(`u${currentUserId}_`);
+            }
             setUser(null);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [user?.id]);
 
     const deleteAccount = useCallback(async () => {
         setIsLoading(true);
         try {
+            const currentUserId = user?.id;
             await authDeleteAccount();
+            if (currentUserId) {
+                await cacheInvalidatePrefix(`u${currentUserId}_`);
+            }
             setUser(null);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [user?.id]);
 
     const refreshUser = useCallback(async () => {
         try {

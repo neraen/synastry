@@ -33,7 +33,7 @@ try {
     Purchases = mod.default ?? mod;
     LOG_LEVEL = mod.LOG_LEVEL;
 } catch (e) {
-    console.warn('[Purchases] react-native-purchases not available:', e);
+    // Expected in Expo Go — native modules not available
 }
 
 import type { PurchasesPackage, CustomerInfo, PurchasesOffering } from 'react-native-purchases';
@@ -66,6 +66,19 @@ export interface PurchaseResult {
 /** Tracks whether configure() succeeded — false in Expo Go */
 let configured = false;
 
+/** True when running inside Expo Go (no native modules available) */
+const _isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+/** Returns true if running in Expo Go (native modules unavailable) */
+export function isExpoGo(): boolean {
+    return _isExpoGo;
+}
+
+/** Returns true if RevenueCat is configured and ready */
+export function isConfigured(): boolean {
+    return configured;
+}
+
 /**
  * Call once at app startup (before any purchase call).
  * Safe to call multiple times.
@@ -74,9 +87,8 @@ export function configurePurchases(): void {
     if (!Purchases) return;
     
     // RevenueCat requires native modules. Expo Go does not have them.
-    const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-    if (isExpoGo) {
-        console.warn('[Purchases] Expo Go detected. RevenueCat native module is not available. Skipping configuration.');
+    if (_isExpoGo) {
+        console.log('[Purchases] Expo Go detected — RevenueCat skipped (expected).');
         return;
     }
 
@@ -88,11 +100,12 @@ export function configurePurchases(): void {
     const apiKey = Platform.OS === 'ios' ? RC_API_KEY_IOS : RC_API_KEY_ANDROID;
 
     try {
-        if (LOG_LEVEL) Purchases.setLogLevel(LOG_LEVEL.ERROR);
+        if (LOG_LEVEL) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
         Purchases.configure({ apiKey });
         configured = true;
-    } catch {
-        // Purchases will be unavailable until running a real dev/prod build.
+        console.log('[Purchases] RevenueCat configured successfully.');
+    } catch (e) {
+        console.warn('[Purchases] Configuration failed:', e);
     }
 }
 

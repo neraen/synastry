@@ -130,7 +130,7 @@ function AspectCard({ aspect }: { aspect: AspectInterpretation }) {
                 </View>
             </View>
             <Text style={styles.aspectOrb}>Orbe : {aspect.orb}°</Text>
-            <Text style={styles.aspectInterpretation}>{aspect.interpretation}</Text>
+            <Text selectable style={styles.aspectInterpretation}>{aspect.interpretation}</Text>
         </GlassCard>
     );
 }

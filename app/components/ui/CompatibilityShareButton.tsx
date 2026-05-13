@@ -125,7 +125,7 @@ export function CompatibilityShareButton({
         if (!shareData) return;
 
         try {
-            const message = `✦ Compatibilité cosmique ✦\n${nameOne} & ${nameTwo} — ${Math.round(score)}%\n\n${shareData.shareUrl}`;
+            const message = `✦ Lunestia — Compatibilité Astrologique ✦\n\n${nameOne} & ${nameTwo}\nVotre compatibilité est de ${Math.round(score)}%\n\nDécouvrez ce que les astres révèlent sur votre relation ✨\n\n${shareData.shareUrl}\n\n📲 Découvrir Lunestia :\nhttps://play.google.com/store/apps/details?id=com.clementsilvestre.lunestia`;
             await RNShare.share({
                 title: 'Compatibilité Cosmique',
                 message,
