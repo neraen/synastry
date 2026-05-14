@@ -14,7 +14,6 @@ import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { loginWithGoogle, loginWithApple } from '@/services/oauth';
 import { login, register } from '@/services/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { InlineLoading } from '@/components/ui';
@@ -43,7 +42,7 @@ try {
 export default function Login() {
     const router = useRouter();
     const { t } = useTranslation();
-    const { refreshUser } = useAuth();
+    const { loginWithGoogle: authLoginWithGoogle, loginWithApple: authLoginWithApple } = useAuth();
     const [error, setError] = useState<string | undefined>();
     const [googleLoading, setGoogleLoading] = useState(false);
     const [appleLoading, setAppleLoading] = useState(false);
@@ -73,14 +72,12 @@ export default function Login() {
         setError(undefined);
         try {
             await GoogleSignin.hasPlayServices();
-            await GoogleSignin.signOut();
             const response = await GoogleSignin.signIn();
             const idToken = response?.data?.idToken;
             if (!idToken) {
                 throw new Error(t('auth.errors.loginFailed'));
             }
-            const loggedInUser = await loginWithGoogle(idToken);
-            await refreshUser();
+            const loggedInUser = await authLoginWithGoogle(idToken);
             router.replace(loggedInUser.hasBirthProfile ? '/(tabs)' : '/onboarding');
         } catch (err) {
             if (isErrorWithCode(err)) {
@@ -142,11 +139,10 @@ export default function Login() {
                 ],
             });
             if (!credential.identityToken) throw new Error(t('auth.errors.loginFailed'));
-            const loggedInUser = await loginWithApple(credential.identityToken, {
+            const loggedInUser = await authLoginWithApple(credential.identityToken, {
                 email: credential.email ?? undefined,
                 fullName: credential.fullName ?? undefined,
             });
-            await refreshUser();
             router.replace(loggedInUser.hasBirthProfile ? '/(tabs)' : '/onboarding');
         } catch (err: any) {
             if (err?.code !== 'ERR_REQUEST_CANCELED') {
