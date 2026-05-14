@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Lunestia",
+    "slug": "lunestia-theme-astral",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#120A24",
+    "splash": {
+      "backgroundColor": "#120A24",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#120A24"
+      }
+    }
+  }
+}

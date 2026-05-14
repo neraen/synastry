@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Lunestia — Thème astral</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    /* Lunestia palette — pulled from existing screens */
+    --bg: #120A24;
+    --bg-2: #1A1233;
+    --card: #1F1740;
+    --card-2: #261B4D;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.12);
+
+    --gold: #E5C266;
+    --gold-dim: #B89549;
+    --gold-soft: rgba(229,194,102,0.16);
+
+    --text: #ECE5F7;
+    --text-2: #BDB2D4;
+    --text-3: #8A82A6;
+
+    --violet: #9B5CFF;
+    --pink: #E55A8C;
+    --green: #4ADE80;
+
+    /* Aspects */
+    --asp-conj:    #E5C266;
+    --asp-trine:   #4ADE80;
+    --asp-sextile: #5DA9F5;
+    --asp-square:  #E89B4C;
+    --asp-oppos:   #E55A8C;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* On desktop, frame the mobile view; on mobile, full bleed */
+  .stage {
+    min-height: 100dvh;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    background:
+      radial-gradient(1200px 700px at 20% -10%, rgba(155,92,255,0.10), transparent 60%),
+      radial-gradient(900px 600px at 110% 110%, rgba(229,194,102,0.06), transparent 60%),
+      var(--bg);
+  }
+  .phone {
+    width: 100%;
+    max-width: 440px;
+    background: var(--bg);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  @media (min-width: 520px) {
+    .phone {
+      margin: 24px 0;
+      border-radius: 36px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.04),
+        0 30px 80px rgba(0,0,0,0.5);
+      max-height: calc(100dvh - 48px);
+    }
+  }
+
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 18px 20px 110px 20px;
+  }
+
+  /* Header */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0 22px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "DM Serif Display", serif;
+    font-size: 22px;
+    letter-spacing: 0.2px;
+    color: var(--text);
+  }
+  .brand svg { color: var(--gold); }
+
+  .hello {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hello-text {
+    font-size: 14px;
+    color: var(--text-2);
+  }
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 13px;
+    display: grid;
+    place-items: center;
+  }
+
+  /* Tag chip */
+  .chip-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .chip .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--gold); }
+  .help {
+    width: 28px; height: 28px; border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    display: grid; place-items: center;
+    color: var(--text-2);
+    cursor: pointer;
+  }
+
+  /* Hero */
+  h1.title {
+    font-family: "DM Serif Display", serif;
+    font-weight: 400;
+    font-size: 44px;
+    line-height: 1.05;
+    margin: 6px 0 10px;
+    color: #EFE6FF;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .subtitle {
+    color: var(--text-2);
+    font-size: 15px;
+    line-height: 1.45;
+    max-width: 320px;
+    margin: 0 0 20px;
+  }
+
+  /* Birth meta */
+  .meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.035);
+    border: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--text-2);
+  }
+  .meta-item svg { color: var(--gold); }
+  .meta-item b { color: var(--text); font-weight: 600; }
+
+  /* Chart container */
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    margin: 2px 0 14px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chart-wrap svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Legend */
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin: 6px 0 18px;
+  }
+  .leg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid var(--border);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  .leg:hover { background: rgba(255,255,255,0.05); }
+  .leg.active { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.06); }
+  .leg .swatch {
+    width: 22px; height: 3px; border-radius: 2px;
+  }
+
+  /* Info panel */
+  .info {
+    margin-top: 8px;
+    padding: 18px 18px 20px;
+    border-radius: 22px;
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--border-strong);
+    min-height: 150px;
+    position: relative;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  .info-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .info-glyph {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: grid; place-items: center;
+    font-size: 28px;
+    background: rgba(229,194,102,0.10);
+    color: var(--gold);
+    border: 1px solid rgba(229,194,102,0.20);
+    flex-shrink: 0;
+  }
+  .info-meta { flex: 1; min-width: 0; }
+  .info-kicker {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 4px;
+  }
+  .info-title {
+    font-family: "DM Serif Display", serif;
+    font-size: 26px;
+    line-height: 1.1;
+    color: var(--text);
+    margin: 0;
+  }
+  .info-sub {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-top: 4px;
+  }
+  .info-body {
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--text-2);
+    text-wrap: pretty;
+  }
+  .info-body p { margin: 0 0 8px; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .pill {
+    font-size: 11.5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--text-2);
+  }
+  .pill b { color: var(--text); font-weight: 600; }
+
+  /* Tab bar */
+  .tabbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 10px 18px calc(14px + env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(180deg, rgba(18,10,36,0) 0%, rgba(18,10,36,0.85) 30%, var(--bg) 60%);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .tab {
+    width: 44px; height: 44px;
+    border-radius: 14px;
+    display: grid; place-items: center;
+    color: var(--text-2);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color .15s, background .15s;
+  }
+  .tab.active {
+    background: var(--gold-soft);
+    color: var(--gold);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* Glyph rotation reset (signs/houses) — used inline */
+  .glyph {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 600;
+  }
+  .symbol-font {
+    font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", "DejaVu Sans", sans-serif;
+  }
+
+  /* Tap targets */
+  .hit { cursor: pointer; }
+  .hit:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="chart.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+</body>
+</html>
