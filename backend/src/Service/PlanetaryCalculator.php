@@ -741,7 +741,9 @@ PROMPT;
         $lstRad = deg2rad($lst);
         $epsRad = deg2rad($eps);
 
-        $mc = $this->normDeg(rad2deg(atan2(cos($lstRad), -sin($lstRad) * cos($epsRad))));
+        // Standard MC formula: tan(MC) = tan(RAMC) / cos(ε)
+        // atan2 form: MC = atan2(sin(RAMC), cos(RAMC) * cos(ε))
+        $mc = $this->normDeg(rad2deg(atan2(sin($lstRad), cos($lstRad) * cos($epsRad))));
 
         return $this->longitudeToSign($mc);
     }
@@ -1144,7 +1146,7 @@ PROMPT;
         $ic         = $this->longitudeToSign($this->normDeg($midheaven['longitude'] + 180));
 
         // Houses (Equal House system)
-        $houseCusps = $this->calculateHouseCusps($ascendant['longitude']);
+        $houseCusps = $this->calculateHouseCusps();
 
         // Assign each planet to a house
         $planetsWithHouses = [];
@@ -1222,22 +1224,99 @@ PROMPT;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Equal House System
+    // Placidus House System
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Calculate house cusps using the Equal House system.
-     * Each house spans exactly 30° starting from the Ascendant.
+     * Calculate house cusps using the Placidus system.
+     * Matches the standard used by most western astrology sites (e.g. astro.com).
      *
-     * @return float[] Array of 12 cusp longitudes (0-indexed: cusp[0] = house 1)
+     * Algorithm (Jean Meeus / standard Placidus):
+     * - H10 = MC, H1 = ASC, H4 = IC, H7 = DC
+     * - H11: RA(H11) = RAMC + DSA(H11) × 1/3
+     * - H12: RA(H12) = RAMC + DSA(H12) × 2/3
+     * - H2:  RA(H2)  = (RAMC+180°) + NSA(H2) × 1/3
+     * - H3:  RA(H3)  = (RAMC+180°) + NSA(H3) × 2/3
+     * - Opposite cusps: H5=H11+180°, H6=H12+180°, H8=H2+180°, H9=H3+180°
+     *
+     * Resolved iteratively since DSA/NSA depend on the cusp itself.
+     *
+     * @return float[] Array of 12 cusp longitudes (0-indexed: cusps[0] = house 1)
      */
-    private function calculateHouseCusps(float $ascLongitude): array
+    private function calculateHouseCusps(): array
     {
-        $cusps = [];
-        for ($i = 0; $i < 12; $i++) {
-            $cusps[$i] = $this->normDeg($ascLongitude + ($i * 30));
-        }
-        return $cusps;
+        $eps    = $this->getObliquity();
+        $epsRad = deg2rad($eps);
+        $latRad = deg2rad($this->latitude);
+        $RAMC   = $this->getLocalSiderealTime(); // degrees
+
+        $mc  = $this->getMidheaven()['longitude'];
+        $asc = $this->getAscendant()['longitude'];
+
+        // DSA (diurnal semi-arc) in degrees for a given ecliptic longitude
+        $dsa = function(float $lon) use ($epsRad, $latRad): float {
+            $dec = asin(sin(deg2rad($lon)) * sin($epsRad));
+            $x   = max(-1.0, min(1.0, -tan($latRad) * tan($dec)));
+            return rad2deg(acos($x));
+        };
+
+        // RA (degrees) → ecliptic longitude (degrees)
+        // From cos(δ)cos(α)=cos(λ) and cos(δ)sin(α)=sin(λ)cos(ε):
+        // λ = atan2(sin(α)/cos(ε), cos(α))
+        $fromRA = function(float $ra) use ($epsRad): float {
+            $r = deg2rad($ra);
+            return $this->normDeg(rad2deg(atan2(sin($r) / cos($epsRad), cos($r))));
+        };
+
+        // Iterate to find an intermediate Placidus cusp.
+        //
+        // Derivation (HA = RAMC - RA, increases westward):
+        //   MC  (H10): HA = 0              → RA = RAMC
+        //   H11:       HA = −DSA/3         → RA = RAMC + DSA/3
+        //   H12:       HA = −2·DSA/3       → RA = RAMC + 2·DSA/3
+        //   ASC (H1):  HA = −DSA           → RA = RAMC + DSA
+        //   H2:        HA = −DSA − NSA/3   → RA = RAMC + DSA + NSA/3
+        //   H3:        HA = −DSA − 2·NSA/3 → RA = RAMC + DSA + 2·NSA/3
+        //   IC  (H4):  HA = −180°          → RA = RAMC + DSA + NSA = RAMC + 180°
+        //
+        // Resolved iteratively since DSA/NSA depend on the cusp's own longitude.
+        $iterate = function(float $initial, bool $upper, float $fraction)
+            use ($RAMC, $dsa, $fromRA): float
+        {
+            $lon = $initial;
+            for ($i = 0; $i < 50; $i++) {
+                $d       = $dsa($lon);
+                // Upper (H11/H12): RA = RAMC + DSA × fraction
+                // Lower (H2/H3):   RA = RAMC + DSA + NSA × fraction
+                $targetRA = $upper
+                    ? $this->normDeg($RAMC + $d * $fraction)
+                    : $this->normDeg($RAMC + $d + (180.0 - $d) * $fraction);
+                $newLon   = $fromRA($targetRA);
+                if (abs($newLon - $lon) < 0.0001) break;
+                $lon = $newLon;
+            }
+            return $lon;
+        };
+
+        $h11 = $iterate($this->normDeg($mc + 30),  true,  1 / 3);
+        $h12 = $iterate($this->normDeg($mc + 60),  true,  2 / 3);
+        $h2  = $iterate($this->normDeg($asc + 30), false, 1 / 3);
+        $h3  = $iterate($this->normDeg($asc + 60), false, 2 / 3);
+
+        return [
+            0  => $asc,                              // H1  (ASC)
+            1  => $h2,                               // H2
+            2  => $h3,                               // H3
+            3  => $this->normDeg($mc + 180),         // H4  (IC)
+            4  => $this->normDeg($h11 + 180),        // H5
+            5  => $this->normDeg($h12 + 180),        // H6
+            6  => $this->normDeg($asc + 180),        // H7  (DC)
+            7  => $this->normDeg($h2 + 180),         // H8
+            8  => $this->normDeg($h3 + 180),         // H9
+            9  => $mc,                               // H10 (MC)
+            10 => $h11,                              // H11
+            11 => $h12,                              // H12
+        ];
     }
 
     /**
