@@ -4,7 +4,7 @@
     "slug": "lunestia",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/lunestia-icon.png",
     "scheme": "lunestia",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -38,7 +38,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/lunestia-icon.png",
           "color": "#4B0082",
           "sounds": []
         }
