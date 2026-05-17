@@ -413,6 +413,9 @@ export default function ProfileTab() {
                                 { label: 'Onboarding', route: '/onboarding' },
                                 { label: 'Thème Astral', route: '/natal-chart-wheel' },
                                 { label: 'Thème Natal Design', route: '/theme-natal-design' },
+                                { label: 'Portrait Astral', route: '/astral-hero' },
+                                { label: 'Thème Natal 4', route: '/test-theme-natal-4' },
+                                { label: 'Onboarding 2', route: '/onboarding2' },
                             ].map((item) => (
                                 <Pressable
                                     key={item.route}
