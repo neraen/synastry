@@ -2,12 +2,12 @@
  * Onboarding — shown once after account creation.
  *
  * Step 0 : RGPD consent
- * Step 1 : Help buttons tip
- * Step 2 : Birth profile (name, date, time, city)
+ * Step 1 : Features guide (accordion)
+ * Step 2 : Birth profile form
  * Step 3 : All set
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -27,55 +27,201 @@ import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, AppDatePicker, AppTimePicker, CityAutocomplete } from '@/components/ui';
+import { GoldButton, GhostButton, AppDatePicker, AppTimePicker, CityAutocomplete } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
-import {
-    saveBirthProfile,
-    CitySearchResult,
-} from '@/services/birthProfile';
+import { saveBirthProfile, CitySearchResult } from '@/services/birthProfile';
 
 const { width: W } = Dimensions.get('window');
 const STEPS = 4;
 
-// ─── Progress dots ────────────────────────────────────────────────────────────
+// ─── Star field ────────────────────────────────────────────────────────────────
 
-function ProgressDots({ step }: { step: number }) {
+function Starfield() {
+    const stars = useMemo(
+        () =>
+            Array.from({ length: 36 }, () => ({
+                top: Math.random() * 100,
+                left: Math.random() * 100,
+                size: Math.random() < 0.85 ? 1.2 : 2,
+                peak: 0.25 + Math.random() * 0.55,
+                delay: Math.random() * 4000,
+                half: 1500 + Math.random() * 1000,
+            })),
+        [],
+    );
+
+    const anims = useRef(stars.map(() => new Animated.Value(0))).current;
+
+    useEffect(() => {
+        const loops = anims.map((anim, i) => {
+            const { peak, delay, half } = stars[i];
+            const loop = Animated.loop(
+                Animated.sequence([
+                    Animated.delay(delay),
+                    Animated.timing(anim, { toValue: peak, duration: half, useNativeDriver: true }),
+                    Animated.timing(anim, { toValue: 0, duration: half, useNativeDriver: true }),
+                ]),
+            );
+            loop.start();
+            return loop;
+        });
+        return () => loops.forEach((l) => l.stop());
+    }, []);
+
     return (
-        <View style={styles.dots}>
-            {Array.from({ length: STEPS }).map((_, i) => (
-                <View
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {stars.map((s, i) => (
+                <Animated.View
                     key={i}
-                    style={[styles.dot, i === step && styles.dotActive]}
+                    style={{
+                        position: 'absolute',
+                        top: `${s.top}%`,
+                        left: `${s.left}%`,
+                        width: s.size,
+                        height: s.size,
+                        borderRadius: s.size / 2,
+                        backgroundColor: '#fff',
+                        opacity: anims[i],
+                    }}
                 />
             ))}
         </View>
     );
 }
 
-// ─── Checkbox ─────────────────────────────────────────────────────────────────
+// ─── Progress dots ─────────────────────────────────────────────────────────────
 
-function Checkbox({
-    checked,
-    onToggle,
-    children,
-}: {
-    checked: boolean;
-    onToggle: () => void;
-    children: React.ReactNode;
-}) {
+function ProgressDots({ step }: { step: number }) {
     return (
-        <Pressable style={styles.checkRow} onPress={onToggle} hitSlop={8}>
-            <View style={[styles.checkBox, checked && styles.checkBoxChecked]}>
-                {checked && <Feather name="check" size={13} color={colors.surfaceLowest} />}
-            </View>
-            <View style={styles.checkLabel}>{children}</View>
+        <View style={s.dots}>
+            {Array.from({ length: STEPS }).map((_, i) => (
+                <View
+                    key={i}
+                    style={[s.dot, i === step && s.dotActive, i < step && s.dotDone]}
+                />
+            ))}
+        </View>
+    );
+}
+
+// ─── Back button ───────────────────────────────────────────────────────────────
+
+function BackButton({ visible, onPress }: { visible: boolean; onPress: () => void }) {
+    return (
+        <Pressable
+            style={[s.backBtn, !visible && s.backBtnHidden]}
+            onPress={onPress}
+            hitSlop={8}
+            pointerEvents={visible ? 'auto' : 'none'}
+        >
+            <Feather name="arrow-left" size={18} color={colors.onSurfaceMuted} />
         </Pressable>
     );
 }
 
-// ─── Input field (shared) ─────────────────────────────────────────────────────
+// ─── Hero Medallion ────────────────────────────────────────────────────────────
 
-function Field({
+function HeroMedallion({ children }: { children: React.ReactNode }) {
+    const ring1 = useRef(new Animated.Value(0)).current;
+    const ring2 = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        const makeLoop = (anim: Animated.Value, delay: number) =>
+            Animated.loop(
+                Animated.sequence([
+                    Animated.delay(delay),
+                    Animated.timing(anim, { toValue: 1, duration: 3200, useNativeDriver: true }),
+                    Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+                ]),
+            );
+        const a = makeLoop(ring1, 0);
+        const b = makeLoop(ring2, 1400);
+        a.start();
+        b.start();
+        return () => {
+            a.stop();
+            b.stop();
+        };
+    }, []);
+
+    const ringStyle = (anim: Animated.Value) => ({
+        opacity: anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0.5, 0] }),
+        transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.15] }) }],
+    });
+
+    return (
+        <View style={s.medallionWrap}>
+            <Animated.View style={[s.medallionRing, ringStyle(ring1)]} />
+            <Animated.View style={[s.medallionRing, s.medallionRingOuter, ringStyle(ring2)]} />
+            <LinearGradient
+                colors={[`${colors.primary}38`, `${colors.primary}0a`, 'transparent']}
+                style={s.medallion}
+                start={{ x: 0.3, y: 0.3 }}
+                end={{ x: 1, y: 1 }}
+            >
+                {children}
+            </LinearGradient>
+        </View>
+    );
+}
+
+// ─── Feature accordion row ─────────────────────────────────────────────────────
+
+function FeatureRow({
+    icon,
+    name,
+    desc,
+    isOpen,
+    onPress,
+}: {
+    icon: keyof typeof Feather.glyphMap;
+    name: string;
+    desc: string;
+    isOpen: boolean;
+    onPress: () => void;
+}) {
+    const expand = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        Animated.timing(expand, {
+            toValue: isOpen ? 1 : 0,
+            duration: 280,
+            useNativeDriver: false,
+        }).start();
+    }, [isOpen]);
+
+    return (
+        <Pressable style={[s.featureRow, isOpen && s.featureRowOpen]} onPress={onPress}>
+            <View style={s.featureRowTop}>
+                <View style={[s.featureIcon, isOpen && s.featureIconOpen]}>
+                    <Feather name={icon} size={18} color={colors.primary} />
+                </View>
+                <Text style={s.featureName}>{name}</Text>
+                <View style={[s.featureHelp, isOpen && s.featureHelpOpen]}>
+                    <Feather
+                        name="help-circle"
+                        size={14}
+                        color={isOpen ? colors.primary : `${colors.onSurfaceMuted}80`}
+                    />
+                </View>
+            </View>
+            <Animated.View
+                style={{
+                    overflow: 'hidden',
+                    maxHeight: expand.interpolate({ inputRange: [0, 1], outputRange: [0, 80] }),
+                    opacity: expand,
+                    marginTop: expand.interpolate({ inputRange: [0, 1], outputRange: [0, 10] }),
+                }}
+            >
+                <Text style={s.featureDesc}>{desc}</Text>
+            </Animated.View>
+        </Pressable>
+    );
+}
+
+// ─── Form field (text input) ───────────────────────────────────────────────────
+
+function FormField({
     label,
     value,
     onChangeText,
@@ -92,11 +238,11 @@ function Field({
 }) {
     const [focused, setFocused] = useState(false);
     return (
-        <View style={styles.fieldWrap}>
-            <Text style={styles.fieldLabel}>{label}</Text>
-            <View style={[styles.fieldInput, focused && styles.fieldInputFocused, disabled && { opacity: 0.5 }]}>
-                <TextInputRN
-                    style={styles.fieldText}
+        <View>
+            <Text style={s.formLabel}>{label}</Text>
+            <View style={[s.formInput, focused && s.formInputFocused, disabled && { opacity: 0.5 }]}>
+                <TextInput
+                    style={s.formText}
                     value={value}
                     onChangeText={onChangeText}
                     placeholder={placeholder}
@@ -106,30 +252,176 @@ function Field({
                     onBlur={() => setFocused(false)}
                 />
             </View>
-            {hint && <Text style={styles.fieldHint}>{hint}</Text>}
+            {hint && <Text style={s.formHint}>{hint}</Text>}
         </View>
     );
 }
 
-const TextInputRN = TextInput;
+// ─── Step 0 — RGPD consent ─────────────────────────────────────────────────────
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
-
-export default function OnboardingScreen() {
+function StepRGPD({ onContinue }: { onContinue: () => void }) {
+    const { t } = useTranslation();
     const router = useRouter();
+    const [acceptTerms, setAcceptTerms] = useState(false);
+    const [acceptAI, setAcceptAI] = useState(false);
+    const ready = acceptTerms && acceptAI;
+
+    const dataItems = t('onboarding.rgpd.dataItems', { returnObjects: true }) as string[];
+
+    return (
+        <View style={s.screenRoot}>
+            <ScrollView contentContainerStyle={s.screenScroll} showsVerticalScrollIndicator={false}>
+                <HeroMedallion>
+                    <Feather name="shield" size={36} color={colors.primary} />
+                </HeroMedallion>
+
+                <View style={s.chipWrap}>
+                    <View style={s.chip}>
+                        <Text style={s.chipText}>{t('onboarding.rgpd.badge')}</Text>
+                    </View>
+                </View>
+
+                <Text style={s.h1}>{t('onboarding.rgpd.title')}</Text>
+                <Text style={s.lead}>{t('onboarding.rgpd.description')}</Text>
+
+                <View style={s.card}>
+                    <Text style={s.listTitle}>{t('onboarding.rgpd.dataTitle')}</Text>
+                    {dataItems.map((item, i) => (
+                        <View key={i} style={[s.dataRow, i > 0 && { marginTop: 12 }]}>
+                            <View style={s.dataDot} />
+                            <Text style={s.dataText}>{item}</Text>
+                        </View>
+                    ))}
+
+                    <View style={s.thirdPartyRow}>
+                        <Feather
+                            name="info"
+                            size={12}
+                            color={`${colors.onSurfaceMuted}70`}
+                            style={{ marginTop: 1 }}
+                        />
+                        <Text style={s.thirdPartyText}>{t('onboarding.rgpd.thirdParties')}</Text>
+                    </View>
+                </View>
+
+                <View style={s.consents}>
+                    <Pressable
+                        style={s.consentRow}
+                        onPress={() => setAcceptTerms((v) => !v)}
+                        hitSlop={8}
+                    >
+                        <View style={[s.checkbox, acceptTerms && s.checkboxChecked]}>
+                            {acceptTerms && (
+                                <Feather name="check" size={13} color={colors.surfaceLowest} />
+                            )}
+                        </View>
+                        <Text style={s.consentText}>
+                            {t('onboarding.rgpd.checkTerms')}{' '}
+                            <Text
+                                style={s.consentLink}
+                                onPress={() => router.push('/privacy-policy')}
+                            >
+                                {t('onboarding.rgpd.privacyLink')}
+                            </Text>
+                        </Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={s.consentRow}
+                        onPress={() => setAcceptAI((v) => !v)}
+                        hitSlop={8}
+                    >
+                        <View style={[s.checkbox, acceptAI && s.checkboxChecked]}>
+                            {acceptAI && (
+                                <Feather name="check" size={13} color={colors.surfaceLowest} />
+                            )}
+                        </View>
+                        <Text style={s.consentText}>{t('onboarding.rgpd.checkAI')}</Text>
+                    </Pressable>
+                </View>
+
+                <View style={s.ctaInScroll}>
+                    <GoldButton
+                        label={t('onboarding.rgpd.cta')}
+                        onPress={onContinue}
+                        size="lg"
+                        disabled={!ready}
+                    />
+                </View>
+            </ScrollView>
+        </View>
+    );
+}
+
+// ─── Step 1 — Features guide ───────────────────────────────────────────────────
+
+function StepGuide({ onContinue }: { onContinue: () => void }) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState<number | null>(null);
+
+    const mockPages = t('onboarding.helpTip.mockPages', { returnObjects: true }) as string[];
+
+    const featureIcons: (keyof typeof Feather.glyphMap)[] = [
+        'target',
+        'heart',
+        'refresh-cw',
+        'clock',
+    ];
+    const featureDescs = [
+        'Ta carte du ciel à la minute près. Planètes, signes, maisons et aspects, le tout interactif.',
+        'La synastrie : comment deux thèmes dialoguent. Forces, tensions et clés de relation.',
+        "Ce que le ciel actuel active dans ton thème. Périodes-clés, fenêtres d'action.",
+        'Une lecture comparée : passé · présent · futur, pour suivre ton évolution.',
+    ];
+
+    return (
+        <View style={s.screenRoot}>
+            <ScrollView contentContainerStyle={s.screenScroll} showsVerticalScrollIndicator={false}>
+                <HeroMedallion>
+                    <Feather name="help-circle" size={36} color={colors.primary} />
+                </HeroMedallion>
+
+                <View style={{ marginTop: 6 }}>
+                    {mockPages.map((name, i) => (
+                        <FeatureRow
+                            key={i}
+                            icon={featureIcons[i] ?? 'star'}
+                            name={name}
+                            desc={featureDescs[i] ?? ''}
+                            isOpen={open === i}
+                            onPress={() => setOpen(open === i ? null : i)}
+                        />
+                    ))}
+                </View>
+
+                <View style={[s.chipWrap, { marginTop: 20 }]}>
+                    <View style={s.chip}>
+                        <Text style={s.chipText}>{t('onboarding.helpTip.badge')}</Text>
+                    </View>
+                </View>
+                <Text style={s.h1}>{t('onboarding.helpTip.title')}</Text>
+                <Text style={s.lead}>{t('onboarding.helpTip.description')}</Text>
+
+                <View style={s.ctaInScroll}>
+                    <GoldButton label={t('onboarding.helpTip.cta')} onPress={onContinue} size="lg" />
+                </View>
+            </ScrollView>
+        </View>
+    );
+}
+
+// ─── Step 2 — Birth profile form ───────────────────────────────────────────────
+
+function StepBirthProfile({
+    onContinue,
+    onSkip,
+}: {
+    onContinue: () => void;
+    onSkip: () => void;
+}) {
     const { t } = useTranslation();
     const { refreshUser } = useAuth();
 
-    const [step, setStep] = useState(0);
-    const fadeAnim = useRef(new Animated.Value(1)).current;
-    const scrollRef = useRef<ScrollView>(null);
-    const scrollYRef = useRef(0);
-
-    // RGPD consent state
-    const [acceptTerms, setAcceptTerms] = useState(false);
-    const [acceptAI, setAcceptAI] = useState(false);
-
-    // Birth profile form state
     const [firstName, setFirstName] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [birthTime, setBirthTime] = useState('');
@@ -139,25 +431,11 @@ export default function OnboardingScreen() {
     const [longitude, setLongitude] = useState<number | null>(null);
     const [timezone, setTimezone] = useState<number | null>(null);
     const [timezoneName, setTimezoneName] = useState<string | null>(null);
-
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | undefined>();
 
-    // ── Navigation ──
-
-    const goTo = useCallback((nextStep: number) => {
-        Animated.sequence([
-            Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-            Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        ]).start();
-        setTimeout(() => setStep(nextStep), 150);
-    }, [fadeAnim]);
-
-    const skipToApp = useCallback(() => {
-        router.replace('/(tabs)');
-    }, [router]);
-
-    // ── City search ──
+    const scrollRef = useRef<ScrollView>(null);
+    const scrollYRef = useRef(0);
 
     const handleSelectCity = useCallback((city: CitySearchResult) => {
         setBirthCity(city.name);
@@ -177,11 +455,8 @@ export default function OnboardingScreen() {
         setTimezoneName(null);
     }, []);
 
-    // ── Save birth profile ──
-
     const handleSave = useCallback(async () => {
         setError(undefined);
-
         if (!birthDate) {
             setError(t('birthProfile.birthDateRequired'));
             return;
@@ -190,7 +465,6 @@ export default function OnboardingScreen() {
             setError(t('birthProfile.birthCityRequired'));
             return;
         }
-
         setIsSaving(true);
         try {
             await saveBirthProfile({
@@ -205,180 +479,52 @@ export default function OnboardingScreen() {
                 timezoneName: timezoneName ?? undefined,
             });
             await refreshUser();
-            goTo(3);
+            onContinue();
         } catch (err) {
             setError(err instanceof Error ? err.message : t('birthProfile.saveError'));
         } finally {
             setIsSaving(false);
         }
-    }, [birthDate, birthCity, latitude, longitude, firstName, birthTime, birthCountry, timezone, timezoneName, refreshUser, goTo, t]);
+    }, [
+        birthDate,
+        birthCity,
+        latitude,
+        longitude,
+        firstName,
+        birthTime,
+        birthCountry,
+        timezone,
+        timezoneName,
+        refreshUser,
+        onContinue,
+        t,
+    ]);
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 0 — RGPD consent
-    // ─────────────────────────────────────────────────────────────────────────
-
-    const dataItems = t('onboarding.rgpd.dataItems', { returnObjects: true }) as string[];
-    const canContinue = acceptTerms && acceptAI;
-
-    const stepRGPD = (
-        <View style={styles.rgpdRoot}>
-            {/* Scrollable content */}
-            <ScrollView
-                contentContainerStyle={styles.rgpdScroll}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Visual */}
-                <View style={styles.rgpdVisual}>
-                    <View style={styles.rgpdOrb}>
-                        <LinearGradient
-                            colors={[`${colors.primary}40`, `${colors.secondary}20`, 'transparent']}
-                            style={StyleSheet.absoluteFill}
-                            start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 1 }}
-                        />
-                        <Feather name="shield" size={32} color={colors.primary} />
-                    </View>
-                </View>
-
-                {/* Header */}
-                <View style={styles.rgpdHeader}>
-                    <View style={styles.rgpdBadge}>
-                        <Text style={styles.rgpdBadgeText}>{t('onboarding.rgpd.badge')}</Text>
-                    </View>
-                    <Text style={styles.rgpdTitle}>{t('onboarding.rgpd.title')}</Text>
-                    <Text style={styles.rgpdDescription}>{t('onboarding.rgpd.description')}</Text>
-                </View>
-
-                {/* Data collected */}
-                <GlassCard style={styles.rgpdDataCard}>
-                    <Text style={styles.rgpdDataTitle}>{t('onboarding.rgpd.dataTitle')}</Text>
-                    <View style={styles.rgpdDataList}>
-                        {dataItems.map((item, i) => (
-                            <View key={i} style={styles.rgpdDataRow}>
-                                <View style={styles.rgpdDataDot} />
-                                <Text style={styles.rgpdDataText}>{item}</Text>
-                            </View>
-                        ))}
-                    </View>
-                    <View style={styles.rgpdThirdParty}>
-                        <Feather name="info" size={12} color={`${colors.onSurfaceMuted}70`} style={{ marginTop: 1 }} />
-                        <Text style={styles.rgpdThirdPartyText}>{t('onboarding.rgpd.thirdParties')}</Text>
-                    </View>
-                </GlassCard>
-            </ScrollView>
-
-            {/* Sticky footer — always visible */}
-            <View style={styles.rgpdFooter}>
-                <Checkbox checked={acceptTerms} onToggle={() => setAcceptTerms(v => !v)}>
-                    <Text style={styles.checkText}>
-                        {t('onboarding.rgpd.checkTerms')}{' '}
-                        <Text
-                            style={styles.checkLink}
-                            onPress={() => router.push('/privacy-policy')}
-                        >
-                            {t('onboarding.rgpd.privacyLink')}
-                        </Text>
-                    </Text>
-                </Checkbox>
-
-                <Checkbox checked={acceptAI} onToggle={() => setAcceptAI(v => !v)}>
-                    <Text style={styles.checkText}>{t('onboarding.rgpd.checkAI')}</Text>
-                </Checkbox>
-
-                <GoldButton
-                    label={t('onboarding.rgpd.cta')}
-                    onPress={() => goTo(1)}
-                    size="lg"
-                    disabled={!canContinue}
-                />
-            </View>
-        </View>
-    );
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 1 — Help tip
-    // ─────────────────────────────────────────────────────────────────────────
-
-    const helpPulse = useRef(new Animated.Value(1)).current;
-    React.useEffect(() => {
-        if (step !== 1) return;
-        const anim = Animated.loop(
-            Animated.sequence([
-                Animated.timing(helpPulse, { toValue: 1.5, duration: 700, useNativeDriver: true }),
-                Animated.timing(helpPulse, { toValue: 1, duration: 700, useNativeDriver: true }),
-            ])
-        );
-        anim.start();
-        return () => anim.stop();
-    }, [step]);
-
-    const mockPages = t('onboarding.helpTip.mockPages', { returnObjects: true }) as string[];
-
-    const stepHelpTip = (
-        <View style={styles.stepHelp}>
-            {/* Visual */}
-            <View style={styles.helpVisual}>
-                {/* Central ? orb with pulsing ring */}
-                <View style={styles.helpOrbWrap}>
-                    <Animated.View style={[styles.helpPulseRing, { transform: [{ scale: helpPulse }] }]} />
-                    <View style={styles.helpOrb}>
-                        <Feather name="help-circle" size={36} color={colors.primary} />
-                    </View>
-                </View>
-
-                {/* Mock page headers */}
-                <View style={styles.helpMockList}>
-                    {mockPages.map((pageName) => (
-                        <View key={pageName} style={styles.helpMockRow}>
-                            <View style={styles.helpMockDot} />
-                            <Text style={styles.helpMockPageName}>{pageName}</Text>
-                            <View style={styles.helpMockBtnWrap}>
-                                <Feather name="help-circle" size={14} color={`${colors.onSurfaceMuted}80`} />
-                            </View>
-                        </View>
-                    ))}
-                </View>
-            </View>
-
-            {/* Copy */}
-            <View style={styles.helpTextBlock}>
-                <View style={styles.helpBadge}>
-                    <Text style={styles.helpBadgeText}>{t('onboarding.helpTip.badge')}</Text>
-                </View>
-                <Text style={styles.helpTitle}>{t('onboarding.helpTip.title')}</Text>
-                <Text style={styles.helpDesc}>{t('onboarding.helpTip.description')}</Text>
-            </View>
-
-            <GoldButton
-                label={t('onboarding.helpTip.cta')}
-                onPress={() => goTo(2)}
-                size="lg"
-            />
-        </View>
-    );
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 2 — Birth profile
-    // ─────────────────────────────────────────────────────────────────────────
-
-    const stepBirthProfile = (
+    return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
         >
             <ScrollView
                 ref={scrollRef}
-                contentContainerStyle={styles.stepScroll}
+                contentContainerStyle={s.screenScroll}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
-                onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+                onScroll={(e) => {
+                    scrollYRef.current = e.nativeEvent.contentOffset.y;
+                }}
                 scrollEventThrottle={16}
             >
-                <Text style={styles.stepTitle}>{t('onboarding.birth.title')}</Text>
-                <Text style={styles.stepSubtitle}>{t('onboarding.birth.subtitle')}</Text>
+                <View style={s.chipWrap}>
+                    <View style={s.chip}>
+                        <Text style={s.chipText}>Étape 3 / 4</Text>
+                    </View>
+                </View>
+                <Text style={s.h1}>{t('onboarding.birth.title')}</Text>
+                <Text style={s.lead}>{t('onboarding.birth.subtitle')}</Text>
 
-                <GlassCard style={styles.formCard}>
-                    <Field
+                <View style={s.card}>
+                    <FormField
                         label={t('birthProfile.firstName')}
                         value={firstName}
                         onChangeText={setFirstName}
@@ -386,9 +532,7 @@ export default function OnboardingScreen() {
                         hint={t('birthProfile.firstNameHint')}
                         disabled={isSaving}
                     />
-
-                    <View style={styles.fieldGap} />
-
+                    <View style={{ height: 16 }} />
                     <AppDatePicker
                         label={t('birthProfile.birthDate')}
                         value={birthDate}
@@ -397,9 +541,7 @@ export default function OnboardingScreen() {
                         maximumDate={new Date()}
                         placeholder={t('birthProfile.birthDatePlaceholder')}
                     />
-
-                    <View style={styles.fieldGap} />
-
+                    <View style={{ height: 16 }} />
                     <AppTimePicker
                         label={t('birthProfile.birthTime')}
                         value={birthTime}
@@ -408,122 +550,253 @@ export default function OnboardingScreen() {
                         hint={t('birthProfile.birthTimeHint')}
                         placeholder={t('birthProfile.birthTimePlaceholder')}
                     />
-
-                    <View style={styles.fieldGap} />
-
+                    <View style={{ height: 16 }} />
                     <CityAutocomplete
                         label={t('birthProfile.birthCity')}
                         placeholder={t('birthProfile.birthCityPlaceholder')}
-                        value={birthCity ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}` : ''}
+                        value={
+                            birthCity
+                                ? `${birthCity}${birthCountry ? `, ${birthCountry}` : ''}`
+                                : ''
+                        }
                         onSelect={handleSelectCity}
                         onClear={handleClearCity}
                         disabled={isSaving}
                         scrollRef={scrollRef}
                         scrollYRef={scrollYRef}
                     />
-                </GlassCard>
+                </View>
 
                 {!!error && (
-                    <View style={styles.errorBox}>
-                        <Text style={styles.errorText}>{error}</Text>
+                    <View style={s.errorBox}>
+                        <Text style={s.errorText}>{error}</Text>
                     </View>
                 )}
 
-                <View style={styles.actions}>
+                <View style={s.ctaInScroll}>
                     <GoldButton
                         label={isSaving ? t('common.loading') : t('onboarding.birth.cta')}
                         onPress={handleSave}
                         loading={isSaving}
                         size="lg"
                     />
-                    <GhostButton
-                        label={t('onboarding.birth.skip')}
-                        onPress={skipToApp}
-                    />
+                    <GhostButton label={t('onboarding.birth.skip')} onPress={onSkip} />
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
     );
+}
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 3 — All set
-    // ─────────────────────────────────────────────────────────────────────────
+// ─── Step 3 — All set ──────────────────────────────────────────────────────────
 
-    const stepDone = (
-        <View style={styles.stepDone}>
-            <View style={styles.doneOrb}>
-                <LinearGradient
-                    colors={[`${colors.primary}50`, `${colors.secondary}30`, 'transparent']}
-                    style={StyleSheet.absoluteFill}
-                    start={{ x: 0.5, y: 0 }}
-                    end={{ x: 0.5, y: 1 }}
-                />
-                <Text style={styles.doneGlyph}>✦</Text>
-            </View>
+function StepDone({ onFinish, active }: { onFinish: () => void; active: boolean }) {
+    const { t } = useTranslation();
 
-            <View style={styles.doneTextBlock}>
-                <Text style={styles.doneTitle}>{t('onboarding.done.title')}</Text>
-                <Text style={styles.doneSubtitle}>{t('onboarding.done.subtitle')}</Text>
-            </View>
+    const ring1 = useRef(new Animated.Value(0)).current;
+    const ring2 = useRef(new Animated.Value(0)).current;
+    const ring3 = useRef(new Animated.Value(0)).current;
 
-            <View style={styles.doneFeaturesGrid}>
-                {([
-                    ['☽', t('onboarding.done.feature1')],
-                    ['◈', t('onboarding.done.feature2')],
-                    ['⟡', t('onboarding.done.feature3')],
-                    ['✦', t('onboarding.done.feature4')],
-                ] as const).map(([icon, label]) => (
-                    <View key={label} style={styles.doneFeatureItem}>
-                        <View style={styles.doneFeatureIcon}>
-                            <Text style={styles.doneFeatureIconText}>{icon}</Text>
-                        </View>
-                        <Text style={styles.doneFeatureLabel}>{label}</Text>
-                    </View>
-                ))}
-            </View>
+    useEffect(() => {
+        if (!active) return;
+        const makeLoop = (anim: Animated.Value, delay: number) =>
+            Animated.loop(
+                Animated.sequence([
+                    Animated.delay(delay),
+                    Animated.timing(anim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+                    Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+                ]),
+            );
+        const a = makeLoop(ring1, 0);
+        const b = makeLoop(ring2, 600);
+        const c = makeLoop(ring3, 1200);
+        a.start();
+        b.start();
+        c.start();
+        return () => {
+            a.stop();
+            b.stop();
+            c.stop();
+        };
+    }, [active]);
 
-            <GoldButton
-                label={t('onboarding.done.cta')}
-                onPress={skipToApp}
-                size="lg"
-                rightIcon
-            />
-        </View>
-    );
+    const ringStyle = (anim: Animated.Value) => ({
+        opacity: anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.45, 0] }),
+        transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.9] }) }],
+    });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Render
-    // ─────────────────────────────────────────────────────────────────────────
+    const feats = [
+        { icon: '☽', label: t('onboarding.done.feature1') },
+        { icon: '◈', label: t('onboarding.done.feature2') },
+        { icon: '⟡', label: t('onboarding.done.feature3') },
+        { icon: '✦', label: t('onboarding.done.feature4') },
+    ];
 
     return (
-        <View style={styles.root}>
+        <View style={s.screenRoot}>
+            <ScrollView
+                contentContainerStyle={[s.screenScroll, { alignItems: 'center' }]}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={s.finaleMedallionWrap}>
+                    <Animated.View style={[s.finaleRing, s.finaleRingLg, ringStyle(ring3)]} />
+                    <Animated.View style={[s.finaleRing, s.finaleRingMd, ringStyle(ring2)]} />
+                    <Animated.View style={[s.finaleRing, ringStyle(ring1)]} />
+                    <LinearGradient
+                        colors={[`${colors.primary}50`, `${colors.secondary}30`, 'transparent']}
+                        style={s.finaleCore}
+                        start={{ x: 0.5, y: 0 }}
+                        end={{ x: 0.5, y: 1 }}
+                    >
+                        <Text style={s.finaleGlyph}>✦</Text>
+                    </LinearGradient>
+                </View>
+
+                <Text style={[s.h1, { textAlign: 'center' }]}>{t('onboarding.done.title')}</Text>
+                <Text style={[s.lead, { textAlign: 'center' }]}>
+                    {t('onboarding.done.subtitle')}
+                </Text>
+
+                <View style={s.featGrid}>
+                    {feats.map((f, i) => (
+                        <View key={i} style={s.featCard}>
+                            <View style={s.featCardIcon}>
+                                <Text style={s.featCardIconText}>{f.icon}</Text>
+                            </View>
+                            <Text style={s.featCardLabel}>{f.label}</Text>
+                        </View>
+                    ))}
+                </View>
+
+                <View style={[s.ctaInScroll, { width: '100%' }]}>
+                    <GoldButton
+                        label={t('onboarding.done.cta')}
+                        onPress={onFinish}
+                        size="lg"
+                        rightIcon
+                    />
+                </View>
+            </ScrollView>
+        </View>
+    );
+}
+
+// ─── Root ──────────────────────────────────────────────────────────────────────
+
+export default function OnboardingScreen() {
+    const router = useRouter();
+
+    const [step, setStep] = useState(0);
+    const stepRef = useRef(0);
+
+    const SLIDE = 40;
+    const screenAnims = useRef(
+        Array.from({ length: STEPS }, (_, i) => ({
+            opacity: new Animated.Value(i === 0 ? 1 : 0),
+            tx: new Animated.Value(i === 0 ? 0 : SLIDE),
+        })),
+    ).current;
+
+    const goTo = useCallback(
+        (next: number) => {
+            const current = stepRef.current;
+            if (current === next) return;
+            const dir = next > current ? 1 : -1;
+
+            screenAnims[next].tx.setValue(dir * SLIDE);
+            screenAnims[next].opacity.setValue(0);
+
+            stepRef.current = next;
+            setStep(next);
+
+            Animated.parallel([
+                Animated.timing(screenAnims[current].opacity, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(screenAnims[current].tx, {
+                    toValue: -dir * SLIDE * 0.75,
+                    duration: 250,
+                    useNativeDriver: true,
+                }),
+                Animated.sequence([
+                    Animated.delay(80),
+                    Animated.parallel([
+                        Animated.timing(screenAnims[next].opacity, {
+                            toValue: 1,
+                            duration: 320,
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(screenAnims[next].tx, {
+                            toValue: 0,
+                            duration: 380,
+                            useNativeDriver: true,
+                        }),
+                    ]),
+                ]),
+            ]).start(() => {
+                screenAnims[current].tx.setValue(dir * SLIDE);
+            });
+        },
+        [screenAnims],
+    );
+
+    const skipToApp = useCallback(() => {
+        router.replace('/(tabs)');
+    }, [router]);
+
+    const screens = [
+        <StepRGPD onContinue={() => goTo(1)} />,
+        <StepGuide onContinue={() => goTo(2)} />,
+        <StepBirthProfile onContinue={() => goTo(3)} onSkip={skipToApp} />,
+        <StepDone onFinish={skipToApp} active={step === 3} />,
+    ];
+
+    return (
+        <View style={s.root}>
             <LinearGradient
                 colors={[colors.surfaceLowest, '#1e0f3a', colors.surfaceLowest]}
                 locations={[0, 0.5, 1]}
                 style={StyleSheet.absoluteFill}
             />
 
-            <SafeAreaView style={styles.safe}>
-                <ProgressDots step={step} />
+            <Starfield />
 
-                <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-                    {step === 0 && stepRGPD}
-                    {step === 1 && stepHelpTip}
-                    {step === 2 && stepBirthProfile}
-                    {step === 3 && stepDone}
-                </Animated.View>
+            <SafeAreaView style={s.safe}>
+                <ProgressDots step={step} />
+                <BackButton visible={step > 0} onPress={() => goTo(step - 1)} />
+
+                <View style={s.screensContainer}>
+                    {screens.map((screen, i) => (
+                        <Animated.View
+                            key={i}
+                            style={[
+                                s.screenSlot,
+                                {
+                                    opacity: screenAnims[i].opacity,
+                                    transform: [{ translateX: screenAnims[i].tx }],
+                                },
+                            ]}
+                            pointerEvents={i === step ? 'auto' : 'none'}
+                        >
+                            {screen}
+                        </Animated.View>
+                    ))}
+                </View>
             </SafeAreaView>
         </View>
     );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles ────────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const FEAT_CARD_W = (W - spacing.xl * 2 - spacing.md) / 2 - 1;
+
+const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.surfaceLowest },
     safe: { flex: 1 },
 
-    // Progress
+    // ── Progress ──────────────────────────────────────────────────────────────
     dots: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -532,315 +805,294 @@ const styles = StyleSheet.create({
         paddingBottom: spacing.md,
     },
     dot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: `${colors.onSurfaceMuted}40`,
+        width: 7,
+        height: 7,
+        borderRadius: 4,
+        backgroundColor: `${colors.onSurface}2e`,
+    },
+    dotDone: {
+        backgroundColor: `${colors.primary}8c`,
     },
     dotActive: {
-        width: 20,
+        width: 26,
         backgroundColor: colors.primary,
     },
 
-    content: { flex: 1 },
-
-    // ── Step 0: RGPD ──────────────────────────────────────────────────────────
-    rgpdRoot: {
-        flex: 1,
-    },
-    rgpdScroll: {
-        paddingHorizontal: spacing.xl,
-        paddingTop: spacing.xl,
-        paddingBottom: spacing.xl,
-        gap: spacing.xxl,
-    },
-    rgpdVisual: {
-        alignItems: 'center',
-        paddingTop: spacing.md,
-    },
-    rgpdOrb: {
-        width: 96,
-        height: 96,
-        borderRadius: 48,
-        backgroundColor: `${colors.primary}12`,
+    // ── Back button ───────────────────────────────────────────────────────────
+    backBtn: {
+        position: 'absolute',
+        top: 12,
+        left: 16,
+        zIndex: 20,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: `${colors.onSurface}0a`,
         alignItems: 'center',
         justifyContent: 'center',
-        overflow: 'hidden',
     },
-    rgpdHeader: {
+    backBtnHidden: {
+        opacity: 0,
+    },
+
+    // ── Screens ───────────────────────────────────────────────────────────────
+    screensContainer: { flex: 1 },
+    screenSlot: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    screenRoot: { flex: 1 },
+    screenScroll: {
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.md,
+        paddingBottom: spacing.xxxl,
+    },
+
+    // ── Hero medallion ────────────────────────────────────────────────────────
+    medallionWrap: {
+        width: 124,
+        height: 124,
+        alignSelf: 'center',
         alignItems: 'center',
-        gap: spacing.lg,
+        justifyContent: 'center',
+        marginTop: spacing.xl,
+        marginBottom: spacing.xl,
     },
-    rgpdBadge: {
-        backgroundColor: `${colors.primary}18`,
+    medallionRing: {
+        position: 'absolute',
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        borderWidth: 1,
+        borderColor: `${colors.primary}38`,
+    },
+    medallionRingOuter: {
+        width: 156,
+        height: 156,
+        borderRadius: 78,
+    },
+    medallion: {
+        width: 124,
+        height: 124,
+        borderRadius: 62,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: `${colors.primary}2e`,
+    },
+
+    // ── Chip badge ────────────────────────────────────────────────────────────
+    chipWrap: { alignItems: 'center', marginBottom: 4 },
+    chip: {
+        backgroundColor: `${colors.primary}1a`,
         borderRadius: radius.full,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.xs,
+        borderWidth: 1,
+        borderColor: `${colors.primary}40`,
     },
-    rgpdBadgeText: {
-        fontFamily: fonts.body.medium,
+    chipText: {
+        fontFamily: fonts.body.bold,
         fontSize: 11,
-        letterSpacing: 1.2,
+        letterSpacing: 1.8,
         color: colors.primary,
         textTransform: 'uppercase',
     },
-    rgpdTitle: {
+
+    // ── Typography ────────────────────────────────────────────────────────────
+    h1: {
         fontFamily: fonts.display.bold,
-        fontSize: 30,
-        color: colors.onSurface,
-        textAlign: 'center',
+        fontSize: 34,
+        lineHeight: 40,
+        color: '#EFE6FF',
+        letterSpacing: -0.3,
+        marginTop: 14,
+        marginBottom: 12,
     },
-    rgpdDescription: {
+    lead: {
         fontFamily: fonts.body.regular,
         fontSize: 15,
-        color: colors.onSurfaceMuted,
-        textAlign: 'center',
         lineHeight: 23,
-        maxWidth: 300,
+        color: colors.onSurfaceMuted,
+        marginBottom: 18,
+        maxWidth: 320,
     },
-    rgpdDataCard: {
-        gap: spacing.lg,
+
+    // ── Card ──────────────────────────────────────────────────────────────────
+    card: {
+        borderRadius: radius.xl,
+        backgroundColor: `${colors.onSurface}06`,
+        borderWidth: 1,
+        borderColor: `${colors.onSurface}12`,
         padding: spacing.xl,
+        marginBottom: spacing.md,
     },
-    rgpdDataTitle: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 12,
-        color: colors.onSurface,
-        letterSpacing: 0.8,
+    listTitle: {
+        fontFamily: fonts.body.bold,
+        fontSize: 11,
+        letterSpacing: 1.8,
         textTransform: 'uppercase',
+        color: `${colors.onSurfaceMuted}aa`,
+        marginBottom: 14,
     },
-    rgpdDataList: {
-        gap: spacing.md,
-        marginTop: spacing.sm,
-    },
-    rgpdDataRow: {
+
+    // ── RGPD data items ───────────────────────────────────────────────────────
+    dataRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: spacing.md,
     },
-    rgpdDataDot: {
+    dataDot: {
         width: 5,
         height: 5,
         borderRadius: 3,
         backgroundColor: `${colors.primary}80`,
-        marginTop: 7,
+        marginTop: 8,
         flexShrink: 0,
     },
-    rgpdDataText: {
+    dataText: {
+        flex: 1,
         fontFamily: fonts.body.regular,
         fontSize: 14,
         color: colors.onSurfaceMuted,
         lineHeight: 21,
-        flex: 1,
     },
-    rgpdThirdParty: {
+    thirdPartyRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: spacing.md,
         backgroundColor: `${colors.secondary}10`,
         borderRadius: radius.md,
         padding: spacing.md,
-        marginTop: spacing.sm,
+        marginTop: spacing.lg,
     },
-    rgpdThirdPartyText: {
+    thirdPartyText: {
+        flex: 1,
         fontFamily: fonts.body.regular,
         fontSize: 13,
         color: `${colors.onSurfaceMuted}cc`,
         lineHeight: 19,
-        flex: 1,
     },
-    rgpdFooter: {
-        paddingHorizontal: spacing.xl,
-        paddingTop: spacing.lg,
-        paddingBottom: spacing.xl,
-        gap: spacing.lg,
-        backgroundColor: `${colors.surfaceLowest}f0`,
-        borderTopWidth: 1,
-        borderTopColor: `${colors.onSurface}08`,
-    },
-    checkRow: {
+
+    // ── Consents ──────────────────────────────────────────────────────────────
+    consents: { gap: 14, marginTop: 18, marginBottom: 6 },
+    consentRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        gap: spacing.md,
+        gap: 12,
     },
-    checkBox: {
+    checkbox: {
         width: 22,
         height: 22,
         borderRadius: 6,
-        backgroundColor: `${colors.onSurface}10`,
+        backgroundColor: `${colors.onSurface}0a`,
         borderWidth: 1.5,
-        borderColor: `${colors.onSurfaceMuted}40`,
+        borderColor: `${colors.onSurfaceMuted}66`,
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
-        marginTop: 1,
+        marginTop: 2,
     },
-    checkBoxChecked: {
+    checkboxChecked: {
         backgroundColor: colors.primary,
         borderColor: colors.primary,
     },
-    checkLabel: {
+    consentText: {
         flex: 1,
-    },
-    checkText: {
         fontFamily: fonts.body.regular,
         fontSize: 13,
         color: colors.onSurfaceMuted,
-        lineHeight: 19,
+        lineHeight: 20,
     },
-    checkLink: {
+    consentLink: {
         color: colors.primary,
         textDecorationLine: 'underline',
     },
 
-    // ── Step 1: Help tip ──────────────────────────────────────────────────────
-    stepHelp: {
-        flex: 1,
-        paddingHorizontal: spacing.xl,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.xxl,
+    // ── Feature rows ──────────────────────────────────────────────────────────
+    featureRow: {
+        padding: 14,
+        borderRadius: radius.lg,
+        backgroundColor: `${colors.onSurface}06`,
+        borderWidth: 1,
+        borderColor: `${colors.onSurface}12`,
+        marginBottom: 10,
     },
-    helpVisual: {
-        width: '100%',
-        alignItems: 'center',
-        gap: spacing.xl,
+    featureRowOpen: {
+        backgroundColor: `${colors.primary}0a`,
+        borderColor: `${colors.primary}40`,
     },
-    helpOrbWrap: {
-        width: 90,
-        height: 90,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    helpPulseRing: {
-        position: 'absolute',
-        width: 74,
-        height: 74,
-        borderRadius: 37,
-        backgroundColor: `${colors.primary}18`,
-    },
-    helpOrb: {
-        width: 74,
-        height: 74,
-        borderRadius: 37,
-        backgroundColor: `${colors.primary}14`,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    helpMockList: {
-        width: '100%',
-        gap: spacing.sm,
-    },
-    helpMockRow: {
+    featureRowTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing.md,
-        backgroundColor: `${colors.onSurface}06`,
-        borderRadius: radius.md,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
+        gap: 14,
     },
-    helpMockDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: `${colors.primary}60`,
+    featureIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: `${colors.primary}1a`,
+        borderWidth: 1,
+        borderColor: `${colors.primary}38`,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
     },
-    helpMockPageName: {
+    featureIconOpen: { backgroundColor: `${colors.primary}26` },
+    featureName: {
         flex: 1,
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
+        fontFamily: fonts.body.semiBold,
+        fontSize: 15,
         color: colors.onSurface,
     },
-    helpMockBtnWrap: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+    featureHelp: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
         backgroundColor: `${colors.onSurface}08`,
         alignItems: 'center',
         justifyContent: 'center',
+        flexShrink: 0,
     },
-    helpTextBlock: {
-        alignItems: 'center',
-        gap: spacing.md,
-    },
-    helpBadge: {
-        backgroundColor: `${colors.primary}18`,
-        borderRadius: radius.full,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.xs,
-    },
-    helpBadgeText: {
-        fontFamily: fonts.body.medium,
-        fontSize: 11,
-        letterSpacing: 1.2,
-        color: colors.primary,
-        textTransform: 'uppercase',
-    },
-    helpTitle: {
-        fontFamily: fonts.display.bold,
-        fontSize: 28,
-        color: colors.onSurface,
-        textAlign: 'center',
-    },
-    helpDesc: {
+    featureHelpOpen: { backgroundColor: `${colors.primary}1a` },
+    featureDesc: {
         fontFamily: fonts.body.regular,
-        fontSize: 15,
-        color: colors.onSurfaceMuted,
-        textAlign: 'center',
-        lineHeight: 23,
-        maxWidth: 300,
-    },
-
-    // ── Step 2: Birth profile ─────────────────────────────────────────────────
-    stepScroll: {
-        paddingHorizontal: spacing.xl,
-        paddingTop: spacing.lg,
-        paddingBottom: spacing.xxxl,
-        gap: spacing.xl,
-    },
-    stepTitle: {
-        fontFamily: fonts.display.bold,
-        fontSize: 24,
-        color: colors.onSurface,
-    },
-    stepSubtitle: {
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
-        color: colors.onSurfaceMuted,
-        lineHeight: 20,
-        marginTop: -spacing.md,
-    },
-    formCard: {
-        gap: 0,
-        padding: spacing.xl,
-    },
-    fieldGap: { height: spacing.lg },
-    fieldWrap: { width: '100%' },
-    fieldLabel: {
-        fontFamily: fonts.body.medium,
         fontSize: 13,
         color: colors.onSurfaceMuted,
-        marginBottom: spacing.sm,
-        letterSpacing: 0.3,
+        lineHeight: 20,
+        paddingHorizontal: 4,
     },
-    fieldInput: {
-        backgroundColor: colors.surfaceContainerHigh,
+
+    // ── Form ──────────────────────────────────────────────────────────────────
+    formLabel: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 13,
+        color: colors.onSurface,
+        letterSpacing: 0.2,
+        marginBottom: spacing.sm,
+    },
+    formInput: {
+        backgroundColor: `${colors.onSurface}0a`,
         borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: `${colors.onSurface}1e`,
         minHeight: 52,
         paddingHorizontal: spacing.lg,
         justifyContent: 'center',
     },
-    fieldInputFocused: {
-        borderWidth: 1,
-        borderColor: `${colors.primary}60`,
+    formInputFocused: {
+        borderColor: `${colors.primary}99`,
+        backgroundColor: `${colors.primary}0a`,
     },
-    fieldText: {
+    formText: {
         fontFamily: fonts.body.regular,
         fontSize: 15,
         color: colors.onSurface,
     },
-    fieldHint: {
+    formHint: {
         fontFamily: fonts.body.regular,
         fontSize: 12,
         color: colors.onSurfaceMuted,
@@ -850,6 +1102,7 @@ const styles = StyleSheet.create({
         backgroundColor: `${colors.error}15`,
         borderRadius: radius.md,
         padding: spacing.md,
+        marginTop: spacing.md,
     },
     errorText: {
         fontFamily: fonts.body.regular,
@@ -857,82 +1110,68 @@ const styles = StyleSheet.create({
         color: colors.error,
         textAlign: 'center',
     },
-    actions: {
-        gap: spacing.md,
-    },
 
-    // ── Step 3: Done ──────────────────────────────────────────────────────────
-    stepDone: {
-        flex: 1,
-        paddingHorizontal: spacing.xl,
+    // ── Done screen ───────────────────────────────────────────────────────────
+    finaleMedallionWrap: {
+        width: 120,
+        height: 120,
+        alignSelf: 'center',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: spacing.xxl,
+        marginTop: spacing.xl,
+        marginBottom: spacing.xl,
     },
-    doneOrb: {
-        width: 110,
-        height: 110,
-        borderRadius: 55,
-        backgroundColor: `${colors.primary}10`,
+    finaleRing: {
+        position: 'absolute',
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: `${colors.primary}20`,
+    },
+    finaleRingMd: { width: 120, height: 120, borderRadius: 60 },
+    finaleRingLg: { width: 140, height: 140, borderRadius: 70 },
+    finaleCore: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
         alignItems: 'center',
         justifyContent: 'center',
-        overflow: 'hidden',
     },
-    doneGlyph: {
-        fontSize: 44,
-        color: colors.primary,
-    },
-    doneTextBlock: {
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    doneTitle: {
-        fontFamily: fonts.display.bold,
-        fontSize: 28,
-        color: colors.onSurface,
-        textAlign: 'center',
-    },
-    doneSubtitle: {
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
-        color: colors.onSurfaceMuted,
-        textAlign: 'center',
-        lineHeight: 21,
-        maxWidth: 280,
-    },
-    doneFeaturesGrid: {
+    finaleGlyph: { fontSize: 44, color: colors.primary },
+    featGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: spacing.md,
         justifyContent: 'center',
         width: '100%',
+        marginBottom: spacing.md,
     },
-    doneFeatureItem: {
-        width: (W - spacing.xl * 2 - spacing.md) / 2 - 1,
-        backgroundColor: `${colors.onSurface}06`,
+    featCard: {
+        width: FEAT_CARD_W,
+        backgroundColor: `${colors.onSurface}08`,
         borderRadius: radius.md,
         padding: spacing.md,
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.sm,
     },
-    doneFeatureIcon: {
+    featCardIcon: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: `${colors.primary}18`,
+        backgroundColor: `${colors.primary}1a`,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    doneFeatureIconText: {
-        fontSize: 16,
-        color: colors.primary,
-    },
-    doneFeatureLabel: {
+    featCardIconText: { fontSize: 16, color: colors.primary },
+    featCardLabel: {
+        flex: 1,
         fontFamily: fonts.body.regular,
         fontSize: 12,
         color: colors.onSurface,
-        flex: 1,
         lineHeight: 16,
     },
+
+    // ── CTA ───────────────────────────────────────────────────────────────────
+    ctaInScroll: { gap: spacing.md, marginTop: spacing.xl },
 });
