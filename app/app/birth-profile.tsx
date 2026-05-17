@@ -23,6 +23,7 @@ import {
     AppDatePicker,
     AppTimePicker,
     CityAutocomplete,
+    Starfield,
 } from '@/components/ui';
 import {
     getBirthProfile,
@@ -196,6 +197,7 @@ export default function BirthProfileScreen() {
                 locations={[0, 0.5, 1]}
                 style={StyleSheet.absoluteFill}
             />
+            <Starfield />
 
             <SafeAreaView style={styles.safe}>
                 {/* Back button */}

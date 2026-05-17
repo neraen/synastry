@@ -17,7 +17,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, TabHeader, FormattedText, HelpModal, NoBirthProfileCard } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, TabHeader, FormattedText, HelpModal, NoBirthProfileCard, Starfield } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
 import {
     getNatalChart,
@@ -383,6 +383,7 @@ export default function HoroscopeTab() {
 
     return (
         <View style={styles.screen}>
+            <Starfield />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <ScrollView
                     style={styles.scroll}

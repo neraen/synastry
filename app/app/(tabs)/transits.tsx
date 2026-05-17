@@ -26,7 +26,7 @@ import { cacheGet, cacheSet, cacheInvalidatePrefix } from '@/services/cache';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
-import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader, HelpModal, NoBirthProfileCard } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader, HelpModal, NoBirthProfileCard, Starfield } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import { router } from 'expo-router';
@@ -1069,6 +1069,7 @@ export default function TransitsScreen() {
 
     return (
         <View ref={rootRef} style={styles.root}>
+            <Starfield />
             <SafeAreaView style={styles.safe} edges={['top']}>
                 <TabHeader />
 

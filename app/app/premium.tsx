@@ -22,6 +22,7 @@ import { Feather } from '@expo/vector-icons';
 import { colors, typography, spacing, radius } from '@/theme';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GoldButton } from '@/components/ui/GoldButton';
+import { Starfield } from '@/components/ui/Starfield';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     getOffering,
@@ -285,6 +286,7 @@ export default function PremiumScreen() {
                 locations={[0, 0.5, 1]}
                 style={StyleSheet.absoluteFill}
             />
+            <Starfield />
 
             <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
 

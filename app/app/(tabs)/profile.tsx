@@ -16,7 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, TabHeader } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, TabHeader, Starfield } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
 import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
@@ -181,6 +181,7 @@ export default function ProfileTab() {
 
     return (
         <View style={styles.screen}>
+            <Starfield />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <ScrollView
                     style={styles.scroll}

@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { FeedbackThumbs } from '@/components/ui';
+import { FeedbackThumbs, Starfield } from '@/components/ui';
 import {
     View,
     Text,
@@ -477,6 +477,7 @@ export default function ChatScreen() {
 
     return (
         <SafeAreaView style={styles.safe} edges={['top']}>
+            <Starfield />
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerAvatar}>

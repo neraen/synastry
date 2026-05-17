@@ -22,6 +22,7 @@ export { FeedbackThumbs } from './FeedbackThumbs';
 export { PremiumGate } from './PremiumGate';
 export { PremiumLockedButton } from './PremiumLockedButton';
 export { CityAutocomplete } from './CityAutocomplete';
+export { Starfield } from './Starfield';
 
 // === LEGACY COMPONENTS (to be migrated) ===
 

@@ -15,7 +15,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { InlineLoading } from '@/components/ui';
+import { InlineLoading, Starfield } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 
 // Dynamically import Google Sign-In (native module not available in Expo Go)
@@ -157,6 +157,7 @@ export default function Login() {
 
     return (
         <View style={styles.screen}>
+            <Starfield />
             {/* Star decorations */}
             <View style={[styles.star, { top: 80, right: 48, width: 4, height: 4, opacity: 0.4 }]} />
             <View style={[styles.star, { top: 130, right: 96, width: 2, height: 2, opacity: 0.3 }]} />

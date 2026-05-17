@@ -27,6 +27,7 @@ import {
     CityAutocomplete,
     HelpModal,
     NoBirthProfileCard,
+    Starfield,
 } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
 import { calculateSynastry } from '@/services/astrology';
@@ -229,6 +230,7 @@ export default function CompatibilityTab() {
 
     return (
         <View style={styles.screen}>
+            <Starfield />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <KeyboardAvoidingView
                     style={styles.flex}
