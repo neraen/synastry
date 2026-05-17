@@ -178,6 +178,10 @@ export default function RootLayout() {
                         <Stack.Screen name="compatibility-result" options={{ headerShown: false }} />
                         <Stack.Screen name="natal-chart-analysis" options={{ headerShown: false }} />
                         <Stack.Screen name="natal-chart-section" options={{ headerShown: false }} />
+                        <Stack.Screen name="astral-hero" options={{ headerShown: false }} />
+                        <Stack.Screen name="natal-chart-wheel" options={{ headerShown: false }} />
+                        <Stack.Screen name="theme-natal-design" options={{ headerShown: false }} />
+                        <Stack.Screen name="test-theme-natal-4" options={{ headerShown: false }} />
                         <Stack.Screen name="help" options={{ headerShown: false }} />
                         {/* Legal Screens */}
                         <Stack.Screen name="privacy-policy" options={{ headerShown: false, presentation: 'modal' }} />

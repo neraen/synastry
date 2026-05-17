@@ -240,6 +240,8 @@
     "interpretationCta": "Get a personalized AI interpretation of your natal chart.",
     "getInterpretation": "GET INTERPRETATION",
     "showDetailedProfile": "See my detailed astro profile",
+    "astralPortraitDesc": "Discover your full astral portrait — your planets, dominant element, and cosmic affinities.",
+    "astralPortraitBtn": "View astro profile",
     "chartGuide": "Explore your planetary positions at the moment of your birth. Each planet reveals a unique facet of your personality and life path.",
     "interpretationLoading": "Analyzing…",
     "interpretationLoadingHint": "This may take a few seconds",

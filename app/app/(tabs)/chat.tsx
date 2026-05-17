@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { FeedbackThumbs } from '@/components/ui';
 import {
     View,
     Text,
@@ -78,7 +79,7 @@ function TypingIndicator() {
 
 // ─── Message bubble ───────────────────────────────────────────────────────────
 
-function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStreaming?: boolean }) {
+function MessageBubble({ message, isStreaming, showFeedback }: { message: ChatMessage; isStreaming?: boolean; showFeedback?: boolean }) {
     const isUser = message.role === 'user';
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(8)).current;
@@ -108,15 +109,25 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
                     <Text selectable style={styles.bubbleTextUser}>{message.content}</Text>
                 </LinearGradient>
             ) : (
-                <View style={[styles.bubble, styles.bubbleAI]}>
-                    {isStreaming && message.content === '' ? (
-                        <View style={styles.typingRow}>
-                            <TypingDot delay={0} />
-                            <TypingDot delay={150} />
-                            <TypingDot delay={300} />
+                <View style={styles.aiBubbleWrapper}>
+                    <View style={[styles.bubble, styles.bubbleAI, { maxWidth: '100%' }]}>
+                        {isStreaming && message.content === '' ? (
+                            <View style={styles.typingRow}>
+                                <TypingDot delay={0} />
+                                <TypingDot delay={150} />
+                                <TypingDot delay={300} />
+                            </View>
+                        ) : (
+                            <Text selectable style={styles.bubbleTextAI}>{message.content}</Text>
+                        )}
+                    </View>
+                    {showFeedback && (
+                        <View style={styles.feedbackRow}>
+                            <FeedbackThumbs
+                                contentType="chat"
+                                contentRef={message.id}
+                            />
                         </View>
-                    ) : (
-                        <Text selectable style={styles.bubbleTextAI}>{message.content}</Text>
                     )}
                 </View>
             )}
@@ -455,7 +466,11 @@ export default function ChatScreen() {
 
     const renderItem = useCallback(
         ({ item }: { item: ChatMessage }) => (
-            <MessageBubble message={item} isStreaming={item.id === streamingMsgId && item.content === ''} />
+            <MessageBubble
+                message={item}
+                isStreaming={item.id === streamingMsgId && item.content === ''}
+                showFeedback={item.role === 'assistant' && item.id !== WELCOME_ID && item.id !== streamingMsgId}
+            />
         ),
         [streamingMsgId]
     );
@@ -708,6 +723,15 @@ const styles = StyleSheet.create({
     },
     bubbleTextUser: { fontFamily: fonts.body.regular, fontSize: 15, lineHeight: 22, color: '#fff' },
     bubbleTextAI: { fontFamily: fonts.body.regular, fontSize: 15, lineHeight: 22, color: colors.onSurface },
+
+    aiBubbleWrapper: {
+        maxWidth: '78%',
+    },
+    feedbackRow: {
+        paddingLeft: spacing.sm,
+        paddingTop: 4,
+        paddingBottom: 2,
+    },
 
     // Typing
     typingRow: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4 },

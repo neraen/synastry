@@ -240,6 +240,8 @@
     "interpretationCta": "Obtenez une interprétation personnalisée de votre thème natal par l'IA.",
     "getInterpretation": "OBTENIR L'INTERPRÉTATION",
     "showDetailedProfile": "Voir mon profil astro détaillé",
+    "astralPortraitDesc": "Découvrez votre portrait astral complet — vos planètes, votre élément dominant et vos affinités cosmiques.",
+    "astralPortraitBtn": "Voir le profil astro",
     "chartGuide": "Explorez les positions de vos planètes au moment de votre naissance. Chaque planète révèle une facette de votre personnalité et de votre chemin de vie.",
     "interpretationLoading": "Analyse en cours…",
     "interpretationLoadingHint": "Cela peut prendre quelques secondes",

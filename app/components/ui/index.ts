@@ -18,6 +18,7 @@ export { NoBirthProfileCard } from './NoBirthProfileCard';
 export { HelpModal } from './HelpModal';
 export type { HelpItem, HelpSection } from './HelpModal';
 export { FormattedText } from './FormattedText';
+export { FeedbackThumbs } from './FeedbackThumbs';
 export { PremiumGate } from './PremiumGate';
 export { PremiumLockedButton } from './PremiumLockedButton';
 export { CityAutocomplete } from './CityAutocomplete';

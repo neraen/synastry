@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import i18n from 'i18next';
-import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip, HelpModal } from '@/components/ui';
+import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip, HelpModal, FeedbackThumbs } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
@@ -266,6 +266,13 @@ export default function NatalChartAnalysisScreen() {
                     <View style={styles.synthesisWrap}>
                         <GlassCard opacity="low" radius="xl">
                             <FormattedText text={synthesis.portrait} style={styles.portraitText} />
+                            <View style={styles.portraitFeedback}>
+                                <FeedbackThumbs
+                                    contentType="natal"
+                                    contentRef="portrait"
+                                    label="Avez-vous aimé ce contenu ?"
+                                />
+                            </View>
                         </GlassCard>
                     </View>
 
@@ -369,6 +376,10 @@ const styles = StyleSheet.create({
     },
     synthesisWrap: {
         marginBottom: spacing.xl,
+    },
+    portraitFeedback: {
+        marginTop: spacing.lg,
+        alignItems: 'flex-start',
     },
     portraitText: {
         fontFamily: fonts.display.regular,

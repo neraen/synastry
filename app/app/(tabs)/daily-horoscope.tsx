@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, TabHeader, NoBirthProfileCard } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, TabHeader, NoBirthProfileCard, FeedbackThumbs } from '@/components/ui';
 import { getDailyHoroscope, DailyHoroscope } from '@/services/astrology';
 import { aiDisclaimerText } from '@/constants/legalTexts';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -194,6 +194,17 @@ export default function DailyHoroscopeTab() {
                         </View>
                     )}
 
+                    {/* Feedback */}
+                    {horoscope && !isRefreshing && (
+                        <View style={styles.feedbackSection}>
+                            <FeedbackThumbs
+                                contentType="horoscope"
+                                contentRef={horoscope.date}
+                                label="Avez-vous aimé ce contenu ?"
+                            />
+                        </View>
+                    )}
+
                     {/* Actions */}
                     {horoscope && !isRefreshing && (
                         <View style={styles.actionsSection}>
@@ -320,6 +331,13 @@ const styles = StyleSheet.create({
         fontSize: 15,
         lineHeight: 24,
         color: colors.onSurface,
+    },
+
+    // Feedback
+    feedbackSection: {
+        paddingHorizontal: spacing.xl,
+        marginTop: spacing.xl,
+        alignItems: 'flex-start',
     },
 
     // Actions

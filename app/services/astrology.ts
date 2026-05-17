@@ -21,9 +21,16 @@ export interface NatalChart {
     calculatedAt: string;
 }
 
+export interface SunSignData {
+    element: string;
+    rulers: string[];
+    affinities: string[];
+}
+
 export interface NatalChartResponse {
     success: boolean;
     chart?: NatalChart;
+    sunSignData?: SunSignData;
     cached?: boolean;
     error?: string;
 }

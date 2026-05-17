@@ -14,7 +14,6 @@ import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { login, register } from '@/services/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { InlineLoading } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -42,7 +41,7 @@ try {
 export default function Login() {
     const router = useRouter();
     const { t } = useTranslation();
-    const { loginWithGoogle: authLoginWithGoogle, loginWithApple: authLoginWithApple } = useAuth();
+    const { loginWithGoogle: authLoginWithGoogle, loginWithApple: authLoginWithApple, login: authLogin, register: authRegister } = useAuth();
     const [error, setError] = useState<string | undefined>();
     const [googleLoading, setGoogleLoading] = useState(false);
     const [appleLoading, setAppleLoading] = useState(false);
@@ -102,9 +101,7 @@ export default function Login() {
         setRegLoading(true);
         setError(undefined);
         try {
-            await register({ email: regEmail, password: regPassword });
-            await login({ email: regEmail, password: regPassword });
-            await refreshUser();
+            await authRegister({ email: regEmail, password: regPassword });
             router.replace('/onboarding');
         } catch (err) {
             setError(err instanceof Error ? err.message : t('auth.errors.signupFailed'));
@@ -118,8 +115,7 @@ export default function Login() {
         setDevLoading(true);
         setError(undefined);
         try {
-            await login({ email: devEmail, password: devPassword });
-            await refreshUser();
+            await authLogin({ email: devEmail, password: devPassword });
             router.replace('/(tabs)');
         } catch (err) {
             setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
