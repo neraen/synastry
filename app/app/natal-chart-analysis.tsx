@@ -205,7 +205,7 @@ export default function NatalChartAnalysisScreen() {
     }, [router]);
 
     return (
-        <Screen variant="scroll" backgroundVariant="cosmic">
+        <Screen variant="scroll" backgroundColor={colors.surfaceLowest}>
             {/* Back button */}
             <View style={styles.header}>
                 <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>

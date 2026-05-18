@@ -32,6 +32,22 @@ class AstrologyController extends AbstractController
         return $localeService->normalizeLocale($acceptLanguage);
     }
 
+    /** Static mapping: English sign id (lowercase) → element / rulers / affinities */
+    private const SIGN_DATA = [
+        'aries'       => ['element' => 'Feu',   'rulers' => ['Mars'],               'affinities' => ['Leo', 'Sagittarius']],
+        'taurus'      => ['element' => 'Terre', 'rulers' => ['Vénus'],              'affinities' => ['Cancer', 'Scorpio']],
+        'gemini'      => ['element' => 'Air',   'rulers' => ['Mercure'],            'affinities' => ['Libra', 'Aquarius']],
+        'cancer'      => ['element' => 'Eau',   'rulers' => ['Lune'],               'affinities' => ['Taurus', 'Pisces']],
+        'leo'         => ['element' => 'Feu',   'rulers' => ['Soleil'],             'affinities' => ['Libra', 'Sagittarius']],
+        'virgo'       => ['element' => 'Terre', 'rulers' => ['Mercure'],            'affinities' => ['Taurus', 'Scorpio']],
+        'libra'       => ['element' => 'Air',   'rulers' => ['Vénus'],              'affinities' => ['Leo', 'Sagittarius']],
+        'scorpio'     => ['element' => 'Eau',   'rulers' => ['Mars', 'Pluton'],     'affinities' => ['Cancer', 'Pisces']],
+        'sagittarius' => ['element' => 'Feu',   'rulers' => ['Jupiter'],            'affinities' => ['Aries', 'Libra']],
+        'capricorn'   => ['element' => 'Terre', 'rulers' => ['Saturne'],            'affinities' => ['Taurus', 'Scorpio']],
+        'aquarius'    => ['element' => 'Air',   'rulers' => ['Saturne', 'Uranus'],  'affinities' => ['Gemini', 'Sagittarius']],
+        'pisces'      => ['element' => 'Eau',   'rulers' => ['Jupiter', 'Neptune'], 'affinities' => ['Cancer', 'Scorpio']],
+    ];
+
     /**
      * Calculate user's natal chart
      */
@@ -54,6 +70,12 @@ class AstrologyController extends AbstractController
             return $this->json([
                 'error' => $result['error']
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        // Enrich with static sun sign data (element, rulers, affinities)
+        $sunSign = strtolower(preg_replace('/[^a-zA-Z]/', '', $result['chart']['planetaryPositions']['Sun']['Sign'] ?? ''));
+        if (isset(self::SIGN_DATA[$sunSign])) {
+            $result['sunSignData'] = self::SIGN_DATA[$sunSign];
         }
 
         return $this->json($result);

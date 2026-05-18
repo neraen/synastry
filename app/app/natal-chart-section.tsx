@@ -245,7 +245,7 @@ export default function NatalChartSectionScreen() {
     };
 
     return (
-        <Screen variant="scroll" backgroundVariant="cosmic">
+        <Screen variant="scroll" backgroundColor={colors.surfaceLowest}>
             {/* Header */}
             <View style={styles.header}>
                 <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>

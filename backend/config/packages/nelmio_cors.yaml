@@ -8,6 +8,12 @@ nelmio_cors:
         allow_credentials: true
         max_age: 3600
     paths:
+        '^/api/admin':
+            allow_origin: ['^http://localhost:5173$']
+            allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+            allow_methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+            allow_credentials: true
+            max_age: 3600
         '^/api/':
             allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
             allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']

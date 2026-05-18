@@ -13,6 +13,17 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
 
+        # Admin login endpoint - public (handles auth internally)
+        admin_login:
+            pattern: ^/api/admin/login
+            stateless: true
+
+        # Admin API endpoints - JWT protected, requires ROLE_ADMIN
+        admin_api:
+            pattern: ^/api/admin
+            stateless: true
+            jwt: ~
+
         # Login endpoint - returns JWT token
         login:
             pattern: ^/api/login
@@ -49,6 +60,10 @@ security:
             provider: app_user_provider
 
     access_control:
+        # Admin routes
+        - { path: ^/api/admin/login, roles: PUBLIC_ACCESS }
+        - { path: ^/api/admin, roles: ROLE_ADMIN }
+
         # Public routes - no authentication required
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/register, roles: PUBLIC_ACCESS }

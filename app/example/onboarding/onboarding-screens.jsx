@@ -174,9 +174,7 @@ function ScreenPrivacy({ onContinue }) {
 
   return (
     <div className="screen-body stagger">
-      <div className="hero-medallion">
-        <OBIcon.shield />
-      </div>
+      <HeroShield />
 
       <div className="center">
         <span className="chip">Confidentialité</span>
@@ -252,9 +250,7 @@ function ScreenGuide({ onContinue }) {
 
   return (
     <div className="screen-body stagger">
-      <div className="hero-medallion">
-        <OBIcon.question />
-      </div>
+      <HeroAstrolabe />
 
       <div style={{ marginTop: 6 }}>
         {features.map(f => (
@@ -394,13 +390,8 @@ function ScreenDone({ onFinish, active }) {
 
   return (
     <div className="screen-body stagger" style={{ justifyContent: "center" }}>
-      <div className="finale-medallion">
-        <div className="ring r3" />
-        <div className="ring r2" />
-        <div className="ring" />
-        <div className="core">
-          <OBIcon.sparkle4 />
-        </div>
+      <div style={{ position: "relative" }}>
+        <HeroFinale />
         <div ref={burstRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
       </div>
 

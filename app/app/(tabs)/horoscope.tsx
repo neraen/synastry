@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,26 +6,16 @@ import {
     Pressable,
     StyleSheet,
     ActivityIndicator,
-    Modal,
-    TouchableOpacity,
-    Animated,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, TabHeader, FormattedText, HelpModal, NoBirthProfileCard, Starfield } from '@/components/ui';
+import { GlassCard, GoldButton, GhostButton, TabHeader, HelpModal, NoBirthProfileCard, Starfield } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
-import {
-    getNatalChart,
-    getPlanetInterpretation,
-    NatalChart,
-    getMainPlanets,
-    getPlanetNameFr,
-    formatDegree,
-} from '@/services/astrology';
+import { AstralHero } from '@/components/astral/AstralHero';
+import { getNatalChart, NatalChart } from '@/services/astrology';
 import { colors, spacing, radius, fonts } from '@/theme';
 
 // ─── Help content ─────────────────────────────────────────────────────────────
@@ -63,270 +52,25 @@ const HOROSCOPE_HELP = (fr: boolean): HelpSection[] => [{
                 ? "Les 12 maisons correspondent aux domaines de vie (maison 1 = personnalité, maison 7 = relations, maison 10 = carrière…). La planète dans la maison agit dans ce domaine."
                 : "The 12 houses correspond to life areas (house 1 = personality, house 7 = relationships, house 10 = career…). A planet in a house acts in that domain.",
         },
-        {
-            symbol: '△', symbolColor: '#4ade80',
-            name: fr ? 'Les aspects' : 'Aspects',
-            description: fr
-                ? "Les angles entre les planètes créent des harmonies (trigone, sextile) ou des tensions (carré, opposition). Consultez le Centre d'aide pour une description complète."
-                : "Angles between planets create harmonies (trine, sextile) or tensions (square, opposition). See the Help Center for a full description.",
-        },
-        {
-            symbol: '℞', symbolColor: '#f87171',
-            name: fr ? 'Rétrograde' : 'Retrograde',
-            description: fr
-                ? "Quand une planète est rétrograde (℞), elle semble reculer dans le ciel. Son énergie se tourne davantage vers l'intérieur : c'est un temps de révision, de relecture et d'introspection plutôt que d'action vers l'extérieur."
-                : "When a planet is retrograde (℞), it appears to move backward in the sky. Its energy turns more inward — a time for revision, reflection, and introspection rather than outward action.",
-        },
     ],
 }];
 
-// ─── Planet display data ────────────────────────────────────────────────────────
-const PLANET_SYMBOLS: Record<string, string> = {
-    Sun:        '☀',
-    Moon:       '☽',
-    Mercury:    '☿',
-    Venus:      '♀',
-    Mars:       '♂',
-    Jupiter:    '♃',
-    Saturn:     '♄',
-    Uranus:     '♅',
-    Neptune:    '♆',
-    Pluto:      '♇',
-    Ascendant:  '↑',
-    Midheaven:  'MC',
-};
-
-const PLANET_TINTS = [
-    colors.primary,
-    `${colors.primary}CC`,
-    `${colors.primary}99`,
-    colors.secondary,
-    `${colors.secondary}CC`,
-];
-
-// ─── Planet Card ───────────────────────────────────────────────────────────────
-function PlanetCard({
-    planet,
-    data,
-    tint,
-    onPress,
-    showHalo = false,
-}: {
-    planet: string;
-    data: any;
-    tint: string;
-    onPress: () => void;
-    showHalo?: boolean;
-}) {
-    const symbol = PLANET_SYMBOLS[planet] || '✦';
-    const isRetrograde = data.Retrograde === 'Yes';
-    const haloAnim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        if (!showHalo) return;
-        const pulse = Animated.loop(
-            Animated.sequence([
-                Animated.timing(haloAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-                Animated.timing(haloAnim, { toValue: 0, duration: 900, useNativeDriver: true }),
-            ]),
-            { iterations: 4 },
-        );
-        pulse.start();
-        return () => pulse.stop();
-    }, [showHalo]);
-
-    return (
-        <Pressable onPress={onPress} style={styles.planetCardWrap}>
-            {showHalo && (
-                <Animated.View
-                    pointerEvents="none"
-                    style={[
-                        styles.halo,
-                        {
-                            opacity: haloAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.55] }),
-                            transform: [{ scale: haloAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }],
-                        },
-                    ]}
-                />
-            )}
-            <GlassCard opacity="low" radius="xl" style={styles.planetCard}>
-                <View style={[styles.symbolBubble, { backgroundColor: `${tint}1A` }]}>
-                    <Text style={[styles.planetSymbol, { color: tint }]}>{symbol}</Text>
-                </View>
-                <View style={styles.planetContent}>
-                    <View style={styles.planetNameRow}>
-                        <Text style={styles.planetName}>
-                            {getPlanetNameFr(planet)}{planet === 'Sun' ? ' (signe)' : ''}
-                        </Text>
-                        {isRetrograde && (
-                            <View style={styles.retroBadge}>
-                                <Text style={styles.retroText}>℞</Text>
-                            </View>
-                        )}
-                    </View>
-                    <Text style={styles.planetPosition} numberOfLines={1}>
-                        {formatDegree(data.Position, data.Sign)}
-                    </Text>
-                </View>
-            </GlassCard>
-        </Pressable>
-    );
-}
-
-// ─── Planet Detail Modal ────────────────────────────────────────────────────────
-function PlanetDetailModal({
-    visible,
-    planet,
-    data,
-    tint,
-    onClose,
-}: {
-    visible: boolean;
-    planet: string | null;
-    data: any | null;
-    tint: string;
-    onClose: () => void;
-}) {
-    const { t } = useTranslation();
-    const [interpretation, setInterpretation] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const slideY = useRef(new Animated.Value(300)).current;
-
-    useEffect(() => {
-        if (visible) {
-            Animated.spring(slideY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }).start();
-        } else {
-            slideY.setValue(300);
-            setInterpretation(null);
-            setError(null);
-        }
-    }, [visible]);
-
-    useEffect(() => {
-        if (!visible || !planet) return;
-        setLoading(true);
-        setError(null);
-        getPlanetInterpretation(planet)
-            .then((res) => {
-                if (res.success && res.interpretation) {
-                    setInterpretation(res.interpretation);
-                } else {
-                    setError(res.error ?? 'Erreur');
-                }
-            })
-            .catch(() => setError('Erreur réseau'))
-            .finally(() => setLoading(false));
-    }, [visible, planet]);
-
-    if (!planet || !data) return null;
-
-    const symbol = PLANET_SYMBOLS[planet] || '✦';
-    const isRetrograde = data.Retrograde === 'Yes';
-
-    return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="fade"
-            onRequestClose={onClose}
-            statusBarTranslucent
-        >
-            <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onClose} />
-            <Animated.View style={[modalStyles.sheet, { transform: [{ translateY: slideY }] }]}>
-                {/* Handle */}
-                <View style={modalStyles.handle} />
-
-                {/* Header */}
-                <View style={modalStyles.header}>
-                    <View style={[modalStyles.symbolBubble, { backgroundColor: `${tint}20` }]}>
-                        <Text style={[modalStyles.symbol, { color: tint }]}>{symbol}</Text>
-                    </View>
-                    <View style={modalStyles.headerText}>
-                        <View style={modalStyles.nameRow}>
-                            <Text style={modalStyles.planetName}>{getPlanetNameFr(planet)}</Text>
-                            {isRetrograde && (
-                                <View style={modalStyles.retroBadge}>
-                                    <Text style={modalStyles.retroText}>℞</Text>
-                                </View>
-                            )}
-                        </View>
-                        <Text style={modalStyles.position}>{formatDegree(data.Position, data.Sign)}</Text>
-                    </View>
-                    <TouchableOpacity onPress={onClose} hitSlop={12} style={modalStyles.closeBtn}>
-                        <Text style={modalStyles.closeIcon}>✕</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Content */}
-                <ScrollView style={modalStyles.content} showsVerticalScrollIndicator={false}>
-                    {loading ? (
-                        <View style={modalStyles.centered}>
-                            <ActivityIndicator color={colors.primary} />
-                        </View>
-                    ) : error ? (
-                        <Text style={modalStyles.errorText}>{error}</Text>
-                    ) : interpretation ? (
-                        <FormattedText text={interpretation} style={modalStyles.interpText} />
-                    ) : null}
-                    <View style={{ height: 32 }} />
-                </ScrollView>
-            </Animated.View>
-        </Modal>
-    );
-}
-
 // ─── Screen ────────────────────────────────────────────────────────────────────
+
 export default function HoroscopeTab() {
     const router = useRouter();
-    const { t } = useTranslation();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string>();
     const [chart, setChart] = useState<NatalChart | null>(null);
-
-    // Help modal
     const [helpVisible, setHelpVisible] = useState(false);
-
-    // First-visit halo hint
-    const [showHalo, setShowHalo] = useState(false);
-
-    // Planet detail modal
-    const [selectedPlanet, setSelectedPlanet] = useState<string | null>(null);
-    const [selectedData, setSelectedData] = useState<any | null>(null);
-    const [selectedTint, setSelectedTint] = useState<string>(colors.primary);
-
-    const openPlanetDetail = useCallback((planet: string, data: any, tint: string) => {
-        setSelectedPlanet(planet);
-        setSelectedData(data);
-        setSelectedTint(tint);
-    }, []);
-
-    const closePlanetDetail = useCallback(() => {
-        setSelectedPlanet(null);
-        setSelectedData(null);
-    }, []);
 
     useEffect(() => {
         if (isAuthLoading) return;
         if (isAuthenticated && user?.hasBirthProfile) loadChart();
         else setIsLoading(false);
     }, [isAuthenticated, user, isAuthLoading]);
-
-    useEffect(() => {
-        SecureStore.getItemAsync('halo_planet_seen').then((val) => {
-            if (!val) setShowHalo(true);
-        });
-    }, []);
-
-    const handleFirstCardPress = useCallback((planet: string, data: any, tint: string) => {
-        if (showHalo) {
-            setShowHalo(false);
-            SecureStore.setItemAsync('halo_planet_seen', '1');
-        }
-        openPlanetDetail(planet, data, tint);
-    }, [showHalo, openPlanetDetail]);
 
     async function loadChart(refresh = false) {
         try {
@@ -335,10 +79,10 @@ export default function HoroscopeTab() {
             if (response.success && response.chart) {
                 setChart(response.chart);
             } else {
-                setError(response.error || t('horoscope.chartError'));
+                setError(response.error || 'Erreur de chargement du thème natal');
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : t('horoscope.unknownError'));
+            setError(err instanceof Error ? err.message : 'Une erreur est survenue');
         } finally {
             setIsLoading(false);
         }
@@ -351,7 +95,7 @@ export default function HoroscopeTab() {
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
                     <View style={styles.centered}>
                         <ActivityIndicator color={colors.primary} size="large" />
-                        <Text style={styles.loadingText}>{t('horoscope.loadingChart')}</Text>
+                        <Text style={styles.loadingText}>Calcul du thème natal…</Text>
                     </View>
                 </SafeAreaView>
             </View>
@@ -364,9 +108,8 @@ export default function HoroscopeTab() {
             <View style={styles.screen}>
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
                     <View style={styles.centered}>
-                        <Text style={styles.emptyIcon}>🔮</Text>
-                        <Text style={styles.emptyText}>{t('horoscope.loginPrompt')}</Text>
-                        <GoldButton label={t('horoscope.loginBtn')} onPress={() => router.push('/login')} />
+                        <Text style={styles.emptyText}>Connectez-vous pour accéder à votre thème natal.</Text>
+                        <GoldButton label="Se connecter" onPress={() => router.push('/login')} />
                     </View>
                 </SafeAreaView>
             </View>
@@ -377,9 +120,6 @@ export default function HoroscopeTab() {
     if (!user?.hasBirthProfile) {
         return <NoBirthProfileCard />;
     }
-
-    const mainPlanets = chart ? getMainPlanets(chart.planetaryPositions) : {};
-    const planetEntries = Object.entries(mainPlanets);
 
     return (
         <View style={styles.screen}>
@@ -392,22 +132,22 @@ export default function HoroscopeTab() {
                 >
                     <TabHeader />
 
-                    {/* ── Hero ────────────────────────────────────────────────── */}
-                    <View style={styles.hero}>
-                        <View style={styles.badgeRow}>
-                            <View style={styles.badge}>
-                                <View style={styles.badgeDot} />
-                                <Text style={styles.badgeText}>{t('horoscope.badge')}</Text>
-                            </View>
-                            <Pressable onPress={() => setHelpVisible(true)} hitSlop={12}>
-                                <Feather name="help-circle" size={16} color={colors.onSurfaceMuted} />
-                            </Pressable>
+                    {/* ── Chip ────────────────────────────────────────────────── */}
+                    <View style={styles.chipRow}>
+                        <View style={styles.chip}>
+                            <View style={styles.chipDot} />
+                            <Text style={styles.chipText}>Portrait astral</Text>
                         </View>
-                        <Text style={styles.heroTitle}>{t('horoscope.heroTitle')}</Text>
-                        <Text style={styles.heroSubtitle}>
-                            {t('horoscope.heroSubtitle')}
-                        </Text>
+                        <Pressable onPress={() => setHelpVisible(true)} hitSlop={12}>
+                            <Feather name="help-circle" size={16} color={colors.onSurfaceMuted} />
+                        </Pressable>
                     </View>
+
+                    {/* ── Title ───────────────────────────────────────────────── */}
+                    <Text style={styles.title}>Votre Portrait Astral</Text>
+                    <Text style={styles.subtitle}>
+                        Vos positions planétaires au moment exact de votre naissance.
+                    </Text>
 
                     {/* ── Error ───────────────────────────────────────────────── */}
                     {error && (
@@ -415,47 +155,28 @@ export default function HoroscopeTab() {
                             <GlassCard opacity="low" radius="xl">
                                 <Text style={styles.errorText}>{error}</Text>
                                 <View style={{ marginTop: spacing.lg }}>
-                                    <GhostButton label={t('horoscope.retry')} onPress={() => loadChart()} />
+                                    <GhostButton label="Réessayer" onPress={() => loadChart()} />
                                 </View>
                             </GlassCard>
                         </View>
                     )}
 
-                    {/* ── Planets grid ─────────────────────────────────────────── */}
-                    {planetEntries.length > 0 && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>{t('horoscope.planetaryPositions')}</Text>
-                            <View style={styles.grid}>
-                                {planetEntries.map(([planet, data], index) => {
-                                    const tint = PLANET_TINTS[index % PLANET_TINTS.length];
-                                    const isFirst = index === 0;
-                                    return (
-                                        <PlanetCard
-                                            key={planet}
-                                            planet={planet}
-                                            data={data}
-                                            tint={tint}
-                                            showHalo={isFirst && showHalo}
-                                            onPress={() => isFirst
-                                                ? handleFirstCardPress(planet, data, tint)
-                                                : openPlanetDetail(planet, data, tint)
-                                            }
-                                        />
-                                    );
-                                })}
-                            </View>
-                        </View>
+                    {/* ── Portrait astral ──────────────────────────────────────── */}
+                    {chart && (
+                        <AstralHero positions={chart.planetaryPositions} outerPadding={20} />
                     )}
 
-                    {/* ── Interpretation ───────────────────────────────────────── */}
+                    {/* ── Interpretation CTA ───────────────────────────────────── */}
                     {chart && (
                         <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>{t('horoscope.interpretation')}</Text>
+                            <Text style={styles.sectionLabel}>INTERPRÉTATION</Text>
                             <GlassCard opacity="low" radius="xl">
-                                <Text style={styles.interpGuide}>{t('horoscope.chartGuide')}</Text>
+                                <Text style={styles.interpGuide}>
+                                    Explorez les positions de vos planètes au moment de votre naissance. Chaque planète révèle une facette de votre personnalité et de votre chemin de vie.
+                                </Text>
                                 <View style={{ marginTop: spacing.xl }}>
                                     <GoldButton
-                                        label={t('horoscope.showDetailedProfile')}
+                                        label="Voir mon profil astro détaillé"
                                         onPress={() => router.push('/natal-chart-analysis')}
                                         rightIcon
                                     />
@@ -463,7 +184,6 @@ export default function HoroscopeTab() {
                             </GlassCard>
                         </View>
                     )}
-
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
@@ -474,13 +194,6 @@ export default function HoroscopeTab() {
                 onClose={() => setHelpVisible(false)}
                 title={i18n.language === 'fr' ? 'Guide — Thème natal' : 'Guide — Natal Chart'}
                 sections={HOROSCOPE_HELP(i18n.language === 'fr')}
-            />
-            <PlanetDetailModal
-                visible={!!selectedPlanet}
-                planet={selectedPlanet}
-                data={selectedData}
-                tint={selectedTint}
-                onClose={closePlanetDetail}
             />
         </View>
     );
@@ -504,10 +217,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.onSurfaceMuted,
     },
-    emptyIcon: {
-        fontSize: 56,
-        textAlign: 'center',
-    },
     emptyText: {
         fontFamily: fonts.body.regular,
         fontSize: 15,
@@ -516,59 +225,62 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
 
-    // Hero
-    hero: {
-        paddingHorizontal: spacing.xl,
-        paddingTop: spacing.xl,
-        paddingBottom: spacing.xxxl,
-    },
-    badgeRow: {
+    // Chip
+    chipRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.sm,
         marginBottom: spacing.xl,
+        marginTop: spacing.xl,
+        paddingHorizontal: spacing.xl,
     },
-    badge: {
+    chip: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.sm,
-        backgroundColor: colors.surfaceContainerHigh,
-        borderRadius: radius.full,
         paddingHorizontal: spacing.md,
         paddingVertical: 6,
+        borderRadius: radius.full,
+        backgroundColor: colors.surfaceContainerHigh,
     },
-    badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
-    badgeText: {
+    chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+    chipText: {
         fontFamily: fonts.body.semiBold,
         fontSize: 10,
         letterSpacing: 1.5,
         color: colors.onSurfaceMuted,
         textTransform: 'uppercase',
     },
-    heroTitle: {
+
+    // Title
+    title: {
         fontFamily: fonts.display.bold,
-        fontSize: 42,
-        lineHeight: 50,
+        fontSize: 38,
+        lineHeight: 46,
         color: colors.onSurface,
         letterSpacing: -0.5,
         marginBottom: spacing.md,
+        paddingHorizontal: spacing.xl,
     },
-    heroSubtitle: {
+    subtitle: {
         fontFamily: fonts.body.regular,
         fontSize: 14,
         lineHeight: 22,
         color: colors.onSurfaceMuted,
         maxWidth: 300,
+        marginBottom: spacing.xl,
+        paddingHorizontal: spacing.xl,
     },
 
     // Sections
     section: {
-        paddingHorizontal: spacing.xl,
+        marginTop: spacing.xxxl,
         marginBottom: spacing.xxl,
+        paddingHorizontal: spacing.xl,
     },
     sectionPad: {
-        paddingHorizontal: spacing.xl,
         marginBottom: spacing.xl,
+        paddingHorizontal: spacing.xl,
     },
     sectionLabel: {
         fontFamily: fonts.body.semiBold,
@@ -578,216 +290,17 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         marginBottom: spacing.md,
     },
-
-    halo: {
-        ...StyleSheet.absoluteFillObject,
-        borderRadius: radius.xl,
-        backgroundColor: `${colors.primary}`,
-        zIndex: 1,
-    },
-
-    // Planet grid
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.md,
-    },
-    planetCardWrap: {
-        width: '47.5%',
-    },
-    planetCard: {
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.sm,
-    },
-    symbolBubble: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        alignSelf: 'center',
-    },
-    planetSymbol: {
-        fontFamily: fonts.display.bold,
-        fontSize: 18,
-        lineHeight: 22,
-    },
-    planetContent: { alignItems: 'center' },
-    planetNameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.xs,
-        marginBottom: 2,
-    },
-    planetName: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 13,
-        color: colors.onSurface,
-    },
-    retroBadge: {
-        backgroundColor: `${colors.error}20`,
-        borderRadius: radius.full,
-        paddingHorizontal: 5,
-        paddingVertical: 1,
-    },
-    retroText: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 10,
-        color: colors.error,
-    },
-    planetPosition: {
-        fontFamily: fonts.body.regular,
-        fontSize: 11,
-        color: colors.onSurfaceMuted,
-        textAlign: 'center',
-    },
-
-    // Interpretation
-    interpText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 15,
-        lineHeight: 26,
-        color: colors.onSurface,
-    },
     interpGuide: {
         fontFamily: fonts.body.regular,
         fontSize: 15,
         lineHeight: 24,
         color: colors.onSurfaceMuted,
     },
-    interpLoading: {
-        alignItems: 'center',
-        paddingVertical: spacing.lg,
-        gap: spacing.md,
-    },
-    interpLoadingText: {
-        fontFamily: fonts.body.medium,
-        fontSize: 14,
-        color: colors.onSurfaceMuted,
-    },
-    interpLoadingHint: {
-        fontFamily: fonts.body.regular,
-        fontSize: 12,
-        color: `${colors.onSurfaceMuted}80`,
-    },
-    // Error
     errorText: {
         fontFamily: fonts.body.regular,
         fontSize: 14,
         color: colors.error,
         textAlign: 'center',
         lineHeight: 20,
-    },
-});
-
-// ─── Modal Styles ──────────────────────────────────────────────────────────────
-const modalStyles = StyleSheet.create({
-    backdrop: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(10, 6, 22, 0.72)',
-    },
-    sheet: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: colors.surfaceContainerHigh,
-        borderTopLeftRadius: radius.xl,
-        borderTopRightRadius: radius.xl,
-        paddingBottom: 40,
-        maxHeight: '75%',
-    },
-    handle: {
-        width: 36,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: `${colors.onSurfaceMuted}40`,
-        alignSelf: 'center',
-        marginTop: spacing.md,
-        marginBottom: spacing.lg,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: spacing.xl,
-        paddingBottom: spacing.lg,
-        gap: spacing.md,
-    },
-    symbolBubble: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    symbol: {
-        fontFamily: fonts.display.bold,
-        fontSize: 20,
-        lineHeight: 24,
-    },
-    headerText: {
-        flex: 1,
-    },
-    nameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.xs,
-    },
-    planetName: {
-        fontFamily: fonts.display.semiBold,
-        fontSize: 18,
-        color: colors.onSurface,
-    },
-    retroBadge: {
-        backgroundColor: `${colors.error}20`,
-        borderRadius: radius.full,
-        paddingHorizontal: 5,
-        paddingVertical: 1,
-    },
-    retroText: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 11,
-        color: colors.error,
-    },
-    position: {
-        fontFamily: fonts.body.regular,
-        fontSize: 13,
-        color: colors.onSurfaceMuted,
-        marginTop: 2,
-    },
-    closeBtn: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: `${colors.onSurfaceMuted}18`,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    closeIcon: {
-        fontFamily: fonts.body.regular,
-        fontSize: 12,
-        color: colors.onSurfaceMuted,
-    },
-    content: {
-        paddingHorizontal: spacing.xl,
-    },
-    centered: {
-        paddingVertical: spacing.xxl,
-        alignItems: 'center',
-    },
-    interpText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 15,
-        lineHeight: 26,
-        color: colors.onSurface,
-    },
-    errorText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
-        color: colors.error,
-        lineHeight: 22,
     },
 });

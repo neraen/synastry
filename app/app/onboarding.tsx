@@ -15,6 +15,7 @@ import {
     StyleSheet,
     ScrollView,
     Animated,
+    Easing,
     Platform,
     Dimensions,
     KeyboardAvoidingView,
@@ -25,6 +26,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
+import Svg, {
+    Circle,
+    Path,
+    Ellipse,
+    Line,
+    Defs,
+    LinearGradient as SvgLinearGradient,
+    RadialGradient,
+    Stop,
+} from 'react-native-svg';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { GoldButton, GhostButton, AppDatePicker, AppTimePicker, CityAutocomplete } from '@/components/ui';
@@ -119,48 +130,364 @@ function BackButton({ visible, onPress }: { visible: boolean; onPress: () => voi
     );
 }
 
-// ─── Hero Medallion ────────────────────────────────────────────────────────────
+// ─── SVG Hero helpers ─────────────────────────────────────────────────────────
 
-function HeroMedallion({ children }: { children: React.ReactNode }) {
-    const ring1 = useRef(new Animated.Value(0)).current;
-    const ring2 = useRef(new Animated.Value(0)).current;
+const HERO = 168; // px — rendered size of each hero container
 
+/** Twinkling stars — rendered in a dedicated full-size SVG layer */
+function StarLayer({ seed = 0 }: { seed?: number }) {
+    const positions = useMemo(
+        () => [
+            { cx: 32 + seed, cy: 56,  r: 1.3, dur: 3400, peak: 0.9 },
+            { cx: 170 - seed, cy: 64, r: 1.0, dur: 2900, peak: 0.7 },
+            { cx: 168,        cy: 152, r: 1.3, dur: 4000, peak: 0.85 },
+            { cx: 36,         cy: 148, r: 1.0, dur: 3300, peak: 0.6 },
+            { cx: 100,        cy: 28,  r: 0.9, dur: 3600, peak: 0.8 },
+            { cx: 100,        cy: 178, r: 0.9, dur: 3100, peak: 0.7 },
+        ],
+        [seed],
+    );
+    // opacity values — need useNativeDriver: false (SVG props)
+    const opacities = useRef(positions.map(() => new Animated.Value(0.1))).current;
     useEffect(() => {
-        const makeLoop = (anim: Animated.Value, delay: number) =>
-            Animated.loop(
+        const loops = opacities.map((anim, i) => {
+            const { dur, peak } = positions[i];
+            const loop = Animated.loop(
                 Animated.sequence([
-                    Animated.delay(delay),
-                    Animated.timing(anim, { toValue: 1, duration: 3200, useNativeDriver: true }),
-                    Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+                    Animated.timing(anim, { toValue: peak, duration: dur / 2, useNativeDriver: false }),
+                    Animated.timing(anim, { toValue: 0.1,  duration: dur / 2, useNativeDriver: false }),
                 ]),
             );
-        const a = makeLoop(ring1, 0);
-        const b = makeLoop(ring2, 1400);
-        a.start();
-        b.start();
-        return () => {
-            a.stop();
-            b.stop();
-        };
+            loop.start();
+            return loop;
+        });
+        return () => loops.forEach((l) => l.stop());
+    }, []);
+    const AnimatedCircle = useMemo(() => Animated.createAnimatedComponent(Circle), []);
+    return (
+        <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
+            {positions.map((p, i) => (
+                <AnimatedCircle key={i} cx={p.cx} cy={p.cy} r={p.r} fill="#fff" fillOpacity={opacities[i] as any} />
+            ))}
+        </Svg>
+    );
+}
+
+/**
+ * Rotating layer helper.
+ * Wraps a full-size SVG in an Animated.View that rotates around the container
+ * centre (which maps to 100,100 in the 200×200 viewBox).
+ * Uses useNativeDriver: true for smooth 60fps rotation.
+ */
+function RotatingLayer({
+    duration,
+    reverse = false,
+    children,
+}: {
+    duration: number;
+    reverse?: boolean;
+    children: React.ReactNode;
+}) {
+    const rot = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        Animated.loop(
+            Animated.timing(rot, {
+                toValue: 1,
+                duration,
+                easing: Easing.linear,
+                useNativeDriver: true,
+            }),
+        ).start();
+    }, []);
+    const deg = rot.interpolate({
+        inputRange:  [0, 1],
+        outputRange: reverse ? ['0deg', '-360deg'] : ['0deg', '360deg'],
+    });
+    return (
+        <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate: deg }] }]}>
+            <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
+                {children}
+            </Svg>
+        </Animated.View>
+    );
+}
+
+// ─── Hero Shield (Step 0 — Privacy) ──────────────────────────────────────────
+
+function HeroShield() {
+    const float = useRef(new Animated.Value(0)).current;
+    const aura  = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(float, { toValue: -4, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+                Animated.timing(float, { toValue: 0,  duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            ]),
+        ).start();
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(aura, { toValue: 1.06, duration: 3250, useNativeDriver: true }),
+                Animated.timing(aura, { toValue: 1,    duration: 3250, useNativeDriver: true }),
+            ]),
+        ).start();
     }, []);
 
-    const ringStyle = (anim: Animated.Value) => ({
-        opacity: anim.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0.5, 0] }),
-        transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.15] }) }],
-    });
+    return (
+        <View style={s.heroWrap}>
+            {/* Aura glow */}
+            <Animated.View style={[s.heroAura, { transform: [{ scale: aura }] }]} />
+
+            {/* Stars */}
+            <StarLayer seed={2} />
+
+            {/* Orbit ellipse (static, tilted) */}
+            <View style={[StyleSheet.absoluteFill, { transform: [{ rotate: '-18deg' }] }]}>
+                <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
+                    <Ellipse cx={100} cy={100} rx={80} ry={28}
+                        stroke="rgba(229,194,102,0.32)" strokeWidth={1} fill="none" strokeDasharray="1.5 4" />
+                </Svg>
+                {/* Sparkle orbiting in the tilted plane */}
+                <RotatingLayer duration={9000}>
+                    <Circle cx={180} cy={100} r={2.6} fill="#F4DC95" />
+                </RotatingLayer>
+            </View>
+
+            {/* Shield — floats up/down */}
+            <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: float }] }]}>
+                <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={s.heroSvgShadow}>
+                    <Defs>
+                        <SvgLinearGradient id="shGold" x1="0" y1="0" x2="0" y2="1">
+                            <Stop offset="0%"   stopColor="#FFE9A8" />
+                            <Stop offset="48%"  stopColor="#E5C266" />
+                            <Stop offset="100%" stopColor="#8E6F31" />
+                        </SvgLinearGradient>
+                        <SvgLinearGradient id="shFace" x1="0" y1="0" x2="0" y2="1">
+                            <Stop offset="0%"   stopColor="#2D1F5E" />
+                            <Stop offset="100%" stopColor="#150B30" />
+                        </SvgLinearGradient>
+                        <RadialGradient id="shMoon" cx="40%" cy="40%" r="60%">
+                            <Stop offset="0%"   stopColor="#FFE9A8" />
+                            <Stop offset="100%" stopColor="#B89549" />
+                        </RadialGradient>
+                    </Defs>
+                    <Path d="M100 52 L138 65 L138 102 C138 124 122 142 100 150 C78 142 62 124 62 102 L62 65 Z"
+                        fill="url(#shGold)" />
+                    <Path d="M100 62 L130 72 L130 102 C130 119 117 134 100 140 C83 134 70 119 70 102 L70 72 Z"
+                        fill="url(#shFace)" />
+                    <Path
+                        d="M 85 100 a 15 15 0 1 0 30 0 a 15 15 0 1 0 -30 0 M 91 100 a 12 12 0 1 0 24 0 a 12 12 0 1 0 -24 0 Z"
+                        fillRule="evenodd" fill="url(#shMoon)" />
+                </Svg>
+            </Animated.View>
+        </View>
+    );
+}
+
+// ─── Hero Astrolabe (Step 1 — Guide) ─────────────────────────────────────────
+
+function HeroAstrolabe() {
+    const aura       = useRef(new Animated.Value(1)).current;
+    const pointerOsc = useRef(new Animated.Value(0)).current;
+    const discScale  = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(aura, { toValue: 1.06, duration: 3250, useNativeDriver: true }),
+                Animated.timing(aura, { toValue: 1,    duration: 3250, useNativeDriver: true }),
+            ]),
+        ).start();
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pointerOsc, { toValue: 1,  duration: 5500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+                Animated.timing(pointerOsc, { toValue: 0,  duration: 5500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            ]),
+        ).start();
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(discScale, { toValue: 28 / 24, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+                Animated.timing(discScale, { toValue: 1,       duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            ]),
+        ).start();
+    }, []);
+
+    const pointerDeg = pointerOsc.interpolate({ inputRange: [0, 1], outputRange: ['-6deg', '6deg'] });
+
+    const ticks = useMemo(
+        () =>
+            Array.from({ length: 24 }, (_, i) => {
+                const ang = (i * 15 * Math.PI) / 180;
+                const isMajor = i % 2 === 0;
+                const r1 = isMajor ? 60 : 62;
+                return {
+                    x1: 100 + Math.cos(ang) * r1, y1: 100 + Math.sin(ang) * r1,
+                    x2: 100 + Math.cos(ang) * 68,  y2: 100 + Math.sin(ang) * 68,
+                    major: isMajor,
+                };
+            }),
+        [],
+    );
+    const zodiacDots = useMemo(
+        () => [0, 60, 120, 180, 240, 300].map((a) => ({
+            x: 100 + Math.cos((a * Math.PI) / 180) * 46,
+            y: 100 + Math.sin((a * Math.PI) / 180) * 46,
+        })),
+        [],
+    );
+    const cardinalDots = useMemo(
+        () => [0, 90, 180, 270].map((a) => ({
+            cx: 100 + Math.cos((a * Math.PI) / 180) * 72,
+            cy: 100 + Math.sin((a * Math.PI) / 180) * 72,
+        })),
+        [],
+    );
 
     return (
-        <View style={s.medallionWrap}>
-            <Animated.View style={[s.medallionRing, ringStyle(ring1)]} />
-            <Animated.View style={[s.medallionRing, s.medallionRingOuter, ringStyle(ring2)]} />
-            <LinearGradient
-                colors={[`${colors.primary}38`, `${colors.primary}0a`, 'transparent']}
-                style={s.medallion}
-                start={{ x: 0.3, y: 0.3 }}
-                end={{ x: 1, y: 1 }}
-            >
-                {children}
-            </LinearGradient>
+        <View style={s.heroWrap}>
+            <Animated.View style={[s.heroAura, { transform: [{ scale: aura }] }]} />
+
+            {/* Stars */}
+            <StarLayer />
+
+            {/* Outer tick ring — rotates clockwise */}
+            <RotatingLayer duration={48000}>
+                <Circle cx={100} cy={100} r={68} stroke="rgba(229,194,102,0.40)" strokeWidth={1} fill="none" />
+                <Circle cx={100} cy={100} r={60} stroke="rgba(229,194,102,0.16)" strokeWidth={1} fill="none" />
+                {ticks.map((t, i) => (
+                    <Line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
+                        stroke={t.major ? '#E5C266' : 'rgba(229,194,102,0.5)'}
+                        strokeWidth={t.major ? 1.4 : 1} strokeLinecap="round" />
+                ))}
+                {cardinalDots.map((d, i) => (
+                    <Circle key={i} cx={d.cx} cy={d.cy} r={2.2} fill="#F4DC95" />
+                ))}
+            </RotatingLayer>
+
+            {/* Mid dashed ring — counter-rotates */}
+            <RotatingLayer duration={32000} reverse>
+                <Circle cx={100} cy={100} r={46}
+                    stroke="rgba(229,194,102,0.45)" strokeWidth={1} fill="none" strokeDasharray="2 3" />
+                {zodiacDots.map((d, i) => (
+                    <Circle key={i} cx={d.x} cy={d.y} r={1.6} fill="#F4DC95" />
+                ))}
+            </RotatingLayer>
+
+            {/* Crossed pointers — oscillate */}
+            <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate: pointerDeg }] }]}>
+                <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
+                    <Line x1={100} y1={30} x2={100} y2={170}
+                        stroke="#E5C266" strokeWidth={1.6} strokeLinecap="round" opacity={0.75} />
+                    <Line x1={30} y1={100} x2={170} y2={100}
+                        stroke="#E5C266" strokeWidth={1.6} strokeLinecap="round" opacity={0.5} />
+                    <Circle cx={100} cy={30} r={2.4} fill="#F4DC95" />
+                    <Circle cx={100} cy={170} r={2} fill="#F4DC95" opacity={0.7} />
+                </Svg>
+            </Animated.View>
+
+            {/* Central disc glow — pulses via scale */}
+            <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: discScale }] }]}>
+                <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
+                    <Circle cx={100} cy={100} r={24} fill="rgba(244,220,149,0.22)" />
+                </Svg>
+            </Animated.View>
+
+            {/* Central disc static */}
+            <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
+                <Defs>
+                    <RadialGradient id="asCore" cx="38%" cy="36%" r="65%">
+                        <Stop offset="0%"   stopColor="#FFF4CC" />
+                        <Stop offset="55%"  stopColor="#E5C266" />
+                        <Stop offset="100%" stopColor="#7E6328" />
+                    </RadialGradient>
+                </Defs>
+                <Circle cx={100} cy={100} r={16} fill="url(#asCore)" stroke="rgba(255,233,168,0.6)" strokeWidth={0.7} />
+                <Path d="M100 86 L102.5 97.5 L114 100 L102.5 102.5 L100 114 L97.5 102.5 L86 100 L97.5 97.5 Z"
+                    fill="#180E36" opacity={0.65} />
+            </Svg>
+        </View>
+    );
+}
+
+// ─── Hero Finale (Step 3 — Done) ─────────────────────────────────────────────
+
+function HeroFinale() {
+    const aura      = useRef(new Animated.Value(1)).current;
+    const pinScale  = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(aura, { toValue: 1.06, duration: 3250, useNativeDriver: true }),
+                Animated.timing(aura, { toValue: 1,    duration: 3250, useNativeDriver: true }),
+            ]),
+        ).start();
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pinScale, { toValue: 1.6, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+                Animated.timing(pinScale, { toValue: 1,   duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            ]),
+        ).start();
+    }, []);
+
+    return (
+        <View style={s.heroWrap}>
+            <Animated.View style={[s.heroAura, s.heroAuraStrong, { transform: [{ scale: aura }] }]} />
+
+            {/* Inner glow + stars */}
+            <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
+                <Defs>
+                    <RadialGradient id="fnGlow" cx="50%" cy="50%" r="50%">
+                        <Stop offset="0%"   stopColor="rgba(244,220,149,0.6)" />
+                        <Stop offset="55%"  stopColor="rgba(244,220,149,0.06)" />
+                        <Stop offset="100%" stopColor="rgba(244,220,149,0)" />
+                    </RadialGradient>
+                </Defs>
+                <Circle cx={100} cy={100} r={78} fill="url(#fnGlow)" />
+            </Svg>
+
+            <StarLayer />
+
+            {/* Outer ring + planet — slow CW */}
+            <RotatingLayer duration={38000}>
+                <Circle cx={100} cy={100} r={76} stroke="rgba(229,194,102,0.18)" strokeWidth={1} fill="none" />
+                <Circle cx={176} cy={100} r={3.2} fill="#F4DC95" />
+            </RotatingLayer>
+
+            {/* Mid dashed ring — CCW */}
+            <RotatingLayer duration={26000} reverse>
+                <Circle cx={100} cy={100} r={58}
+                    stroke="rgba(229,194,102,0.32)" strokeWidth={1} fill="none" strokeDasharray="2 4" />
+                <Circle cx={158} cy={100} r={2.4} fill="#F4DC95" />
+                <Circle cx={42}  cy={100} r={1.8} fill="#F4DC95" opacity={0.8} />
+            </RotatingLayer>
+
+            {/* Inner ring — CW faster */}
+            <RotatingLayer duration={18000}>
+                <Circle cx={100} cy={100} r={40} stroke="rgba(229,194,102,0.5)" strokeWidth={1} fill="none" />
+                <Circle cx={140} cy={100} r={2} fill="#F4DC95" />
+            </RotatingLayer>
+
+            {/* 4-point star — very slow CW */}
+            <RotatingLayer duration={40000}>
+                <Defs>
+                    <RadialGradient id="fnStar" cx="50%" cy="42%" r="55%">
+                        <Stop offset="0%"   stopColor="#FFFAE0" />
+                        <Stop offset="35%"  stopColor="#F4DC95" />
+                        <Stop offset="100%" stopColor="#8E6F31" />
+                    </RadialGradient>
+                </Defs>
+                <Path
+                    d="M100 79.5 L102.5 96.5 L119.5 100 L102.5 103.5 L100 120.5 L97.5 103.5 L80.5 100 L97.5 96.5 Z"
+                    fill="url(#fnStar)" opacity={0.95} />
+            </RotatingLayer>
+
+            {/* Center pinprick — pulses */}
+            <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: pinScale }] }]}>
+                <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
+                    <Circle cx={100} cy={100} r={2} fill="#FFFFFF" opacity={0.9} />
+                </Svg>
+            </Animated.View>
         </View>
     );
 }
@@ -266,14 +593,14 @@ function StepRGPD({ onContinue }: { onContinue: () => void }) {
     const [acceptAI, setAcceptAI] = useState(false);
     const ready = acceptTerms && acceptAI;
 
-    const dataItems = t('onboarding.rgpd.dataItems', { returnObjects: true }) as string[];
+    type DataItem = { title: string; desc: string };
+    const dataItems = t('onboarding.rgpd.dataItems', { returnObjects: true }) as DataItem[];
+    const dataIcons: (keyof typeof Feather.glyphMap)[] = ['mail', 'user', 'calendar'];
 
     return (
         <View style={s.screenRoot}>
             <ScrollView contentContainerStyle={s.screenScroll} showsVerticalScrollIndicator={false}>
-                <HeroMedallion>
-                    <Feather name="shield" size={36} color={colors.primary} />
-                </HeroMedallion>
+                <HeroShield />
 
                 <View style={s.chipWrap}>
                     <View style={s.chip}>
@@ -286,21 +613,18 @@ function StepRGPD({ onContinue }: { onContinue: () => void }) {
 
                 <View style={s.card}>
                     <Text style={s.listTitle}>{t('onboarding.rgpd.dataTitle')}</Text>
-                    {dataItems.map((item, i) => (
-                        <View key={i} style={[s.dataRow, i > 0 && { marginTop: 12 }]}>
-                            <View style={s.dataDot} />
-                            <Text style={s.dataText}>{item}</Text>
-                        </View>
-                    ))}
-
-                    <View style={s.thirdPartyRow}>
-                        <Feather
-                            name="info"
-                            size={12}
-                            color={`${colors.onSurfaceMuted}70`}
-                            style={{ marginTop: 1 }}
-                        />
-                        <Text style={s.thirdPartyText}>{t('onboarding.rgpd.thirdParties')}</Text>
+                    <View style={s.dataList}>
+                        {dataItems.map((item, i) => (
+                            <View key={i} style={[s.dataRow, i > 0 && { marginTop: 14 }]}>
+                                <View style={s.dataIconBox}>
+                                    <Feather name={dataIcons[i] ?? 'star'} size={18} color={colors.primary} />
+                                </View>
+                                <View style={s.dataBody}>
+                                    <Text style={s.dataItemTitle}>{item.title}</Text>
+                                    <Text style={s.dataItemDesc}>{item.desc}</Text>
+                                </View>
+                            </View>
+                        ))}
                     </View>
                 </View>
 
@@ -377,9 +701,7 @@ function StepGuide({ onContinue }: { onContinue: () => void }) {
     return (
         <View style={s.screenRoot}>
             <ScrollView contentContainerStyle={s.screenScroll} showsVerticalScrollIndicator={false}>
-                <HeroMedallion>
-                    <Feather name="help-circle" size={36} color={colors.primary} />
-                </HeroMedallion>
+                <HeroAstrolabe />
 
                 <View style={{ marginTop: 6 }}>
                     {mockPages.map((name, i) => (
@@ -589,40 +911,8 @@ function StepBirthProfile({
 
 // ─── Step 3 — All set ──────────────────────────────────────────────────────────
 
-function StepDone({ onFinish, active }: { onFinish: () => void; active: boolean }) {
+function StepDone({ onFinish }: { onFinish: () => void }) {
     const { t } = useTranslation();
-
-    const ring1 = useRef(new Animated.Value(0)).current;
-    const ring2 = useRef(new Animated.Value(0)).current;
-    const ring3 = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        if (!active) return;
-        const makeLoop = (anim: Animated.Value, delay: number) =>
-            Animated.loop(
-                Animated.sequence([
-                    Animated.delay(delay),
-                    Animated.timing(anim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-                    Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
-                ]),
-            );
-        const a = makeLoop(ring1, 0);
-        const b = makeLoop(ring2, 600);
-        const c = makeLoop(ring3, 1200);
-        a.start();
-        b.start();
-        c.start();
-        return () => {
-            a.stop();
-            b.stop();
-            c.stop();
-        };
-    }, [active]);
-
-    const ringStyle = (anim: Animated.Value) => ({
-        opacity: anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.45, 0] }),
-        transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.9] }) }],
-    });
 
     const feats = [
         { icon: '☽', label: t('onboarding.done.feature1') },
@@ -637,19 +927,7 @@ function StepDone({ onFinish, active }: { onFinish: () => void; active: boolean 
                 contentContainerStyle={[s.screenScroll, { alignItems: 'center' }]}
                 showsVerticalScrollIndicator={false}
             >
-                <View style={s.finaleMedallionWrap}>
-                    <Animated.View style={[s.finaleRing, s.finaleRingLg, ringStyle(ring3)]} />
-                    <Animated.View style={[s.finaleRing, s.finaleRingMd, ringStyle(ring2)]} />
-                    <Animated.View style={[s.finaleRing, ringStyle(ring1)]} />
-                    <LinearGradient
-                        colors={[`${colors.primary}50`, `${colors.secondary}30`, 'transparent']}
-                        style={s.finaleCore}
-                        start={{ x: 0.5, y: 0 }}
-                        end={{ x: 0.5, y: 1 }}
-                    >
-                        <Text style={s.finaleGlyph}>✦</Text>
-                    </LinearGradient>
-                </View>
+                <HeroFinale />
 
                 <Text style={[s.h1, { textAlign: 'center' }]}>{t('onboarding.done.title')}</Text>
                 <Text style={[s.lead, { textAlign: 'center' }]}>
@@ -749,7 +1027,7 @@ export default function OnboardingScreen() {
         <StepRGPD onContinue={() => goTo(1)} />,
         <StepGuide onContinue={() => goTo(2)} />,
         <StepBirthProfile onContinue={() => goTo(3)} onSkip={skipToApp} />,
-        <StepDone onFinish={skipToApp} active={step === 3} />,
+        <StepDone onFinish={skipToApp} />,
     ];
 
     return (
@@ -851,37 +1129,32 @@ const s = StyleSheet.create({
         paddingBottom: spacing.xxxl,
     },
 
-    // ── Hero medallion ────────────────────────────────────────────────────────
-    medallionWrap: {
-        width: 124,
-        height: 124,
+    // ── SVG Heroes ────────────────────────────────────────────────────────────
+    heroWrap: {
+        width: 168,
+        height: 168,
         alignSelf: 'center',
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: spacing.xl,
         marginBottom: spacing.xl,
     },
-    medallionRing: {
+    heroAura: {
         position: 'absolute',
-        width: 140,
-        height: 140,
-        borderRadius: 70,
-        borderWidth: 1,
-        borderColor: `${colors.primary}38`,
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: `${colors.primary}28`,
     },
-    medallionRingOuter: {
-        width: 156,
-        height: 156,
-        borderRadius: 78,
+    heroAuraStrong: {
+        backgroundColor: `${colors.primary}3a`,
     },
-    medallion: {
-        width: 124,
-        height: 124,
-        borderRadius: 62,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: `${colors.primary}2e`,
+    heroSvgShadow: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.18,
+        shadowRadius: 22,
+        elevation: 8,
     },
 
     // ── Chip badge ────────────────────────────────────────────────────────────
@@ -940,40 +1213,38 @@ const s = StyleSheet.create({
     },
 
     // ── RGPD data items ───────────────────────────────────────────────────────
+    dataList: {
+        gap: 0,
+    },
     dataRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        gap: spacing.md,
+        gap: 14,
     },
-    dataDot: {
-        width: 5,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: `${colors.primary}80`,
-        marginTop: 8,
+    dataIconBox: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        backgroundColor: `${colors.primary}14`,
+        borderWidth: 1,
+        borderColor: `${colors.primary}2e`,
+        alignItems: 'center',
+        justifyContent: 'center',
         flexShrink: 0,
     },
-    dataText: {
+    dataBody: {
         flex: 1,
-        fontFamily: fonts.body.regular,
+    },
+    dataItemTitle: {
+        fontFamily: fonts.body.semiBold,
         fontSize: 14,
-        color: colors.onSurfaceMuted,
-        lineHeight: 21,
+        color: colors.onSurface,
+        marginBottom: 2,
     },
-    thirdPartyRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: spacing.md,
-        backgroundColor: `${colors.secondary}10`,
-        borderRadius: radius.md,
-        padding: spacing.md,
-        marginTop: spacing.lg,
-    },
-    thirdPartyText: {
-        flex: 1,
+    dataItemDesc: {
         fontFamily: fonts.body.regular,
         fontSize: 13,
-        color: `${colors.onSurfaceMuted}cc`,
+        color: colors.onSurfaceMuted,
         lineHeight: 19,
     },
 
@@ -1112,32 +1383,6 @@ const s = StyleSheet.create({
     },
 
     // ── Done screen ───────────────────────────────────────────────────────────
-    finaleMedallionWrap: {
-        width: 120,
-        height: 120,
-        alignSelf: 'center',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: spacing.xl,
-        marginBottom: spacing.xl,
-    },
-    finaleRing: {
-        position: 'absolute',
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: `${colors.primary}20`,
-    },
-    finaleRingMd: { width: 120, height: 120, borderRadius: 60 },
-    finaleRingLg: { width: 140, height: 140, borderRadius: 70 },
-    finaleCore: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    finaleGlyph: { fontSize: 44, color: colors.primary },
     featGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',

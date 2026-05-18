@@ -39,6 +39,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true, unique: true)]
     private ?string $appleId = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $displayName = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $createdAt = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $lastLoginAt = null;
+
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $isPremium = false;
 
@@ -236,6 +245,59 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getChatSessions(): Collection
     {
         return $this->chatSessions;
+    }
+
+    public function getDisplayName(): ?string
+    {
+        return $this->displayName;
+    }
+
+    public function setDisplayName(?string $displayName): static
+    {
+        $this->displayName = $displayName;
+        return $this;
+    }
+
+    public function getCreatedAt(): ?\DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(?\DateTimeImmutable $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+        return $this;
+    }
+
+    public function getLastLoginAt(): ?\DateTimeImmutable
+    {
+        return $this->lastLoginAt;
+    }
+
+    public function setLastLoginAt(?\DateTimeImmutable $lastLoginAt): static
+    {
+        $this->lastLoginAt = $lastLoginAt;
+        return $this;
+    }
+
+    public function getAuthProvider(): string
+    {
+        if ($this->googleId !== null) {
+            return 'google';
+        }
+        if ($this->appleId !== null) {
+            return 'apple';
+        }
+        return 'email';
+    }
+
+    public function getLyraMessageCount(): int
+    {
+        $count = 0;
+        foreach ($this->chatSessions as $session) {
+            $count += count($session->getMessages());
+        }
+        return $count;
     }
 
     #[\Deprecated]

@@ -44,18 +44,8 @@ const SIGN_INFO: Record<string, { fr: string; element: string; ruler: string }> 
     Pisces:      { fr: 'Poissons',   element: 'Eau',   ruler: 'Neptune' },
 };
 
-const AVATAR_MAP: Partial<Record<string, any>> = {
-    Taurus:      require('@/assets/images/sign-avatar/taureau.png'),
-    Gemini:      require('@/assets/images/sign-avatar/gemeau.png'),
-    Cancer:      require('@/assets/images/sign-avatar/cancer.png'),
-    Leo:         require('@/assets/images/sign-avatar/lion.png'),
-    Virgo:       require('@/assets/images/sign-avatar/vierge.png'),
-    Scorpio:     require('@/assets/images/sign-avatar/scorpion.png'),
-    Sagittarius: require('@/assets/images/sign-avatar/sagittaire.png'),
-    Capricorn:   require('@/assets/images/sign-avatar/capricorne.png'),
-    Aquarius:    require('@/assets/images/sign-avatar/verseau.png'),
-    Pisces:      require('@/assets/images/sign-avatar/poisson.png'),
-};
+import { SIGN_AVATAR_MAP } from '@/utils/signAvatar';
+const AVATAR_MAP = SIGN_AVATAR_MAP;
 
 const ELEMENT_COLOR: Record<string, string> = {
     Feu:   '#E89B4C',

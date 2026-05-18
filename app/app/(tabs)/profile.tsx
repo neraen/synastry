@@ -4,6 +4,7 @@ import {
     Text,
     ScrollView,
     Pressable,
+    Image,
     StyleSheet,
     Modal,
     Alert,
@@ -17,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader, Starfield } from '@/components/ui';
+import { getSignAvatar } from '@/utils/signAvatar';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
 import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
@@ -178,6 +180,7 @@ export default function ProfileTab() {
 
     const displayName = user.firstName || user.email.split('@')[0];
     const initials = displayName.charAt(0).toUpperCase();
+    const signAvatar = getSignAvatar(user.birthProfile?.birthDate);
 
     return (
         <View style={styles.screen}>
@@ -201,7 +204,11 @@ export default function ProfileTab() {
                                 style={styles.avatarRing}
                             >
                                 <View style={styles.avatarInner}>
-                                    <Text style={styles.avatarInitial}>{initials}</Text>
+                                    {signAvatar ? (
+                                        <Image source={signAvatar} style={styles.avatarImage} />
+                                    ) : (
+                                        <Text style={styles.avatarInitial}>{initials}</Text>
+                                    )}
                                 </View>
                             </LinearGradient>
                             {/* Online dot */}
@@ -524,6 +531,11 @@ const styles = StyleSheet.create({
         fontSize: 42,
         color: colors.onSurface,
         lineHeight: 50,
+    },
+    avatarImage: {
+        width: 102,
+        height: 102,
+        borderRadius: 51,
     },
     onlineDot: {
         position: 'absolute',

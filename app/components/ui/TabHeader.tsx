@@ -9,11 +9,12 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
+import { getSignAvatar } from '@/utils/signAvatar';
 import { colors, spacing, fonts } from '@/theme';
 
 interface TabHeaderProps {
@@ -27,6 +28,7 @@ export function TabHeader({ onBack }: TabHeaderProps = {}) {
     const { user } = useAuth();
     const name = user?.birthProfile?.firstName || 'Stargazer';
     const initial = name.charAt(0).toUpperCase();
+    const signAvatar = getSignAvatar(user?.birthProfile?.birthDate);
 
     return (
         <View style={styles.header}>
@@ -46,7 +48,11 @@ export function TabHeader({ onBack }: TabHeaderProps = {}) {
             <Pressable style={styles.userRow} onPress={() => router.push('/(tabs)/profile')} hitSlop={8}>
                 <Text style={styles.hiText}>{t('common.greeting')}, {name}</Text>
                 <View style={styles.avatar}>
-                    <Text style={styles.avatarLetter}>{initial}</Text>
+                    {signAvatar ? (
+                        <Image source={signAvatar} style={styles.avatarImage} />
+                    ) : (
+                        <Text style={styles.avatarLetter}>{initial}</Text>
+                    )}
                 </View>
             </Pressable>
         </View>
@@ -103,5 +109,10 @@ const styles = StyleSheet.create({
         fontFamily: fonts.body.semiBold,
         fontSize: 14,
         color: colors.onSurface,
+    },
+    avatarImage: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
     },
 });

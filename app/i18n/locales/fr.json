@@ -502,10 +502,9 @@
       "description": "Lunestia a besoin de quelques données personnelles pour fonctionner. Voici exactement ce que nous collectons et ce que nous en faisons.",
       "dataTitle": "Ce que nous collectons",
       "dataItems": [
-        "Ton adresse e-mail, collectée via Google ou Apple pour identifier ton compte",
-        "Ton prénom (optionnel), utilisé uniquement pour personnaliser les messages de Lyra",
-        "Ta date, heure (optionnelle) et ville de naissance — les données essentielles pour calculer ton thème natal et tes transits",
-        "Tes échanges avec Lyra, notre astrologue IA, conservés pour maintenir le contexte entre les sessions"
+        { "title": "Ton adresse e-mail", "desc": "Collectée via Google ou Apple pour identifier ton compte." },
+        { "title": "Ton prénom", "desc": "Optionnel — utilisé uniquement pour personnaliser les messages de Lyra." },
+        { "title": "Tes données de naissance", "desc": "Date, heure et lieu — pour calculer ton thème natal et tes transits." }
       ],
       "thirdParties": "Tes données de naissance sont transmises à OpenAI pour générer tes analyses astrologiques. Elles ne sont jamais revendues, jamais utilisées à des fins publicitaires, ni partagées avec un autre tiers.",
       "checkTerms": "J'accepte les conditions d'utilisation et la",

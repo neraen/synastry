@@ -164,7 +164,52 @@
   .screen.exit-left  { transform: translateX(-30px); opacity: 0; }
   .screen.exit-right { transform: translateX(30px);  opacity: 0; }
 
-  /* ---------- Shared blocks ---------- */
+  /* ---------- Hero illustrations (top of each screen) ---------- */
+  .hero-illus {
+    position: relative;
+    width: 168px;
+    height: 168px;
+    margin: 22px auto 24px;
+    display: grid;
+    place-items: center;
+    isolation: isolate;
+  }
+  .hero-aura {
+    position: absolute;
+    inset: -14px;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 50% 50%,
+        rgba(229,194,102,0.26) 0%,
+        rgba(229,194,102,0.08) 32%,
+        rgba(155,92,255,0.06) 56%,
+        transparent 76%);
+    filter: blur(1px);
+    animation: auraPulse 6.5s ease-in-out infinite;
+    z-index: 0;
+  }
+  .hero-aura-strong {
+    background:
+      radial-gradient(circle at 50% 50%,
+        rgba(229,194,102,0.38) 0%,
+        rgba(229,194,102,0.12) 32%,
+        rgba(229,90,140,0.08) 56%,
+        transparent 78%);
+  }
+  @keyframes auraPulse {
+    0%, 100% { opacity: 0.85; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.06); }
+  }
+  .hero-svg {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(0 10px 22px rgba(229,194,102,0.18));
+  }
+
+  /* ---------- Legacy hero medallion (kept for any back-compat) ---------- */
   .hero-medallion {
     position: relative;
     width: 124px; height: 124px;
@@ -622,6 +667,7 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
+  <script type="text/babel" src="onboarding-heroes.jsx"></script>
   <script type="text/babel" src="onboarding-screens.jsx"></script>
   <script type="text/babel" src="onboarding-app.jsx"></script>
 </body>
