@@ -134,7 +134,10 @@ function BackButton({ visible, onPress }: { visible: boolean; onPress: () => voi
 
 const HERO = 168; // px — rendered size of each hero container
 
-/** Twinkling stars — rendered in a dedicated full-size SVG layer */
+/**
+ * Twinkling stars — rendered as Animated.View dots so we can use
+ * useNativeDriver: true and keep the JS thread free during transitions.
+ */
 function StarLayer({ seed = 0 }: { seed?: number }) {
     const positions = useMemo(
         () => [
@@ -147,15 +150,14 @@ function StarLayer({ seed = 0 }: { seed?: number }) {
         ],
         [seed],
     );
-    // opacity values — need useNativeDriver: false (SVG props)
     const opacities = useRef(positions.map(() => new Animated.Value(0.1))).current;
     useEffect(() => {
         const loops = opacities.map((anim, i) => {
             const { dur, peak } = positions[i];
             const loop = Animated.loop(
                 Animated.sequence([
-                    Animated.timing(anim, { toValue: peak, duration: dur / 2, useNativeDriver: false }),
-                    Animated.timing(anim, { toValue: 0.1,  duration: dur / 2, useNativeDriver: false }),
+                    Animated.timing(anim, { toValue: peak, duration: dur / 2, useNativeDriver: true }),
+                    Animated.timing(anim, { toValue: 0.1,  duration: dur / 2, useNativeDriver: true }),
                 ]),
             );
             loop.start();
@@ -163,13 +165,27 @@ function StarLayer({ seed = 0 }: { seed?: number }) {
         });
         return () => loops.forEach((l) => l.stop());
     }, []);
-    const AnimatedCircle = useMemo(() => Animated.createAnimatedComponent(Circle), []);
     return (
-        <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
-            {positions.map((p, i) => (
-                <AnimatedCircle key={i} cx={p.cx} cy={p.cy} r={p.r} fill="#fff" fillOpacity={opacities[i] as any} />
-            ))}
-        </Svg>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {positions.map((p, i) => {
+                const diameter = Math.max(1.5, (p.r * 2 * HERO) / 200);
+                return (
+                    <Animated.View
+                        key={i}
+                        style={{
+                            position: 'absolute',
+                            left: (p.cx / 200) * HERO - diameter / 2,
+                            top:  (p.cy / 200) * HERO - diameter / 2,
+                            width: diameter,
+                            height: diameter,
+                            borderRadius: diameter / 2,
+                            backgroundColor: '#fff',
+                            opacity: opacities[i],
+                        }}
+                    />
+                );
+            })}
+        </View>
     );
 }
 
@@ -216,7 +232,6 @@ function RotatingLayer({
 
 function HeroShield() {
     const float = useRef(new Animated.Value(0)).current;
-    const aura  = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         Animated.loop(
@@ -225,18 +240,10 @@ function HeroShield() {
                 Animated.timing(float, { toValue: 0,  duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
             ]),
         ).start();
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(aura, { toValue: 1.06, duration: 3250, useNativeDriver: true }),
-                Animated.timing(aura, { toValue: 1,    duration: 3250, useNativeDriver: true }),
-            ]),
-        ).start();
     }, []);
 
     return (
         <View style={s.heroWrap}>
-            {/* Aura glow */}
-            <Animated.View style={[s.heroAura, { transform: [{ scale: aura }] }]} />
 
             {/* Stars */}
             <StarLayer seed={2} />
@@ -287,17 +294,10 @@ function HeroShield() {
 // ─── Hero Astrolabe (Step 1 — Guide) ─────────────────────────────────────────
 
 function HeroAstrolabe() {
-    const aura       = useRef(new Animated.Value(1)).current;
     const pointerOsc = useRef(new Animated.Value(0)).current;
     const discScale  = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(aura, { toValue: 1.06, duration: 3250, useNativeDriver: true }),
-                Animated.timing(aura, { toValue: 1,    duration: 3250, useNativeDriver: true }),
-            ]),
-        ).start();
         Animated.loop(
             Animated.sequence([
                 Animated.timing(pointerOsc, { toValue: 1,  duration: 5500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -345,8 +345,6 @@ function HeroAstrolabe() {
 
     return (
         <View style={s.heroWrap}>
-            <Animated.View style={[s.heroAura, { transform: [{ scale: aura }] }]} />
-
             {/* Stars */}
             <StarLayer />
 
@@ -412,16 +410,9 @@ function HeroAstrolabe() {
 // ─── Hero Finale (Step 3 — Done) ─────────────────────────────────────────────
 
 function HeroFinale() {
-    const aura      = useRef(new Animated.Value(1)).current;
     const pinScale  = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(aura, { toValue: 1.06, duration: 3250, useNativeDriver: true }),
-                Animated.timing(aura, { toValue: 1,    duration: 3250, useNativeDriver: true }),
-            ]),
-        ).start();
         Animated.loop(
             Animated.sequence([
                 Animated.timing(pinScale, { toValue: 1.6, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -432,15 +423,13 @@ function HeroFinale() {
 
     return (
         <View style={s.heroWrap}>
-            <Animated.View style={[s.heroAura, s.heroAuraStrong, { transform: [{ scale: aura }] }]} />
-
-            {/* Inner glow + stars */}
+            {/* Inner glow — stopOpacity instead of rgba for react-native-svg compat */}
             <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
                 <Defs>
-                    <RadialGradient id="fnGlow" cx="50%" cy="50%" r="50%">
-                        <Stop offset="0%"   stopColor="rgba(244,220,149,0.6)" />
-                        <Stop offset="55%"  stopColor="rgba(244,220,149,0.06)" />
-                        <Stop offset="100%" stopColor="rgba(244,220,149,0)" />
+                    <RadialGradient id="fnGlow" cx="100" cy="100" r="78" gradientUnits="userSpaceOnUse">
+                        <Stop offset="0%"   stopColor="#F4DC95" stopOpacity={0.6} />
+                        <Stop offset="55%"  stopColor="#F4DC95" stopOpacity={0.06} />
+                        <Stop offset="100%" stopColor="#F4DC95" stopOpacity={0} />
                     </RadialGradient>
                 </Defs>
                 <Circle cx={100} cy={100} r={78} fill="url(#fnGlow)" />
@@ -471,14 +460,15 @@ function HeroFinale() {
             {/* 4-point star — very slow CW */}
             <RotatingLayer duration={40000}>
                 <Defs>
-                    <RadialGradient id="fnStar" cx="50%" cy="42%" r="55%">
+                    {/* gradientUnits=userSpaceOnUse for reliable rendering on RN (avoids objectBoundingBox issues) */}
+                    <RadialGradient id="fnStar" cx="100" cy="88" r="42" gradientUnits="userSpaceOnUse">
                         <Stop offset="0%"   stopColor="#FFFAE0" />
                         <Stop offset="35%"  stopColor="#F4DC95" />
                         <Stop offset="100%" stopColor="#8E6F31" />
                     </RadialGradient>
                 </Defs>
                 <Path
-                    d="M100 79.5 L102.5 96.5 L119.5 100 L102.5 103.5 L100 120.5 L97.5 103.5 L80.5 100 L97.5 96.5 Z"
+                    d="M100 63.3 L106 88.8 c0.7 2.5 2.5 4.5 4.9 5.3 L136.8 100 L110.9 106 c-2.5 0.7 -4.2 2.8 -4.9 5.3 L100 136.8 L94.1 111.2 c-0.7 -2.5 -2.5 -4.5 -4.9 -5.3 L63.3 100 L89.1 94.1 c2.5 -0.7 4.2 -2.8 4.9 -5.3 Z"
                     fill="url(#fnStar)" opacity={0.95} />
             </RotatingLayer>
 
@@ -966,6 +956,23 @@ export default function OnboardingScreen() {
     const [step, setStep] = useState(0);
     const stepRef = useRef(0);
 
+    // Pre-mount all screens at startup with staggered delays so no mounting
+    // work happens during transitions.
+    const [mounted, setMounted] = useState<boolean[]>([true, false, false, false]);
+    useEffect(() => {
+        const timers = [1, 2, 3].map((i) =>
+            setTimeout(() => {
+                setMounted((prev) => {
+                    if (prev[i]) return prev;
+                    const arr = [...prev];
+                    arr[i] = true;
+                    return arr;
+                });
+            }, i * 600),
+        );
+        return () => timers.forEach(clearTimeout);
+    }, []);
+
     const SLIDE = 40;
     const screenAnims = useRef(
         Array.from({ length: STEPS }, (_, i) => ({
@@ -1023,12 +1030,17 @@ export default function OnboardingScreen() {
         router.replace('/(tabs)');
     }, [router]);
 
-    const screens = [
-        <StepRGPD onContinue={() => goTo(1)} />,
-        <StepGuide onContinue={() => goTo(2)} />,
-        <StepBirthProfile onContinue={() => goTo(3)} onSkip={skipToApp} />,
-        <StepDone onFinish={skipToApp} />,
-    ];
+    // Memoised so React doesn't reconcile the entire screen tree on every
+    // setStep() call (which would compete with the transition animation).
+    const screens = useMemo(
+        () => [
+            <StepRGPD onContinue={() => goTo(1)} />,
+            <StepGuide onContinue={() => goTo(2)} />,
+            <StepBirthProfile onContinue={() => goTo(3)} onSkip={skipToApp} />,
+            <StepDone onFinish={skipToApp} />,
+        ],
+        [goTo, skipToApp],
+    );
 
     return (
         <View style={s.root}>
@@ -1056,8 +1068,12 @@ export default function OnboardingScreen() {
                                 },
                             ]}
                             pointerEvents={i === step ? 'auto' : 'none'}
+                            // Pre-composite each screen as a GPU texture so the
+                            // slide/fade transition is handled entirely on the GPU.
+                            renderToHardwareTextureAndroid
+                            shouldRasterizeIOS
                         >
-                            {screen}
+                            {mounted[i] ? screen : null}
                         </Animated.View>
                     ))}
                 </View>
@@ -1138,16 +1154,6 @@ const s = StyleSheet.create({
         justifyContent: 'center',
         marginTop: spacing.xl,
         marginBottom: spacing.xl,
-    },
-    heroAura: {
-        position: 'absolute',
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: `${colors.primary}28`,
-    },
-    heroAuraStrong: {
-        backgroundColor: `${colors.primary}3a`,
     },
     heroSvgShadow: {
         shadowColor: colors.primary,
