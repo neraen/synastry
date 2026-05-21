@@ -206,18 +206,21 @@ function RotatingLayer({
 }) {
     const rot = useRef(new Animated.Value(0)).current;
     useEffect(() => {
-        Animated.loop(
-            Animated.timing(rot, {
-                toValue: 1,
-                duration,
-                easing: Easing.linear,
-                useNativeDriver: true,
-            }),
-        ).start();
+        // 120 rotations without any loop reset — eliminates the 1-frame jump
+        // that Animated.loop produces when it resets toValue → 0 via the JS thread.
+        // At the slowest orbit (40 s/turn), this lasts ~80 minutes, far beyond any session.
+        const REPS = 120;
+        Animated.timing(rot, {
+            toValue: REPS,
+            duration: duration * REPS,
+            easing: Easing.linear,
+            useNativeDriver: true,
+        }).start();
     }, []);
+    const REPS = 120;
     const deg = rot.interpolate({
-        inputRange:  [0, 1],
-        outputRange: reverse ? ['0deg', '-360deg'] : ['0deg', '360deg'],
+        inputRange:  [0, REPS],
+        outputRange: reverse ? ['0deg', `${-360 * REPS}deg`] : ['0deg', `${360 * REPS}deg`],
     });
     return (
         <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate: deg }] }]}>
@@ -232,6 +235,20 @@ function RotatingLayer({
 
 function HeroShield() {
     const float = useRef(new Animated.Value(0)).current;
+    const orbitAngle = useRef(new Animated.Value(0)).current;
+
+    // Pre-compute 64-step ellipse keyframes once (rx=80, ry=28 in SVG units → pixels)
+    const { orbitInput, orbitTx, orbitTy } = useMemo(() => {
+        const N = 64;
+        const rx = (80 / 200) * HERO;
+        const ry = (28 / 200) * HERO;
+        const input = Array.from({ length: N + 1 }, (_, i) => i / N);
+        return {
+            orbitInput: input,
+            orbitTx: input.map(t => rx * Math.cos(2 * Math.PI * t)),
+            orbitTy: input.map(t => ry * Math.sin(2 * Math.PI * t)),
+        };
+    }, []);
 
     useEffect(() => {
         Animated.loop(
@@ -240,7 +257,31 @@ function HeroShield() {
                 Animated.timing(float, { toValue: 0,  duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
             ]),
         ).start();
+        Animated.loop(
+            Animated.timing(orbitAngle, { toValue: 1, duration: 9000, easing: Easing.linear, useNativeDriver: true }),
+        ).start();
     }, []);
+
+    const planetTx = orbitAngle.interpolate({ inputRange: orbitInput, outputRange: orbitTx });
+    const planetTy = orbitAngle.interpolate({ inputRange: orbitInput, outputRange: orbitTy });
+    const dotD = (2.6 / 200) * HERO * 2; // planet diameter in pixels
+
+    // t ∈ [0, 0.5] → sin > 0 → bottom of ellipse → in FRONT of shield
+    // t ∈ [0.5, 1] → sin < 0 → top of ellipse    → BEHIND shield
+    // Small crossfade (~3% of period) to avoid a hard pop at the crossing points.
+    const crossfade = [0, 0.03, 0.47, 0.5, 0.53, 0.97, 1] as const;
+    const frontOpacity = orbitAngle.interpolate({ inputRange: [...crossfade], outputRange: [1, 1, 1, 0, 0, 0, 1] });
+    const backOpacity  = orbitAngle.interpolate({ inputRange: [...crossfade], outputRange: [0, 0, 0, 1, 1, 1, 0] });
+
+    const dotStyle = {
+        position: 'absolute' as const,
+        left: HERO / 2 - dotD / 2,
+        top:  HERO / 2 - dotD / 2,
+        width: dotD, height: dotD,
+        borderRadius: dotD / 2,
+        backgroundColor: '#F4DC95',
+        transform: [{ translateX: planetTx }, { translateY: planetTy }],
+    };
 
     return (
         <View style={s.heroWrap}>
@@ -248,16 +289,13 @@ function HeroShield() {
             {/* Stars */}
             <StarLayer seed={2} />
 
-            {/* Orbit ellipse (static, tilted) */}
+            {/* Orbit ellipse + back half of planet (behind shield) */}
             <View style={[StyleSheet.absoluteFill, { transform: [{ rotate: '-18deg' }] }]}>
                 <Svg width={HERO} height={HERO} viewBox="0 0 200 200" style={StyleSheet.absoluteFill}>
                     <Ellipse cx={100} cy={100} rx={80} ry={28}
                         stroke="rgba(229,194,102,0.32)" strokeWidth={1} fill="none" strokeDasharray="1.5 4" />
                 </Svg>
-                {/* Sparkle orbiting in the tilted plane */}
-                <RotatingLayer duration={9000}>
-                    <Circle cx={180} cy={100} r={2.6} fill="#F4DC95" />
-                </RotatingLayer>
+                <Animated.View style={[dotStyle, { opacity: backOpacity }]} />
             </View>
 
             {/* Shield — floats up/down */}
@@ -287,6 +325,11 @@ function HeroShield() {
                         fillRule="evenodd" fill="url(#shMoon)" />
                 </Svg>
             </Animated.View>
+
+            {/* Front half of planet (in front of shield) */}
+            <View style={[StyleSheet.absoluteFill, { transform: [{ rotate: '-18deg' }] }]}>
+                <Animated.View style={[dotStyle, { opacity: frontOpacity }]} />
+            </View>
         </View>
     );
 }
