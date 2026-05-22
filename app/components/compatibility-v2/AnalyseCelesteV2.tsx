@@ -3,25 +3,25 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Polygon, Circle as SvgCircle, Line } from 'react-native-svg';
 import { colors, fonts, spacing, radius } from '@/theme';
 
-const STAR_BLUE = '#7DD3FC';
+const STAR_BLUE = '#A8C4D8';
 
 function ConstellationCorner() {
     return (
         <View style={styles.corner}>
             <Svg width={90} height={90} viewBox="0 0 100 100" fill="none">
-                <Line x1="15" y1="10" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.45" />
-                <Line x1="55" y1="28" x2="88" y2="12" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.4"  />
-                <Line x1="55" y1="28" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.4"  />
-                <Line x1="88" y1="12" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.35" />
-                <Line x1="72" y1="65" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.35" />
-                <Line x1="30" y1="55" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.3"  />
-                <Line x1="30" y1="55" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.28" />
-                <SvgCircle cx="15" cy="10" r="1.8" fill={STAR_BLUE} opacity="0.5"  />
-                <SvgCircle cx="55" cy="28" r="2.4" fill={STAR_BLUE} opacity="0.65" />
-                <SvgCircle cx="88" cy="12" r="1.6" fill={STAR_BLUE} opacity="0.5"  />
-                <SvgCircle cx="72" cy="65" r="2.0" fill={STAR_BLUE} opacity="0.55" />
-                <SvgCircle cx="95" cy="50" r="1.4" fill={STAR_BLUE} opacity="0.45" />
-                <SvgCircle cx="30" cy="55" r="1.6" fill={STAR_BLUE} opacity="0.45" />
+                <Line x1="15" y1="10" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.25" />
+                <Line x1="55" y1="28" x2="88" y2="12" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.22" />
+                <Line x1="55" y1="28" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.22" />
+                <Line x1="88" y1="12" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.18" />
+                <Line x1="72" y1="65" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.18" />
+                <Line x1="30" y1="55" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.16" />
+                <Line x1="30" y1="55" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.15" />
+                <SvgCircle cx="15" cy="10" r="1.8" fill={STAR_BLUE} opacity="0.3"  />
+                <SvgCircle cx="55" cy="28" r="2.4" fill={STAR_BLUE} opacity="0.4"  />
+                <SvgCircle cx="88" cy="12" r="1.6" fill={STAR_BLUE} opacity="0.3"  />
+                <SvgCircle cx="72" cy="65" r="2.0" fill={STAR_BLUE} opacity="0.32" />
+                <SvgCircle cx="95" cy="50" r="1.4" fill={STAR_BLUE} opacity="0.25" />
+                <SvgCircle cx="30" cy="55" r="1.6" fill={STAR_BLUE} opacity="0.28" />
             </Svg>
         </View>
     );

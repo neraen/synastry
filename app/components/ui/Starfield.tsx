@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Line, Circle } from 'react-native-svg';
+
+// Gold = colors.primary
+const GOLD = '#e9c349';
 
 const SHOOTING_STARS: { top: string; left: string; delay: number; interval: number }[] = [
-    { top: '12%', left: '10%', delay: 3000,  interval: 12000 },
-    { top: '55%', left: '58%', delay: 9000,  interval: 15000 },
-    { top: '28%', left: '75%', delay: 6500,  interval: 18000 },
+    { top: '12%', left:  '8%', delay: 3000,  interval: 13000 },
+    { top: '58%', left: '55%', delay: 9500,  interval: 16000 },
+    { top: '30%', left: '72%', delay: 6000,  interval: 19000 },
 ];
 
 function ShootingStar({ top, left, delay, interval }: typeof SHOOTING_STARS[0]) {
@@ -14,8 +18,11 @@ function ShootingStar({ top, left, delay, interval }: typeof SHOOTING_STARS[0]) 
         const loop = Animated.loop(
             Animated.sequence([
                 Animated.delay(delay),
-                Animated.timing(anim, { toValue: 1, duration: 600, useNativeDriver: true }),
-                Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+                // phase 1: slide + fade in
+                Animated.timing(anim, { toValue: 0.5, duration: 350, useNativeDriver: true }),
+                // phase 2: continue + fade out
+                Animated.timing(anim, { toValue: 1,   duration: 350, useNativeDriver: true }),
+                Animated.timing(anim, { toValue: 0,   duration: 0,   useNativeDriver: true }),
                 Animated.delay(interval),
             ]),
         );
@@ -23,12 +30,13 @@ function ShootingStar({ top, left, delay, interval }: typeof SHOOTING_STARS[0]) 
         return () => loop.stop();
     }, []);
 
+    // Fade: 0→peak at mid→0 at end
     const opacity = anim.interpolate({
-        inputRange: [0, 0.15, 0.5, 0.85, 1],
-        outputRange: [0, 0.7, 1, 0.5, 0],
+        inputRange: [0, 0.35, 0.65, 1],
+        outputRange: [0,  0.9,  0.8, 0],
     });
-    const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 55] });
-    const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 55] });
+    // The whole star translates along its own axis (rotated frame)
+    const translate = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 70] });
 
     return (
         <Animated.View
@@ -36,14 +44,26 @@ function ShootingStar({ top, left, delay, interval }: typeof SHOOTING_STARS[0]) 
                 position: 'absolute',
                 top,
                 left,
-                width: 45,
-                height: 1.5,
-                borderRadius: 1,
-                backgroundColor: '#C8E6FF',
                 opacity,
-                transform: [{ rotate: '-45deg' }, { translateX }, { translateY }],
+                transform: [{ rotate: '-42deg' }, { translateX: translate }, { translateY: translate }],
             }}
-        />
+        >
+            <Svg width={52} height={8} viewBox="0 0 52 8">
+                <Defs>
+                    <LinearGradient id={`sg_${top}_${left}`} x1="0" y1="0" x2="1" y2="0">
+                        <Stop offset="0"   stopColor={GOLD} stopOpacity="0"   />
+                        <Stop offset="0.6" stopColor={GOLD} stopOpacity="0.4" />
+                        <Stop offset="1"   stopColor={GOLD} stopOpacity="0"   />
+                    </LinearGradient>
+                </Defs>
+                {/* Tail */}
+                <Line x1="0" y1="4" x2="46" y2="4"
+                    stroke={`url(#sg_${top}_${left})`} strokeWidth="1.2" />
+                {/* Bright head */}
+                <Circle cx="49" cy="4" r="2.2" fill={GOLD} opacity="0.95" />
+                <Circle cx="49" cy="4" r="3.8" fill={GOLD} opacity="0.18" />
+            </Svg>
+        </Animated.View>
     );
 }
 
