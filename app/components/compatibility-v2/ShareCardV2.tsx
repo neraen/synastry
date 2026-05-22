@@ -11,6 +11,40 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop, Line as SvgLine } from 'react-native-svg';
+
+const STAR_BLUE = '#7DD3FC';
+
+function ConstellationBg() {
+    return (
+        <Svg
+            width="100%"
+            height="100%"
+            viewBox="0 0 270 480"
+            preserveAspectRatio="xMidYMid slice"
+            style={StyleSheet.absoluteFill}
+        >
+            <SvgLine x1="20"  y1="30"  x2="80"  y2="60"  stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.3"  />
+            <SvgLine x1="80"  y1="60"  x2="155" y2="20"  stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.28" />
+            <SvgLine x1="155" y1="20"  x2="220" y2="45"  stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.3"  />
+            <SvgLine x1="220" y1="45"  x2="255" y2="15"  stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.22" />
+            <SvgLine x1="80"  y1="60"  x2="110" y2="130" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.28" />
+            <SvgLine x1="155" y1="20"  x2="110" y2="130" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.25" />
+            <SvgLine x1="220" y1="45"  x2="245" y2="120" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.28" />
+            <SvgLine x1="110" y1="130" x2="245" y2="120" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.28" />
+            <SvgLine x1="110" y1="130" x2="55"  y2="190" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.18" />
+            <SvgLine x1="245" y1="120" x2="260" y2="180" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.18" />
+            <Circle cx="20"  cy="30"  r="1.5" fill={STAR_BLUE} opacity="0.5"  />
+            <Circle cx="80"  cy="60"  r="2.2" fill={STAR_BLUE} opacity="0.6"  />
+            <Circle cx="155" cy="20"  r="1.7" fill={STAR_BLUE} opacity="0.5"  />
+            <Circle cx="220" cy="45"  r="2.0" fill={STAR_BLUE} opacity="0.55" />
+            <Circle cx="255" cy="15"  r="1.3" fill={STAR_BLUE} opacity="0.4"  />
+            <Circle cx="110" cy="130" r="2.4" fill={STAR_BLUE} opacity="0.6"  />
+            <Circle cx="245" cy="120" r="1.8" fill={STAR_BLUE} opacity="0.5"  />
+            <Circle cx="55"  cy="190" r="1.3" fill={STAR_BLUE} opacity="0.3"  />
+            <Circle cx="260" cy="180" r="1.5" fill={STAR_BLUE} opacity="0.35" />
+        </Svg>
+    );
+}
 import { captureRef } from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -60,20 +94,7 @@ export function ShareCardV2({ format, data }: CardProps) {
             {/* Background */}
             <View style={[StyleSheet.absoluteFill, styles.cardBg]} />
 
-            {/* Constellation ornament */}
-            <View style={styles.constellation}>
-                <Svg width={80} height={80} viewBox="0 0 120 120" fill="none" stroke={`${colors.primary}25`} strokeWidth="0.8">
-                    <Circle cx="20" cy="22" r="1.6" fill={`${colors.primary}40`} />
-                    <Circle cx="50" cy="14" r="1.2" fill={`${colors.primary}30`} />
-                    <Circle cx="78" cy="30" r="2" fill={`${colors.primary}50`} />
-                    <Circle cx="98" cy="60" r="1.4" fill={`${colors.primary}35`} />
-                    <Circle cx="60" cy="62" r="1.8" fill={`${colors.primary}40`} />
-                    <SvgLine x1="20" y1="22" x2="50" y2="14" opacity="0.4" />
-                    <SvgLine x1="50" y1="14" x2="78" y2="30" opacity="0.4" />
-                    <SvgLine x1="78" y1="30" x2="98" y2="60" opacity="0.4" />
-                    <SvgLine x1="78" y1="30" x2="60" y2="62" opacity="0.4" />
-                </Svg>
-            </View>
+            <ConstellationBg />
 
             {/* Branding */}
             <View style={styles.brand}>
@@ -284,12 +305,6 @@ const styles = StyleSheet.create({
     },
     cardBg: {
         backgroundColor: colors.surfaceLowest,
-    },
-    constellation: {
-        position: 'absolute',
-        top: -10,
-        right: -10,
-        opacity: 0.7,
     },
     brand: {
         flexDirection: 'row',
