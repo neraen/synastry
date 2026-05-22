@@ -5,37 +5,25 @@ import { colors, fonts, spacing, radius } from '@/theme';
 
 const STAR_BLUE = '#7DD3FC';
 
-function ConstellationBg() {
+function ConstellationCorner() {
     return (
-        <Svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 360 220"
-            preserveAspectRatio="xMidYMid slice"
-            style={StyleSheet.absoluteFill}
-        >
-            <Line x1="30"  y1="35"  x2="105" y2="65"  stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.35" />
-            <Line x1="105" y1="65"  x2="185" y2="25"  stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.3"  />
-            <Line x1="185" y1="25"  x2="265" y2="50"  stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.35" />
-            <Line x1="265" y1="50"  x2="335" y2="18"  stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.25" />
-            <Line x1="105" y1="65"  x2="145" y2="145" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.3"  />
-            <Line x1="185" y1="25"  x2="145" y2="145" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.28" />
-            <Line x1="265" y1="50"  x2="295" y2="135" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.3"  />
-            <Line x1="145" y1="145" x2="295" y2="135" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.3"  />
-            <Line x1="145" y1="145" x2="75"  y2="205" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.2"  />
-            <Line x1="295" y1="135" x2="345" y2="195" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.2"  />
-            <Line x1="145" y1="145" x2="225" y2="185" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.22" />
-            <SvgCircle cx="30"  cy="35"  r="1.8" fill={STAR_BLUE} opacity="0.55" />
-            <SvgCircle cx="105" cy="65"  r="2.6" fill={STAR_BLUE} opacity="0.65" />
-            <SvgCircle cx="185" cy="25"  r="2.0" fill={STAR_BLUE} opacity="0.55" />
-            <SvgCircle cx="265" cy="50"  r="2.3" fill={STAR_BLUE} opacity="0.6"  />
-            <SvgCircle cx="335" cy="18"  r="1.5" fill={STAR_BLUE} opacity="0.45" />
-            <SvgCircle cx="145" cy="145" r="2.8" fill={STAR_BLUE} opacity="0.65" />
-            <SvgCircle cx="295" cy="135" r="2.0" fill={STAR_BLUE} opacity="0.55" />
-            <SvgCircle cx="75"  cy="205" r="1.5" fill={STAR_BLUE} opacity="0.35" />
-            <SvgCircle cx="345" cy="195" r="1.8" fill={STAR_BLUE} opacity="0.4"  />
-            <SvgCircle cx="225" cy="185" r="1.5" fill={STAR_BLUE} opacity="0.35" />
-        </Svg>
+        <View style={styles.corner}>
+            <Svg width={90} height={90} viewBox="0 0 100 100" fill="none">
+                <Line x1="15" y1="10" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.45" />
+                <Line x1="55" y1="28" x2="88" y2="12" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.4"  />
+                <Line x1="55" y1="28" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.4"  />
+                <Line x1="88" y1="12" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.35" />
+                <Line x1="72" y1="65" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.35" />
+                <Line x1="30" y1="55" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.3"  />
+                <Line x1="30" y1="55" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.28" />
+                <SvgCircle cx="15" cy="10" r="1.8" fill={STAR_BLUE} opacity="0.5"  />
+                <SvgCircle cx="55" cy="28" r="2.4" fill={STAR_BLUE} opacity="0.65" />
+                <SvgCircle cx="88" cy="12" r="1.6" fill={STAR_BLUE} opacity="0.5"  />
+                <SvgCircle cx="72" cy="65" r="2.0" fill={STAR_BLUE} opacity="0.55" />
+                <SvgCircle cx="95" cy="50" r="1.4" fill={STAR_BLUE} opacity="0.45" />
+                <SvgCircle cx="30" cy="55" r="1.6" fill={STAR_BLUE} opacity="0.45" />
+            </Svg>
+        </View>
     );
 }
 import type { CompatibilityAnalyse } from './types';
@@ -71,7 +59,7 @@ export function AnalyseCelesteV2({ headline, summary, longText }: Props) {
     return (
         <View style={styles.section}>
             <View style={styles.card}>
-                <ConstellationBg />
+                <ConstellationCorner />
 
                 {/* Kicker */}
                 <View style={styles.kickerRow}>
@@ -118,6 +106,11 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.08)',
         padding: spacing.xl,
         overflow: 'hidden',
+    },
+    corner: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
     },
     kickerRow: {
         flexDirection: 'row',

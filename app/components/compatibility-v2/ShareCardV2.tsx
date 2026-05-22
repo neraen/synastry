@@ -14,35 +14,25 @@ import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop, Line as SvgLine
 
 const STAR_BLUE = '#7DD3FC';
 
-function ConstellationBg() {
+function ConstellationCorner() {
     return (
-        <Svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 270 480"
-            preserveAspectRatio="xMidYMid slice"
-            style={StyleSheet.absoluteFill}
-        >
-            <SvgLine x1="20"  y1="30"  x2="80"  y2="60"  stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.3"  />
-            <SvgLine x1="80"  y1="60"  x2="155" y2="20"  stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.28" />
-            <SvgLine x1="155" y1="20"  x2="220" y2="45"  stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.3"  />
-            <SvgLine x1="220" y1="45"  x2="255" y2="15"  stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.22" />
-            <SvgLine x1="80"  y1="60"  x2="110" y2="130" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.28" />
-            <SvgLine x1="155" y1="20"  x2="110" y2="130" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.25" />
-            <SvgLine x1="220" y1="45"  x2="245" y2="120" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.28" />
-            <SvgLine x1="110" y1="130" x2="245" y2="120" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.28" />
-            <SvgLine x1="110" y1="130" x2="55"  y2="190" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.18" />
-            <SvgLine x1="245" y1="120" x2="260" y2="180" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.18" />
-            <Circle cx="20"  cy="30"  r="1.5" fill={STAR_BLUE} opacity="0.5"  />
-            <Circle cx="80"  cy="60"  r="2.2" fill={STAR_BLUE} opacity="0.6"  />
-            <Circle cx="155" cy="20"  r="1.7" fill={STAR_BLUE} opacity="0.5"  />
-            <Circle cx="220" cy="45"  r="2.0" fill={STAR_BLUE} opacity="0.55" />
-            <Circle cx="255" cy="15"  r="1.3" fill={STAR_BLUE} opacity="0.4"  />
-            <Circle cx="110" cy="130" r="2.4" fill={STAR_BLUE} opacity="0.6"  />
-            <Circle cx="245" cy="120" r="1.8" fill={STAR_BLUE} opacity="0.5"  />
-            <Circle cx="55"  cy="190" r="1.3" fill={STAR_BLUE} opacity="0.3"  />
-            <Circle cx="260" cy="180" r="1.5" fill={STAR_BLUE} opacity="0.35" />
-        </Svg>
+        <View style={styles.constellation}>
+            <Svg width={80} height={80} viewBox="0 0 100 100" fill="none">
+                <SvgLine x1="15" y1="10" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.45" />
+                <SvgLine x1="55" y1="28" x2="88" y2="12" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.4"  />
+                <SvgLine x1="55" y1="28" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.4"  />
+                <SvgLine x1="88" y1="12" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.35" />
+                <SvgLine x1="72" y1="65" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.35" />
+                <SvgLine x1="30" y1="55" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.3"  />
+                <SvgLine x1="30" y1="55" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.8" opacity="0.28" />
+                <Circle cx="15" cy="10" r="1.8" fill={STAR_BLUE} opacity="0.5"  />
+                <Circle cx="55" cy="28" r="2.4" fill={STAR_BLUE} opacity="0.65" />
+                <Circle cx="88" cy="12" r="1.6" fill={STAR_BLUE} opacity="0.5"  />
+                <Circle cx="72" cy="65" r="2.0" fill={STAR_BLUE} opacity="0.55" />
+                <Circle cx="95" cy="50" r="1.4" fill={STAR_BLUE} opacity="0.45" />
+                <Circle cx="30" cy="55" r="1.6" fill={STAR_BLUE} opacity="0.45" />
+            </Svg>
+        </View>
     );
 }
 import { captureRef } from 'react-native-view-shot';
@@ -94,7 +84,7 @@ export function ShareCardV2({ format, data }: CardProps) {
             {/* Background */}
             <View style={[StyleSheet.absoluteFill, styles.cardBg]} />
 
-            <ConstellationBg />
+            <ConstellationCorner />
 
             {/* Branding */}
             <View style={styles.brand}>
@@ -305,6 +295,11 @@ const styles = StyleSheet.create({
     },
     cardBg: {
         backgroundColor: colors.surfaceLowest,
+    },
+    constellation: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
     },
     brand: {
         flexDirection: 'row',
