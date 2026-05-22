@@ -187,6 +187,7 @@ export default function RootLayout() {
                         <Stack.Screen name="help" options={{ headerShown: false }} />
                         <Stack.Screen name="loaders-showcase" options={{ headerShown: false }} />
                         <Stack.Screen name="loader-zodiac" options={{ headerShown: false }} />
+                        <Stack.Screen name="loader-saturn" options={{ headerShown: false }} />
                         {/* Legal Screens */}
                         <Stack.Screen name="privacy-policy" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="terms-of-service" options={{ headerShown: false, presentation: 'modal' }} />

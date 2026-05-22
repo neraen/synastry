@@ -426,6 +426,7 @@ export default function ProfileTab() {
                                 { label: 'Onboarding 2', route: '/onboarding2' },
                                 { label: 'Loaders', route: '/loaders-showcase' },
                                 { label: 'Loader Zodiac', route: '/loader-zodiac' },
+                                { label: 'Loader Saturn', route: '/loader-saturn' },
                                 { label: 'Compat V2', route: '/compatibility-result-v2' },
                                 { label: 'Share V2', route: '/share-card-v2' },
                             ].map((item) => (
