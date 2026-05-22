@@ -1,0 +1,382 @@
+/* =====================================================================
+   Lunestia · Planet Loaders — stylesheet
+   All loaders share the .ll-wrap / .ll-canvas / .ll-label scaffolding.
+   --ll-size sets the loader's footprint (default 180px).
+   ===================================================================== */
+
+.ll-wrap {
+  --ll-size: 180px;
+  --ll-gold: #E5C266;
+  --ll-gold-2: #F0D585;
+  --ll-gold-dim: #B89549;
+  --ll-violet: #9B5CFF;
+  --ll-deep: #120A24;
+  --ll-deep-2: #1A1233;
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  user-select: none;
+}
+
+.ll-canvas {
+  position: relative;
+  width: var(--ll-size);
+  height: var(--ll-size);
+  display: grid;
+  place-items: center;
+}
+
+.ll-canvas > * {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+
+.ll-stars {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ll-label {
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ll-gold-dim);
+  font-weight: 600;
+  text-align: center;
+  position: relative;
+  padding-left: 18px;
+}
+.ll-label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 10px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ll-gold-dim));
+  transform: translateY(-50%);
+}
+
+/* ============================================================
+   Shared aura behind the loader
+   ============================================================ */
+.ll-aura {
+  width: 80% !important;
+  height: 80% !important;
+  border-radius: 50%;
+  filter: blur(18px);
+  pointer-events: none;
+  animation: llBreath 4.5s ease-in-out infinite;
+}
+.ll-aura-saturn {
+  background:
+    radial-gradient(circle, rgba(229,194,102,0.30) 0%, rgba(155,92,255,0.18) 45%, transparent 70%);
+}
+.ll-aura-moon {
+  background:
+    radial-gradient(circle, rgba(240,213,133,0.28) 0%, rgba(155,92,255,0.10) 50%, transparent 70%);
+}
+.ll-aura-trio {
+  background:
+    radial-gradient(circle, rgba(229,194,102,0.32) 0%, rgba(155,92,255,0.16) 40%, transparent 70%);
+}
+.ll-aura-zodiac {
+  background:
+    radial-gradient(circle, rgba(229,194,102,0.20) 0%, rgba(155,92,255,0.12) 50%, transparent 75%);
+}
+
+@keyframes llBreath {
+  0%, 100% { opacity: 0.7;  transform: scale(0.98); }
+  50%      { opacity: 1;    transform: scale(1.04); }
+}
+@keyframes llTwinkle {
+  0%, 100% { opacity: 0.15; }
+  50%      { opacity: 1; }
+}
+
+/* ============================================================
+   1) SATURN
+   ============================================================ */
+.ll-saturn-planet {
+  width: 42% !important;
+  height: 42% !important;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, #F4DC95 0%, #E5C266 35%, #B89549 65%, #6B4F22 100%);
+  box-shadow:
+    inset -6px -8px 14px rgba(0,0,0,0.45),
+    0 0 22px rgba(229,194,102,0.35);
+  position: relative;
+  z-index: 2;
+}
+.ll-saturn-shading {
+  position: absolute !important;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 70% 70%, rgba(40,20,5,0.55), transparent 55%);
+}
+.ll-saturn-terminator {
+  position: absolute !important;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    linear-gradient(115deg, transparent 50%, rgba(18,10,36,0.55) 95%);
+  mix-blend-mode: multiply;
+}
+.ll-saturn-highlight {
+  position: absolute !important;
+  width: 22%;
+  height: 14%;
+  top: 14%;
+  left: 22%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255,243,210,0.6), transparent 70%);
+  filter: blur(2px);
+}
+
+.ll-saturn-ring-tilt {
+  width: 95% !important;
+  height: 95% !important;
+  transform: rotateZ(-18deg);
+  pointer-events: none;
+  z-index: 3;
+}
+.ll-saturn-ring-svg {
+  width: 100%;
+  height: 100%;
+  animation: llSpin 8s linear infinite;
+  transform-origin: 50% 50%;
+}
+.ll-saturn-moon-orbit {
+  position: absolute !important;
+  inset: 0;
+  animation: llSpin 4.5s linear infinite;
+  transform-origin: 50% 50%;
+}
+.ll-saturn-moon {
+  position: absolute !important;
+  width: 10px !important;
+  height: 10px !important;
+  top: 50%;
+  left: 50%;
+  margin: -5px 0 0 -5px !important;
+  inset: auto !important;
+  transform: translateX(calc(var(--ll-size) * 0.43));
+  background: radial-gradient(circle at 30% 30%, #FFF5D6, #E5C266 60%, #B89549);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(229,194,102,0.85);
+}
+
+@keyframes llSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   2) LUNAR PHASES
+   ============================================================ */
+.ll-moon {
+  width: 50% !important;
+  height: 50% !important;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 30% 30%, #FFF6DA 0%, #F0D585 40%, #C29A3F 90%);
+  box-shadow:
+    inset -4px -6px 14px rgba(80,40,0,0.4),
+    0 0 28px rgba(229,194,102,0.45);
+  z-index: 2;
+}
+.ll-moon-disc { display: none; }
+.ll-moon-shadow {
+  position: absolute !important;
+  inset: -2% !important;
+  border-radius: 50%;
+  background: var(--ll-deep);
+  box-shadow: inset 12px 0 18px rgba(155,92,255,0.18);
+  animation: llPhases 5s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+.ll-moon-craters span {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(80,50,15,0.5), rgba(60,35,5,0.25));
+  box-shadow: inset 0 0 2px rgba(0,0,0,0.4);
+}
+
+.ll-moon-arc {
+  width: 100% !important;
+  height: 100% !important;
+  animation: llSpin 6s linear infinite;
+  transform-origin: 50% 50%;
+  z-index: 3;
+}
+
+@keyframes llPhases {
+  0%   { transform: translateX(-100%); }
+  25%  { transform: translateX(-50%); }
+  50%  { transform: translateX(0%); }
+  75%  { transform: translateX(50%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ============================================================
+   3) ORBIT TRIO
+   ============================================================ */
+.ll-trio-paths {
+  width: 100% !important;
+  height: 100% !important;
+}
+.ll-trio-core {
+  width: 16% !important;
+  height: 16% !important;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #FFF5D6, #E5C266 55%, #B89549 100%);
+  box-shadow: 0 0 28px rgba(229,194,102,0.8);
+  z-index: 3;
+  animation: llBreath 2.4s ease-in-out infinite;
+}
+.ll-trio-core-flare {
+  position: absolute !important;
+  inset: -60% !important;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(229,194,102,0.4), transparent 60%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.ll-trio-orbit {
+  width: 100% !important;
+  height: 100% !important;
+  transform-origin: 50% 50%;
+}
+.ll-trio-orbit span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #FFF5D6, #E5C266 60%, #876221);
+}
+.ll-trio-orbit-1 { animation: llSpin 3.4s linear infinite; }
+.ll-trio-orbit-1 span {
+  width: 9px; height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  transform: translateX(calc(var(--ll-size) * 0.20));
+  box-shadow: 0 0 10px rgba(229,194,102,0.9);
+}
+.ll-trio-orbit-2 { animation: llSpin 5.6s linear infinite reverse; }
+.ll-trio-orbit-2 span {
+  width: 7px; height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  transform: translateX(calc(var(--ll-size) * 0.31));
+  background: radial-gradient(circle at 30% 30%, #E0D4FF, #9B5CFF 70%, #4F2A99);
+  box-shadow: 0 0 10px rgba(155,92,255,0.8);
+}
+.ll-trio-orbit-3 { animation: llSpin 8.2s linear infinite; }
+.ll-trio-orbit-3 span {
+  width: 5px; height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  transform: translateX(calc(var(--ll-size) * 0.42));
+  background: #ECE5F7;
+  box-shadow: 0 0 8px rgba(255,255,255,0.9);
+}
+
+/* ============================================================
+   4) ZODIAC DIAL
+   ============================================================ */
+.ll-zodiac-ring {
+  width: 100% !important;
+  height: 100% !important;
+  animation: llSpin 9s linear infinite;
+  transform-origin: 50% 50%;
+}
+.ll-zodiac-ring svg { width: 100%; height: 100%; overflow: visible; }
+.ll-zodiac-inner {
+  width: 70% !important;
+  height: 70% !important;
+  animation: llSpin 14s linear infinite reverse;
+  transform-origin: 50% 50%;
+}
+.ll-zodiac-inner svg { width: 100%; height: 100%; }
+.ll-zodiac-center {
+  width: 22% !important;
+  height: 22% !important;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #FFF5D6, #E5C266 50%, #6B4F22 100%);
+  box-shadow:
+    inset -3px -4px 8px rgba(0,0,0,0.45),
+    0 0 22px rgba(229,194,102,0.55);
+  z-index: 3;
+}
+.ll-zodiac-center-glow {
+  position: absolute !important;
+  inset: -40% !important;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(229,194,102,0.35), transparent 65%);
+  filter: blur(6px);
+}
+
+/* ============================================================
+   5) ECLIPSE
+   ============================================================ */
+.ll-eclipse-sun {
+  width: 36% !important;
+  height: 36% !important;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #FFF5D6 0%, #F0D585 35%, #E5C266 70%, #B89549 100%);
+  box-shadow: 0 0 35px rgba(229,194,102,0.85);
+  z-index: 2;
+}
+.ll-eclipse-corona {
+  width: 60% !important;
+  height: 60% !important;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 38%, rgba(229,194,102,0.65) 44%, rgba(229,194,102,0) 60%);
+  filter: blur(2px);
+  animation: llCorona 5s ease-in-out infinite;
+  z-index: 3;
+}
+.ll-eclipse-moon-track {
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 4;
+}
+.ll-eclipse-moon {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 36% !important;
+  height: 36% !important;
+  margin: 0 !important;
+  inset: auto !important;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 65% 40%, #2E1F55 0%, #160C2E 60%, #0A0518 100%);
+  box-shadow:
+    inset 4px 0 10px rgba(0,0,0,0.6),
+    0 0 0 1px rgba(229,194,102,0.18);
+  animation: llEclipseTransit 5s ease-in-out infinite;
+}
+.ll-eclipse-trail {
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+}
+
+@keyframes llCorona {
+  0%, 100% { opacity: 0; transform: scale(0.95); }
+  40%      { opacity: 0; }
+  50%      { opacity: 1; transform: scale(1.02); }
+  60%      { opacity: 0; }
+}
+@keyframes llEclipseTransit {
+  0%   { transform: translate(calc(-50% - var(--ll-size) * 0.55), -50%); }
+  50%  { transform: translate(-50%, -50%); }
+  100% { transform: translate(calc(-50% + var(--ll-size) * 0.55), -50%); }
+}

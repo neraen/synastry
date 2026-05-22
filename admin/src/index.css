@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --void: #0d0a14;
+  --deep: #1a1025;
+  --surface: #221830;
+  --panel: #2a1f3d;
+  --border-col: #3d2f5a;
+  --gold: #d4a853;
+  --gold-light: #e8c87a;
+  --text-col: #e8e0f0;
+  --muted: #9b8ab0;
+  --danger: #e05c6b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background-color: var(--void);
+  color: var(--text-col);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  display: flex;
+  min-height: 100vh;
+}
+
+h1, h2, h3 { font-family: 'EB Garamond', serif; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--deep); }
+::-webkit-scrollbar-thumb { background: var(--border-col); border-radius: 3px; }
