@@ -24,7 +24,7 @@ import { CompatibilityActionsV2 } from '@/components/compatibility-v2/Compatibil
 import { MOCK_COMPAT_V2 } from '@/components/compatibility-v2/mockData';
 import { setCompatibilityV2Data } from '@/components/compatibility-v2/store';
 import type { CompatibilityV2Data } from '@/components/compatibility-v2/types';
-import { getSynastryHistoryDetail, mapHistoryToV2Data } from '@/services/astrology';
+import { getSynastryHistoryDetail, mapHistoryToV2Data, SynastryHistoryDetail } from '@/services/astrology';
 
 export default function CompatibilityResultV2Screen() {
     const router = useRouter();
@@ -34,6 +34,7 @@ export default function CompatibilityResultV2Screen() {
     const [data, setData] = useState<CompatibilityV2Data | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [rawHistory, setRawHistory] = useState<SynastryHistoryDetail | null>(null);
 
     useEffect(() => {
         // No id = demo mode (from profile dev buttons)
@@ -49,6 +50,7 @@ export default function CompatibilityResultV2Screen() {
         getSynastryHistoryDetail(historyId)
             .then((res) => {
                 if (res.success && res.history) {
+                    setRawHistory(res.history);
                     setData(mapHistoryToV2Data(res.history, userName));
                 } else {
                     setError(res.error ?? 'Analyse introuvable.');
@@ -62,6 +64,18 @@ export default function CompatibilityResultV2Screen() {
         if (!data) return;
         setCompatibilityV2Data(data);
         router.push('/share-card-v2');
+    }
+
+    function handleTheme() {
+        if (!id) return;
+        const bd = rawHistory?.partnerBirthData;
+        const partnerBirthDate = bd
+            ? `${bd.year}-${String(bd.month).padStart(2, '0')}-${String(bd.day).padStart(2, '0')}`
+            : undefined;
+        router.push({
+            pathname: '/partner-chart',
+            params: { historyId: id, ...(partnerBirthDate ? { partnerBirthDate } : {}) },
+        });
     }
 
     function handleNew() {
@@ -152,6 +166,7 @@ export default function CompatibilityResultV2Screen() {
                     <CompatibilityActionsV2
                         partnerName={data.partnerName}
                         onShare={handleShare}
+                        onTheme={handleTheme}
                         onNew={handleNew}
                     />
 

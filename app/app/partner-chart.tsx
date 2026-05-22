@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,14 +6,13 @@ import {
     Pressable,
     StyleSheet,
     ActivityIndicator,
-    Modal,
-    TouchableOpacity,
-    Animated,
+    Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { GlassCard, FormattedText } from '@/components/ui';
+import { LinearGradient } from 'expo-linear-gradient';
+import { GlassCard, FormattedText, Starfield } from '@/components/ui';
 import {
     getPartnerSummary,
     getPlanetNameFr,
@@ -21,6 +20,7 @@ import {
     formatDegree,
     PlanetPosition,
 } from '@/services/astrology';
+import { getSignAvatar } from '@/utils/signAvatar';
 import { colors, spacing, radius, fonts } from '@/theme';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ function PlanetCard({
 
 export default function PartnerChartScreen() {
     const router = useRouter();
-    const { historyId } = useLocalSearchParams<{ historyId?: string }>();
+    const { historyId, partnerBirthDate } = useLocalSearchParams<{ historyId?: string; partnerBirthDate?: string }>();
 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -123,6 +123,7 @@ export default function PartnerChartScreen() {
     if (isLoading) {
         return (
             <View style={styles.screen}>
+                <Starfield />
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
                     <View style={styles.headerRow}>
                         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
@@ -138,8 +139,12 @@ export default function PartnerChartScreen() {
         );
     }
 
+    const signAvatar = getSignAvatar(partnerBirthDate);
+    const initial = partnerName.charAt(0).toUpperCase();
+
     return (
         <View style={styles.screen}>
+            <Starfield />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <ScrollView
                     style={styles.scroll}
@@ -155,6 +160,23 @@ export default function PartnerChartScreen() {
 
                     {/* ── Hero ─────────────────────────────────────────────────── */}
                     <View style={styles.hero}>
+                        <View style={styles.avatarWrap}>
+                            <LinearGradient
+                                colors={[colors.primary, colors.primaryContainer]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.avatarRing}
+                            >
+                                <View style={styles.avatarInner}>
+                                    {signAvatar ? (
+                                        <Image source={signAvatar} style={styles.avatarImage} />
+                                    ) : (
+                                        <Text style={styles.avatarInitial}>{initial}</Text>
+                                    )}
+                                </View>
+                            </LinearGradient>
+                        </View>
+
                         <View style={styles.badge}>
                             <View style={styles.badgeDot} />
                             <Text style={styles.badgeText}>Thème natal de</Text>
@@ -255,6 +277,34 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.lg,
         paddingBottom: spacing.xxxl,
+        alignItems: 'flex-start',
+    },
+    avatarWrap: {
+        marginBottom: spacing.xl,
+    },
+    avatarRing: {
+        width: 88,
+        height: 88,
+        borderRadius: 44,
+        padding: 3,
+    },
+    avatarInner: {
+        flex: 1,
+        borderRadius: 41,
+        backgroundColor: colors.surfaceLowest,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: 82,
+        height: 82,
+        borderRadius: 41,
+    },
+    avatarInitial: {
+        fontFamily: fonts.display.bold,
+        fontSize: 32,
+        color: colors.primary,
     },
     badge: {
         flexDirection: 'row',
