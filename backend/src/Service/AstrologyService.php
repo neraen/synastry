@@ -471,14 +471,23 @@ class AstrologyService
             $userPositions = $userCalc->getPlanetaryPositionsForApi();
             $partnerPositions = $partnerCalc->getPlanetaryPositionsForApi();
 
-            // Store in history (analysis = v2 JSON as string, compatibilityDetails = parsed v2)
+            // Merge dimension scores into the analysis so they persist in history
+            $analysisToStore = $aiResult['analysis'];
+            $dimensionScores = $aiResult['compatibilityScore']['dimensions'] ?? [];
+            foreach ($dimensionScores as $dimKey => $dimScore) {
+                if (isset($analysisToStore['dimensions'][$dimKey]) && is_array($analysisToStore['dimensions'][$dimKey])) {
+                    $analysisToStore['dimensions'][$dimKey]['value'] = (int) round($dimScore);
+                }
+            }
+
+            // Store in history (analysis = v2 JSON as string, compatibilityDetails = parsed v2 with scores)
             $history = new SynastryHistory();
             $history->setUser($user);
             $history->setPartnerName($partnerName);
             $history->setPartnerBirthData($partnerBirthData);
-            $history->setAnalysis(json_encode($aiResult['analysis']));
+            $history->setAnalysis(json_encode($analysisToStore));
             $history->setCompatibilityScore($aiResult['compatibilityScore']['score_global'] ?? null);
-            $history->setCompatibilityDetails($aiResult['analysis']);
+            $history->setCompatibilityDetails($analysisToStore);
             $history->setUserPositions($userPositions);
             $history->setPartnerPositions($partnerPositions);
             $history->setQuestion($question);
