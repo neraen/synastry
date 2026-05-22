@@ -10,7 +10,7 @@ export function AspectKeyV2({ planet_a, planet_b, name, desc }: Props) {
     return (
         <View style={styles.section}>
             <View style={styles.card}>
-                <Text style={styles.kicker}>Aspect clé · Conjonction parfaite</Text>
+                <Text style={styles.kicker}>Aspect clé · {name}</Text>
 
                 {/* Visual: two planets linked */}
                 <View style={styles.visual}>

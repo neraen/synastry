@@ -544,10 +544,89 @@ class AstrologyService
             ];
         }
 
+        $data = $history->toArray();
+
+        // For v2 records: inject dimension scores if any are missing
+        $details = $data['compatibilityDetails'] ?? null;
+        if (is_array($details) && isset($details['tagline'], $details['dimensions'])) {
+            $needsScores = false;
+            foreach ($details['dimensions'] as $dim) {
+                if (!isset($dim['value'])) {
+                    $needsScores = true;
+                    break;
+                }
+            }
+
+            if ($needsScores) {
+                try {
+                    $scores = $this->recalculateDimensionScores($user, $history);
+                    if ($scores !== null) {
+                        foreach ($scores['dimensions'] as $dimKey => $dimScore) {
+                            if (isset($details['dimensions'][$dimKey]) && is_array($details['dimensions'][$dimKey])) {
+                                $details['dimensions'][$dimKey]['value'] = (int) round($dimScore);
+                            }
+                        }
+                        $data['compatibilityDetails'] = $details;
+                        // Persist so next load is instant
+                        $history->setCompatibilityDetails($details);
+                        $this->entityManager->flush();
+                    }
+                } catch (\Exception $e) {
+                    // Silently fail — return without scores rather than crash
+                }
+            }
+        }
+
         return [
             'success' => true,
-            'history' => $history->toArray(),
+            'history' => $data,
         ];
+    }
+
+    /**
+     * Recalculate deterministic dimension scores for a v2 history record
+     * using the stored partner birth data and the user's birth profile.
+     */
+    private function recalculateDimensionScores(User $user, SynastryHistory $history): ?array
+    {
+        $userProfile = $user->getBirthProfile();
+        if (!$userProfile) {
+            return null;
+        }
+
+        $partnerBirthData = $history->getPartnerBirthData();
+        if (empty($partnerBirthData)) {
+            return null;
+        }
+
+        $userCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($userProfile);
+
+        $partnerDate = sprintf('%04d-%02d-%02d',
+            $partnerBirthData['year'],
+            $partnerBirthData['month'],
+            $partnerBirthData['day']
+        );
+        $partnerTime = sprintf('%02d:%02d:00',
+            $partnerBirthData['hours'] ?? 12,
+            $partnerBirthData['minutes'] ?? 0
+        );
+        $partnerDateTime = new \DateTime("$partnerDate $partnerTime");
+
+        $timezone = $partnerBirthData['timezone'] ?? null;
+        if ($timezone !== null) {
+            $offsetMinutes = (int) ((float) $timezone * 60);
+            $partnerDateTime->modify("-{$offsetMinutes} minutes");
+        }
+
+        $partnerCalc = new PlanetaryCalculator(
+            $partnerDateTime->format('Y-m-d'),
+            $partnerDateTime->format('H:i'),
+            (float) $partnerBirthData['latitude'],
+            (float) $partnerBirthData['longitude'],
+            $history->getPartnerName()
+        );
+
+        return $userCalc->calculateCompatibilityScore($partnerCalc);
     }
 
     /**
