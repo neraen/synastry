@@ -424,6 +424,10 @@ export default function ProfileTab() {
                                 { label: 'Portrait Astral', route: '/astral-hero' },
                                 { label: 'Thème Natal 4', route: '/test-theme-natal-4' },
                                 { label: 'Onboarding 2', route: '/onboarding2' },
+                                { label: 'Loaders', route: '/loaders-showcase' },
+                                { label: 'Loader Zodiac', route: '/loader-zodiac' },
+                                { label: 'Compat V2', route: '/compatibility-result-v2' },
+                                { label: 'Share V2', route: '/share-card-v2' },
                             ].map((item) => (
                                 <Pressable
                                     key={item.route}

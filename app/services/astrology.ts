@@ -582,6 +582,72 @@ export async function getChatPartners(): Promise<ChatPartnersResponse> {
     return authApi.get<ChatPartnersResponse>('/api/chat/partners');
 }
 
+// ─── Synastry V2 ──────────────────────────────────────────────────────────────
+
+export interface SynastryV2Response {
+    success: boolean;
+    historyId?: number;
+    user?: { name: string; initial: string; chart?: NatalChart };
+    partner?: { name: string; initial: string };
+    compatibilityScore?: { score_global: number; dimensions: Record<string, number> };
+    analysis?: Record<string, unknown>;
+    error?: string;
+}
+
+/**
+ * Calculate synastry v2 (new structured format with dimensions, forces, vigilance, etc.)
+ */
+export async function calculateSynastryV2(partnerData: PartnerBirthData): Promise<SynastryV2Response> {
+    return authApi.post<SynastryV2Response>(
+        '/api/astrology/synastry-v2',
+        partnerData as unknown as Record<string, unknown>
+    );
+}
+
+const V2_DIM_NAMES: Record<string, string> = {
+    amour: 'Amour',
+    communication: 'Communication',
+    conflits: 'Conflits',
+    long_terme: 'Long terme',
+    attirance: 'Attirance',
+};
+
+/**
+ * Map a SynastryHistoryDetail (v2 entry) to CompatibilityV2Data for display.
+ * The v2 JSON is stored in compatibilityDetails; global score in compatibilityScore.
+ */
+export function mapHistoryToV2Data(
+    history: SynastryHistoryDetail,
+    userName: string
+): import('@/components/compatibility-v2/types').CompatibilityV2Data {
+    const d = history.compatibilityDetails as Record<string, any> | null ?? {};
+    const score = history.compatibilityScore ?? 0;
+
+    // Dimensions: backend may store { value, detail } or { score, analyse } depending on version
+    const rawDims: Record<string, any> = d.dimensions ?? {};
+    const dimensions = Object.entries(rawDims).map(([id, dim]) => ({
+        id,
+        name: V2_DIM_NAMES[id] ?? id,
+        value: typeof dim === 'object' ? (dim.value ?? dim.score ?? 0) : Number(dim ?? 0),
+        detail: typeof dim === 'object' ? (dim.detail ?? dim.analyse ?? '') : '',
+    }));
+
+    return {
+        userName,
+        userInitial: userName.charAt(0).toUpperCase(),
+        partnerName: history.partnerName,
+        partnerInitial: history.partnerName.charAt(0).toUpperCase(),
+        score: Math.round(score),
+        tagline: d.tagline ?? '',
+        dimensions,
+        analyse: d.analyse ?? { headline: '', summary: [], long_text: [] },
+        forces: d.forces ?? [],
+        vigilance: d.vigilance ?? [],
+        aspect_cle: d.aspect_cle ?? { planet_a: 'sun', planet_b: 'sun', name: '', desc: '' },
+        conseil: d.conseil ?? { title: 'Conseil', text: '' },
+    };
+}
+
 // ─── Partner Chart ────────────────────────────────────────────────────────────
 
 export interface PartnerSummaryResponse {

@@ -30,7 +30,7 @@ import {
     Starfield,
 } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
-import { calculateSynastry } from '@/services/astrology';
+import { calculateSynastryV2 } from '@/services/astrology';
 import { CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
 import { colors, spacing, radius, fonts } from '@/theme';
 
@@ -173,7 +173,7 @@ export default function CompatibilityTab() {
             let finalTimezone = timezone;
             if (timezoneName && birthDate) finalTimezone = calculateTimezoneForBirthDate(timezoneName, birthDate);
 
-            const response = await calculateSynastry({
+            const response = await calculateSynastryV2({
                 partnerName: partnerName.trim(),
                 birthDate,
                 birthTime: birthTime || undefined,
@@ -186,7 +186,7 @@ export default function CompatibilityTab() {
 
             if (response.success && response.historyId) {
                 resetForm();
-                router.push(`/compatibility-result?id=${response.historyId}`);
+                router.push(`/compatibility-result-v2?id=${response.historyId}`);
             } else {
                 setError(response.error || t('synastry.calcError'));
             }

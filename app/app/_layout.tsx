@@ -176,6 +176,8 @@ export default function RootLayout() {
                         <Stack.Screen name="partner-chart" options={{ headerShown: false }} />
                         <Stack.Screen name="notification-preferences" options={{ headerShown: false }} />
                         <Stack.Screen name="compatibility-result" options={{ headerShown: false }} />
+                        <Stack.Screen name="compatibility-result-v2" options={{ headerShown: false }} />
+                        <Stack.Screen name="share-card-v2" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="natal-chart-analysis" options={{ headerShown: false }} />
                         <Stack.Screen name="natal-chart-section" options={{ headerShown: false }} />
                         <Stack.Screen name="astral-hero" options={{ headerShown: false }} />
@@ -183,6 +185,8 @@ export default function RootLayout() {
                         <Stack.Screen name="theme-natal-design" options={{ headerShown: false }} />
                         <Stack.Screen name="test-theme-natal-4" options={{ headerShown: false }} />
                         <Stack.Screen name="help" options={{ headerShown: false }} />
+                        <Stack.Screen name="loaders-showcase" options={{ headerShown: false }} />
+                        <Stack.Screen name="loader-zodiac" options={{ headerShown: false }} />
                         {/* Legal Screens */}
                         <Stack.Screen name="privacy-policy" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="terms-of-service" options={{ headerShown: false, presentation: 'modal' }} />

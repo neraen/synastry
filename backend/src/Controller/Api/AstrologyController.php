@@ -212,6 +212,76 @@ class AstrologyController extends AbstractController
     }
 
     /**
+     * Calculate synastry v2 — new structured JSON format with planet/sign glyphs
+     */
+    #[Route('/synastry-v2', name: 'api_synastry_v2', methods: ['POST'])]
+    public function calculateSynastryV2(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $locale = $this->getLocaleFromRequest($request);
+        $this->astrologyService->setLocale($locale);
+
+        if (!$user->hasBirthProfile()) {
+            return $this->json([
+                'error' => $locale === 'en' ? 'Please complete your birth profile first' : 'Veuillez compléter votre profil de naissance',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!$data) {
+            return $this->json(['error' => 'Invalid JSON payload'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $requiredFields = ['partnerName', 'birthDate', 'birthCity', 'latitude', 'longitude'];
+        foreach ($requiredFields as $field) {
+            if (empty($data[$field])) {
+                return $this->json(['error' => "Field '$field' is required"], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        try {
+            $birthDate = new \DateTime($data['birthDate']);
+        } catch (\Exception $e) {
+            return $this->json(['error' => 'Invalid birth date format'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $hours = 12; $minutes = 0; $seconds = 0;
+        if (!empty($data['birthTime'])) {
+            $timeParts = explode(':', $data['birthTime']);
+            $hours   = (int) ($timeParts[0] ?? 12);
+            $minutes = (int) ($timeParts[1] ?? 0);
+            $seconds = (int) ($timeParts[2] ?? 0);
+        }
+
+        $partnerBirthData = [
+            'year' => (int) $birthDate->format('Y'),
+            'month' => (int) $birthDate->format('m'),
+            'day' => (int) $birthDate->format('d'),
+            'hours' => $hours, 'minutes' => $minutes, 'seconds' => $seconds,
+            'latitude' => (float) $data['latitude'],
+            'longitude' => (float) $data['longitude'],
+            'timezone' => (float) ($data['timezone'] ?? 0),
+            'timezoneName' => $data['timezoneName'] ?? null,
+            'birthDate' => $birthDate,
+        ];
+
+        $result = $this->astrologyService->calculateSynastryV2WithExternal(
+            $user,
+            $data['partnerName'],
+            $partnerBirthData,
+            $data['question'] ?? null
+        );
+
+        if (!$result['success']) {
+            return $this->json(['error' => $result['error']], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return $this->json($result);
+    }
+
+    /**
      * Calculate synastry with partner's birth data
      */
     #[Route('/synastry', name: 'api_synastry', methods: ['POST'])]

@@ -414,6 +414,100 @@ class AstrologyService
     }
 
     /**
+     * Calculate synastry v2 with external birth data — uses structured JSON prompt
+     */
+    public function calculateSynastryV2WithExternal(
+        User $user,
+        string $partnerName,
+        array $partnerBirthData,
+        ?string $question = null
+    ): array {
+        $userProfile = $user->getBirthProfile();
+
+        if (!$userProfile) {
+            return ['success' => false, 'error' => 'User must have a birth profile'];
+        }
+
+        try {
+            $userCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($userProfile);
+
+            $partnerDate = sprintf('%04d-%02d-%02d', $partnerBirthData['year'], $partnerBirthData['month'], $partnerBirthData['day']);
+            $partnerTime = sprintf('%02d:%02d:00', $partnerBirthData['hours'] ?? 12, $partnerBirthData['minutes'] ?? 0);
+            $partnerDateTime = new \DateTime("$partnerDate $partnerTime");
+
+            $partnerTimezoneName = $partnerBirthData['timezoneName'] ?? null;
+            $partnerBirthDateObj = $partnerBirthData['birthDate'] ?? null;
+
+            if ($partnerTimezoneName && $partnerBirthDateObj instanceof \DateTimeInterface) {
+                $tz = new \DateTimeZone($partnerTimezoneName);
+                $tzRef = new \DateTime($partnerBirthDateObj->format('Y-m-d') . ' 12:00:00', $tz);
+                $partnerTimezone = $tz->getOffset($tzRef) / 3600;
+            } else {
+                $partnerTimezone = $partnerBirthData['timezone'] ?? null;
+            }
+
+            if ($partnerTimezone !== null) {
+                $offsetMinutes = (int) ((float) $partnerTimezone * 60);
+                $partnerDateTime->modify("-{$offsetMinutes} minutes");
+            }
+
+            $partnerCalc = new PlanetaryCalculator(
+                $partnerDateTime->format('Y-m-d'),
+                $partnerDateTime->format('H:i'),
+                (float) $partnerBirthData['latitude'],
+                (float) $partnerBirthData['longitude'],
+                $partnerName
+            );
+
+            $calculatedScores = $userCalc->calculateCompatibilityScore($partnerCalc);
+            $prompt = $userCalc->buildCompatibilityPromptV2($partnerCalc, $question, $this->locale);
+            $aiResult = $this->openAiService->getCompatibilityAnalysisV2($prompt, $calculatedScores);
+
+            if (!$aiResult['success']) {
+                return $aiResult;
+            }
+
+            $userName = $userProfile->getFirstName() ?? ($this->locale === 'en' ? 'You' : 'Vous');
+            $userPositions = $userCalc->getPlanetaryPositionsForApi();
+            $partnerPositions = $partnerCalc->getPlanetaryPositionsForApi();
+
+            // Store in history (analysis = v2 JSON as string, compatibilityDetails = parsed v2)
+            $history = new SynastryHistory();
+            $history->setUser($user);
+            $history->setPartnerName($partnerName);
+            $history->setPartnerBirthData($partnerBirthData);
+            $history->setAnalysis(json_encode($aiResult['analysis']));
+            $history->setCompatibilityScore($aiResult['compatibilityScore']['score_global'] ?? null);
+            $history->setCompatibilityDetails($aiResult['analysis']);
+            $history->setUserPositions($userPositions);
+            $history->setPartnerPositions($partnerPositions);
+            $history->setQuestion($question);
+
+            $this->entityManager->persist($history);
+            $this->entityManager->flush();
+
+            return [
+                'success' => true,
+                'historyId' => $history->getId(),
+                'user' => [
+                    'name' => $userName,
+                    'initial' => mb_substr($userName, 0, 1, 'UTF-8'),
+                    'chart' => ['planetaryPositions' => $userPositions],
+                ],
+                'partner' => [
+                    'name' => $partnerName,
+                    'initial' => mb_substr($partnerName, 0, 1, 'UTF-8'),
+                    'positions' => $partnerPositions,
+                ],
+                'compatibilityScore' => $aiResult['compatibilityScore'],
+                'analysis' => $aiResult['analysis'],
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => 'Calculation error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Get synastry history for a user
      */
     public function getSynastryHistory(User $user, int $limit = 50): array

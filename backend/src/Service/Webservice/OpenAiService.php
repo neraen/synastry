@@ -426,6 +426,98 @@ Rédige une interprétation précise qui couvre :
     }
 
     /**
+     * Get v2 compatibility analysis (new structured JSON format with planet/sign/tag glyphs).
+     * Scores are pre-calculated by PHP — the AI only produces interpretation text.
+     */
+    public function getCompatibilityAnalysisV2(string $prompt, array $calculatedScores = []): array
+    {
+        $isEnglish = $this->localeService->getLocale() === 'en';
+        $instructions = $isEnglish
+            ? "You are an experienced astrologer. Write a compatibility analysis based on the data provided. Respond ONLY with valid JSON, no text before or after."
+            : "Tu es un astrologue expérimenté. Rédige une analyse de compatibilité à partir des données fournies. Réponds UNIQUEMENT en JSON valide, sans texte avant ou après.";
+
+        if (!empty($calculatedScores) && isset($calculatedScores['score_global'])) {
+            $score = $calculatedScores['score_global'];
+            $instructions .= $isEnglish
+                ? "\n\nA compatibility score of {$score}/100 has been pre-calculated. Use it for coherence but do not base your entire interpretation on it."
+                : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence, mais nuance avec les aspects qualitatifs du thème.";
+        }
+
+        $result = $this->callResponsesApi($prompt, $instructions);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $jsonData = $this->parseJsonResponse($result['content']);
+
+        if (!$jsonData) {
+            return ['success' => false, 'error' => 'Failed to parse v2 JSON response'];
+        }
+
+        // Validate and sanitize planet/badge/icon values
+        $jsonData = $this->sanitizeCompatibilityV2Data($jsonData);
+
+        // Inject deterministic dimension scores (separate from AI text)
+        $dimensionScores = $calculatedScores['dimensions'] ?? [];
+
+        return [
+            'success' => true,
+            'analysis' => $jsonData,
+            'compatibilityScore' => [
+                'score_global' => $calculatedScores['score_global'] ?? 0,
+                'dimensions' => $dimensionScores,
+            ],
+        ];
+    }
+
+    /**
+     * Validate and sanitize v2 compatibility JSON data.
+     * Replaces invalid planet/badge/icon values with safe fallbacks.
+     */
+    private function sanitizeCompatibilityV2Data(array $data): array
+    {
+        $validPlanets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
+        $validSigns   = ['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces'];
+        $validIcons   = ['sparkle', 'bolt', 'heart', 'anchor', 'pulse', 'chat'];
+
+        $sanitizeItem = function(array $item) use ($validPlanets, $validSigns, $validIcons): array {
+            if (isset($item['planet']) && !in_array($item['planet'], $validPlanets, true)) {
+                $item['planet'] = 'sun';
+            }
+            if (isset($item['badge']) && !in_array($item['badge'], $validSigns, true)) {
+                $item['badge'] = 'aries';
+            }
+            if (isset($item['tags']) && is_array($item['tags'])) {
+                foreach ($item['tags'] as &$tag) {
+                    if (isset($tag['icon']) && !in_array($tag['icon'], $validIcons, true)) {
+                        $tag['icon'] = 'sparkle';
+                    }
+                }
+                unset($tag);
+            }
+            return $item;
+        };
+
+        if (isset($data['forces']) && is_array($data['forces'])) {
+            $data['forces'] = array_map($sanitizeItem, $data['forces']);
+        }
+        if (isset($data['vigilance']) && is_array($data['vigilance'])) {
+            $data['vigilance'] = array_map($sanitizeItem, $data['vigilance']);
+        }
+        if (isset($data['aspect_cle'])) {
+            if (isset($data['aspect_cle']['planet_a']) && !in_array($data['aspect_cle']['planet_a'], $validPlanets, true)) {
+                $data['aspect_cle']['planet_a'] = 'sun';
+            }
+            if (isset($data['aspect_cle']['planet_b']) && !in_array($data['aspect_cle']['planet_b'], $validPlanets, true)) {
+                $data['aspect_cle']['planet_b'] = 'sun';
+            }
+        }
+
+        return $data;
+    }
+
+    /**
      * Parse JSON from AI response (handle markdown code blocks)
      */
     private function parseJsonResponse(string $content): ?array

@@ -530,6 +530,78 @@ class PlanetaryCalculator
 PROMPT;
     }
 
+    /**
+     * Build the v2 compatibility prompt using the new structured JSON format.
+     * Same data sections as v1, but uses the v2 instruction template.
+     */
+    public function buildCompatibilityPromptV2(PlanetaryCalculator $other, ?string $question = null, string $locale = 'fr'): string
+    {
+        $localeService = new PromptLocaleService($locale);
+        $template = $localeService->getSynastryPromptV2Template();
+        $labels = $template['labels'];
+        $isEnglish = $locale === 'en';
+
+        $chartA  = $this->getFullChart();
+        $chartB  = $other->getFullChart();
+        $aspects = $this->getSynastryAspects($other);
+
+        $nameA = $chartA['name'];
+        $nameB = $chartB['name'];
+
+        $formatChart = function($chart) use ($localeService) {
+            $lines = [];
+            foreach ($chart['planets'] as $key => $p) {
+                $retro = $p['retrograde'] ? ' ℞' : '';
+                $planetName = $localeService->translatePlanet($key);
+                $signName = $localeService->translateSign($p['sign']);
+                $lines[] = sprintf('%s — %s%s', $planetName, $signName, $retro);
+            }
+            $asc = $chart['ascendant'];
+            $mc  = $chart['midheaven'];
+            $lines[] = sprintf('%s — %s', $localeService->translatePlanet('Ascendant'), $localeService->translateSign($asc['sign']));
+            $lines[] = sprintf('%s — %s', $localeService->translatePlanet('Midheaven'), $localeService->translateSign($mc['sign']));
+            return implode("\n", $lines);
+        };
+
+        $formatAspects = function($aspects) use ($localeService, $isEnglish) {
+            if (empty($aspects)) return $isEnglish ? '(No major aspects)' : '(Aucun aspect majeur)';
+            $lines = [];
+            foreach (array_slice($aspects, 0, 20) as $a) {
+                $planetA = $localeService->translatePlanet($a['planet_a']);
+                $planetB = $localeService->translatePlanet($a['planet_b']);
+                $orb = $a['orb'];
+                $intensity = $isEnglish
+                    ? ($orb <= 2.0 ? 'tight' : ($orb <= 5.0 ? 'medium' : 'wide'))
+                    : ($orb <= 2.0 ? 'serré' : ($orb <= 5.0 ? 'moyen' : 'large'));
+                $lines[] = sprintf('%s %s %s — %s (%s)', $planetA, $a['symbol'], $planetB, $a['name'], $intensity);
+            }
+            return implode("\n", $lines);
+        };
+
+        $questionSection = $question
+            ? "\n═══════════ {$labels['specific_question']} ═══════════\n{$question}\n"
+            : '';
+
+        $chartOfA = "{$labels['chart_of']} {$nameA}";
+        $chartOfB = "{$labels['chart_of']} {$nameB}";
+        $aspectsBetween = $labels['aspects_between'];
+        $scoringMethod = $template['scoring_method'];
+
+        return <<<PROMPT
+{$scoringMethod}
+
+═══════════ {$chartOfA} ═══════════
+{$formatChart($chartA)}
+
+═══════════ {$chartOfB} ═══════════
+{$formatChart($chartB)}
+
+═══════════ {$aspectsBetween} ═══════════
+{$formatAspects($aspects)}
+{$questionSection}
+PROMPT;
+    }
+
     // -------------------------------------------------------------------------
     // Calcul des planètes
     // -------------------------------------------------------------------------
