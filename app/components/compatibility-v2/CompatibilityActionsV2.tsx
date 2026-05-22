@@ -37,16 +37,16 @@ export function CompatibilityActionsV2({ partnerName, onShare, onTheme, onNew }:
         <View style={styles.actions}>
             <View style={styles.row}>
                 <Pressable style={styles.ghostBtn} onPress={onShare}>
-                    <Text style={styles.ghostBtnInner}>
+                    <View style={styles.btnContent}>
                         <ShareIcon />
-                        {'  '}Partager
-                    </Text>
+                        <Text style={styles.ghostBtnInner}>Partager</Text>
+                    </View>
                 </Pressable>
                 <Pressable style={styles.ghostBtn} onPress={onTheme}>
-                    <Text style={styles.ghostBtnInner}>
+                    <View style={styles.btnContent}>
                         <StarIcon />
-                        {'  '}Thème de {partnerName}
-                    </Text>
+                        <Text style={styles.ghostBtnInner}>Thème de {partnerName}</Text>
+                    </View>
                 </Pressable>
             </View>
             <GoldButton label="Nouvelle analyse" onPress={onNew ?? (() => {})} rightIcon />
@@ -75,10 +75,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    btnContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
     ghostBtnInner: {
         fontFamily: fonts.body.semiBold,
         fontSize: 13,
         color: colors.onSurface,
-        textAlign: 'center',
     },
 });
