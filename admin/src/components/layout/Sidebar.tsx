@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: '◈' },
+  { to: '/', label: 'Dashboard', icon: '◇' },
   { to: '/users', label: 'Utilisateurs', icon: '◉' },
   { to: '/conversations', label: 'Conversations sauvées', icon: '◎' },
   { to: '/chat-logs', label: 'Logs Lyra', icon: '◐' },
+  { to: '/sandbox', label: 'Sandbox', icon: '◈' },
 ];
 
 export function Sidebar({ onLogout }: { onLogout: () => void }) {
