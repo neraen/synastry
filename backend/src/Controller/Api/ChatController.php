@@ -2,12 +2,14 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\LyraConversationLog;
 use App\Entity\User;
 use App\Repository\NatalChartRepository;
 use App\Repository\SynastryHistoryRepository;
 use App\Service\AstrologyAnalysisService;
 use App\Service\PromptLocaleService;
 use App\Service\Webservice\OpenAiService;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,6 +35,7 @@ class ChatController extends AbstractController
         private SynastryHistoryRepository $synastryHistoryRepository,
         private AstrologyAnalysisService $astrologyAnalysisService,
         private CacheInterface $cache,
+        private EntityManagerInterface $em,
     ) {}
 
     /**
@@ -251,6 +254,18 @@ class ChatController extends AbstractController
             return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
+        // Log exchange
+        try {
+            $lastUserMessage = '';
+            foreach (array_reverse($messages) as $msg) {
+                if ($msg['role'] === 'user') { $lastUserMessage = $msg['content']; break; }
+            }
+            $log = new LyraConversationLog($user, $lastUserMessage, count($messages));
+            $log->setAssistantResponse($result['message'] ?? null);
+            $this->em->persist($log);
+            $this->em->flush();
+        } catch (\Throwable) {}
+
         $result['remaining_messages'] = $remainingMessages;
         $result['daily_limit_reached'] = false;
 
@@ -376,11 +391,18 @@ class ChatController extends AbstractController
         // Snapshot for closure
         $openAiService      = $this->openAiService;
         $remainingSnap      = $remainingMessages;
+        $em                 = $this->em;
+
+        $lastUserMessage = '';
+        foreach (array_reverse($messages) as $msg) {
+            if ($msg['role'] === 'user') { $lastUserMessage = $msg['content']; break; }
+        }
 
         return new StreamedResponse(function () use (
             $messages, $userContext, $toolHandler, $tools, $previousResponseId,
-            $openAiService, $remainingSnap
+            $openAiService, $remainingSnap, $em, $user, $lastUserMessage
         ) {
+            $fullResponse = '';
             try {
                 $chatMessages = $openAiService->buildChatMessages($messages, $userContext, $tools);
                 $result = $openAiService->streamChatResponse(
@@ -388,7 +410,8 @@ class ChatController extends AbstractController
                     $toolHandler,
                     $tools,
                     $previousResponseId,
-                    function (string $delta) {
+                    function (string $delta) use (&$fullResponse) {
+                        $fullResponse .= $delta;
                         echo 'data: ' . json_encode(['type' => 'delta', 'content' => $delta]) . "\n\n";
                         if (ob_get_level() > 0) ob_flush();
                         flush();
@@ -401,6 +424,15 @@ class ChatController extends AbstractController
                     'remaining_messages' => $remainingSnap,
                     'daily_limit_reached' => false,
                 ]) . "\n\n";
+
+                // Log exchange
+                try {
+                    $log = new LyraConversationLog($user, $lastUserMessage, count($messages));
+                    $log->setAssistantResponse($fullResponse ?: null);
+                    $em->persist($log);
+                    $em->flush();
+                } catch (\Throwable) {}
+
             } catch (\Throwable $e) {
                 echo 'data: ' . json_encode(['type' => 'error', 'message' => 'AI service error']) . "\n\n";
             }

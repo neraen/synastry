@@ -7,6 +7,7 @@ import { UsersPage } from './pages/UsersPage';
 import { UserDetailPage } from './pages/UserDetailPage';
 import { ConversationsPage } from './pages/ConversationsPage';
 import { ConversationDetailPage } from './pages/ConversationDetailPage';
+import { ChatLogsPage } from './pages/ChatLogsPage';
 
 function App() {
   const { isAuthenticated, login, logout } = useAuth();
@@ -24,6 +25,7 @@ function App() {
           <Route path="/users/:id" element={<UserDetailPage />} />
           <Route path="/conversations" element={<ConversationsPage />} />
           <Route path="/conversations/:id" element={<ConversationDetailPage />} />
+          <Route path="/chat-logs" element={<ChatLogsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
