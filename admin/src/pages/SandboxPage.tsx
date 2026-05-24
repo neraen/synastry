@@ -183,6 +183,128 @@ function HoroscopeTab() {
   );
 }
 
+interface CityResult {
+  name: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  timezoneName: string;
+}
+
+async function searchCities(query: string): Promise<CityResult[]> {
+  if (query.length < 2) return [];
+  try {
+    const res = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=fr&format=json`
+    );
+    const data = await res.json();
+    if (!data.results) return [];
+    return data.results.map((r: { name: string; country: string; latitude: number; longitude: number; timezone: string }) => ({
+      name: r.name,
+      country: r.country,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      timezoneName: r.timezone,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function getTimezoneOffset(timezoneName: string, dateString?: string): number {
+  try {
+    const date = dateString ? new Date(`${dateString}T12:00:00`) : new Date();
+    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezoneName }));
+    return (tzDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60);
+  } catch {
+    return 0;
+  }
+}
+
+function CityPicker({
+  value,
+  onSelect,
+}: {
+  value: string;
+  onSelect: (city: CityResult) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [options, setOptions] = useState<CityResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  function handleChange(q: string) {
+    setQuery(q);
+    setOpen(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.length < 2) { setOptions([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      const results = await searchCities(q);
+      setOptions(results);
+      setSearching(false);
+    }, 300);
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input
+          style={inputStyle}
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => { if (query.length >= 2) setOpen(true); }}
+          placeholder="Paris, France..."
+          autoComplete="off"
+        />
+        {searching && (
+          <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: 11 }}>
+            ...
+          </span>
+        )}
+      </div>
+      {open && options.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: 4,
+          background: 'var(--surface)', border: '1px solid var(--border-col)',
+          borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        }}>
+          {options.map((city, i) => (
+            <div
+              key={`${city.name}-${city.latitude}-${i}`}
+              onClick={() => { onSelect(city); setOpen(false); setOptions([]); }}
+              style={{
+                padding: '10px 14px', cursor: 'pointer',
+                borderBottom: i < options.length - 1 ? '1px solid var(--border-col)' : 'none',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(212,168,83,0.08)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span style={{ fontSize: 13, color: 'var(--text-col)', fontWeight: 600 }}>{city.name}</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>{city.country}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CompatibilityTab() {
   const [user, setUser] = useState<User | null>(null);
   const [form, setForm] = useState({
@@ -190,16 +312,25 @@ function CompatibilityTab() {
     birthDate: '',
     birthTime: '12:00',
     birthCity: '',
-    latitude: '',
-    longitude: '',
-    question: '',
+    latitude: 0,
+    longitude: 0,
+    timezone: 0,
+    timezoneName: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
 
-  function set(key: string, val: string) {
-    setForm((f) => ({ ...f, [key]: val }));
+  function handleCitySelect(city: CityResult) {
+    const tz = getTimezoneOffset(city.timezoneName, form.birthDate || undefined);
+    setForm((f) => ({
+      ...f,
+      birthCity: city.name,
+      latitude: city.latitude,
+      longitude: city.longitude,
+      timezone: tz,
+      timezoneName: city.timezoneName,
+    }));
   }
 
   async function handleRun() {
@@ -214,9 +345,10 @@ function CompatibilityTab() {
         birthDate: form.birthDate,
         birthTime: form.birthTime,
         birthCity: form.birthCity,
-        latitude: parseFloat(form.latitude),
-        longitude: parseFloat(form.longitude),
-        question: form.question || undefined,
+        latitude: form.latitude,
+        longitude: form.longitude,
+        timezone: form.timezone,
+        timezoneName: form.timezoneName,
       });
       setResult(res.result);
     } catch (e: unknown) {
@@ -227,8 +359,7 @@ function CompatibilityTab() {
     }
   }
 
-  const canSubmit = user && form.partnerName && form.birthDate && form.birthCity &&
-    form.latitude && form.longitude && !loading;
+  const canSubmit = user && form.partnerName && form.birthDate && form.birthCity && !loading;
 
   return (
     <div>
@@ -244,37 +375,27 @@ function CompatibilityTab() {
 
         <div>
           <label style={labelStyle}>Prénom du partenaire *</label>
-          <input style={inputStyle} value={form.partnerName} onChange={(e) => set('partnerName', e.target.value)} placeholder="Marie" />
+          <input style={inputStyle} value={form.partnerName} onChange={(e) => setForm((f) => ({ ...f, partnerName: e.target.value }))} placeholder="Marie" />
         </div>
 
         <div>
           <label style={labelStyle}>Date de naissance *</label>
-          <input style={inputStyle} type="date" value={form.birthDate} onChange={(e) => set('birthDate', e.target.value)} />
+          <input style={inputStyle} type="date" value={form.birthDate} onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))} />
         </div>
 
         <div>
           <label style={labelStyle}>Heure de naissance</label>
-          <input style={inputStyle} type="time" value={form.birthTime} onChange={(e) => set('birthTime', e.target.value)} />
+          <input style={inputStyle} type="time" value={form.birthTime} onChange={(e) => setForm((f) => ({ ...f, birthTime: e.target.value }))} />
         </div>
 
         <div>
           <label style={labelStyle}>Ville de naissance *</label>
-          <input style={inputStyle} value={form.birthCity} onChange={(e) => set('birthCity', e.target.value)} placeholder="Paris" />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Latitude *</label>
-          <input style={inputStyle} type="number" step="0.0001" value={form.latitude} onChange={(e) => set('latitude', e.target.value)} placeholder="48.8566" />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Longitude *</label>
-          <input style={inputStyle} type="number" step="0.0001" value={form.longitude} onChange={(e) => set('longitude', e.target.value)} placeholder="2.3522" />
-        </div>
-
-        <div style={{ gridColumn: '1 / -1' }}>
-          <label style={labelStyle}>Question (optionnel)</label>
-          <input style={{ ...inputStyle, width: '100%' }} value={form.question} onChange={(e) => set('question', e.target.value)} placeholder="Ex: On est ensemble depuis 2 ans, est-ce durable ?" />
+          <CityPicker value={form.birthCity} onSelect={handleCitySelect} />
+          {form.birthCity && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              {form.latitude.toFixed(4)}, {form.longitude.toFixed(4)} · {form.timezoneName}
+            </div>
+          )}
         </div>
       </div>
 

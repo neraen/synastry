@@ -24,7 +24,6 @@ export interface RunCompatibilityParams {
   longitude: number;
   timezone?: number;
   timezoneName?: string;
-  question?: string;
 }
 
 export const runHoroscope = (params: RunHoroscopeParams): Promise<{ success: boolean; sandboxId: number; result: Record<string, unknown> }> =>
