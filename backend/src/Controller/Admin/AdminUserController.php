@@ -31,8 +31,7 @@ class AdminUserController extends AbstractController
 
         $qb = $this->userRepo->createQueryBuilder('u')
             ->leftJoin('u.birthProfile', 'bp')
-            ->leftJoin('u.chatSessions', 'cs')
-            ->addSelect('bp', 'cs');
+            ->addSelect('bp');
 
         if ($search) {
             $qb->andWhere('u.email LIKE :search OR u.displayName LIKE :search')
@@ -54,10 +53,9 @@ class AdminUserController extends AbstractController
         $sortField = $sortMap[$sort] ?? 'u.createdAt';
         $qb->orderBy($sortField, $order);
 
-        $total = (clone $qb)->select('COUNT(DISTINCT u.id)')->getQuery()->getSingleScalarResult();
+        $total = (clone $qb)->select('COUNT(u.id)')->getQuery()->getSingleScalarResult();
 
-        $users = $qb->select('u', 'bp', 'cs')
-            ->groupBy('u.id')
+        $users = $qb->select('u', 'bp')
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit)
             ->getQuery()
