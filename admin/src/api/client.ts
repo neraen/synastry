@@ -4,13 +4,12 @@ const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 });
 
-let token: string | null = null;
-
-export const setToken = (t: string) => { token = t; };
-export const clearToken = () => { token = null; };
-export const getToken = () => token;
+export const setToken = (t: string) => localStorage.setItem('admin_token', t);
+export const clearToken = () => localStorage.removeItem('admin_token');
+export const getToken = () => localStorage.getItem('admin_token');
 
 client.interceptors.request.use((config) => {
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

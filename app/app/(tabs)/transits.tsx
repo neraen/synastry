@@ -27,6 +27,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { GlassCard, GoldButton, GhostButton, FormattedText, TabHeader, HelpModal, NoBirthProfileCard, Starfield } from '@/components/ui';
+import { LoaderOrbitTrio, LoaderSaturn } from '@/components/loaders';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import { router } from 'expo-router';
@@ -42,6 +43,8 @@ import {
     CalendarAspect,
     type MirrorAspect,
     type MirrorTransitsData,
+    type MirrorChapter,
+    type MirrorMilestone,
     type UnlockedRange,
 } from '@/services/astrology';
 
@@ -127,22 +130,6 @@ function TransitItem({ transit, isLast }: { transit: UpcomingTransit; isLast: bo
                 <Text style={styles.transitTitle}>{transit.title}</Text>
                 <Text style={styles.transitDesc}>{transit.description}</Text>
             </GlassCard>
-        </View>
-    );
-}
-
-function LoadingSkeleton() {
-    return (
-        <View style={styles.skeletonWrap}>
-            {[0, 1, 2].map((i) => (
-                <View key={i} style={styles.transitRow}>
-                    <View style={styles.timelineCol}>
-                        <View style={[styles.dot, { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.surfaceContainerHigh }]} />
-                        {i < 2 && <View style={styles.line} />}
-                    </View>
-                    <View style={[styles.skeletonCard, { height: 110 + i * 20 }]} />
-                </View>
-            ))}
         </View>
     );
 }
@@ -421,16 +408,44 @@ const mirrorTransitsCache = new Map<number, MirrorTransitsData>();
 // ─── Mirror: Constants & types ────────────────────────────────────────────────
 
 const MAX_AGE = 80;
-const MIRROR_H_PADDING = 24;
 const PINS_FILE = `${FileSystem.documentDirectory}mirror_pins.json`;
 
-const MIRROR_ASPECT_COLORS: Record<string, string> = {
-    conjunction: '#2dd4bf',
-    trine:       '#a78bfa',
-    sextile:     '#9ca3af',
-    square:      '#fb923c',
-    opposition:  '#fbbf24',
+// ─── Mirror: Variante A constants ─────────────────────────────────────────────
+
+const MIRROR_DECADES = [0, 10, 20, 30, 40, 50, 60, 70, 80] as const;
+
+const DEFAULT_MILESTONES: MirrorMilestone[] = [
+    { age: 0,  label: 'Naissance',            glyph: '✦' },
+    { age: 7,  label: 'Enfance',              glyph: '☉' },
+    { age: 14, label: 'Adolescence',          glyph: '☿' },
+    { age: 18, label: 'Émancipation',         glyph: '♂' },
+    { age: 21, label: 'Quête',                glyph: '♃' },
+    { age: 25, label: 'Premiers choix',       glyph: '♀' },
+    { age: 29, label: 'Retour de Saturne',    glyph: '♄' },
+    { age: 35, label: 'Conscience',           glyph: '♇' },
+    { age: 42, label: 'Mi-parcours',          glyph: '♅' },
+    { age: 50, label: 'Maturité',             glyph: '☉' },
+    { age: 58, label: '2e retour de Saturne', glyph: '♄' },
+    { age: 70, label: 'Récolte',              glyph: '♃' },
+];
+
+// Chapter accent colors: use theme primary for gold, theme accent.pink for pink,
+// and specific values for violet/blue that have no theme equivalent.
+const CHAPTER_ACCENT_MAP: Record<string, string> = {
+    gold:   colors.primary,
+    violet: '#9B5CFF',
+    pink:   colors.accent.pink,
+    blue:   '#5DA9F5',
 };
+const CHAPTER_DEFAULT_ACCENTS = [colors.primary, '#9B5CFF', colors.accent.pink, '#5DA9F5'];
+
+function resolveChapterAccent(accent: string | undefined, index: number): string {
+    if (!accent) return CHAPTER_DEFAULT_ACCENTS[index % 4];
+    if (CHAPTER_ACCENT_MAP[accent]) return CHAPTER_ACCENT_MAP[accent];
+    // Accept raw hex/rgba from API directly
+    if (accent.startsWith('#') || accent.startsWith('rgba') || accent.startsWith('rgb')) return accent;
+    return CHAPTER_DEFAULT_ACCENTS[index % 4];
+}
 
 interface PinnedEvent {
     age: number;
@@ -450,195 +465,6 @@ async function loadPins(): Promise<PinnedEvent[]> {
 
 async function savePins(pins: PinnedEvent[]): Promise<void> {
     await FileSystem.writeAsStringAsync(PINS_FILE, JSON.stringify(pins));
-}
-
-// ─── Mirror: Age Slider ───────────────────────────────────────────────────────
-
-function AgeSlider({
-    age,
-    onAgeChange,
-    onSlidingComplete,
-    unlockedRanges,
-}: {
-    age: number;
-    onAgeChange: (age: number) => void;
-    onSlidingComplete: (age: number) => void;
-    unlockedRanges: UnlockedRange[] | null;
-}) {
-    const trackRef = useRef<View>(null);
-    const trackWidth = useRef(SCREEN_WIDTH - MIRROR_H_PADDING * 2 - 24);
-    const trackPageX = useRef(0);
-    const [trackWidthState, setTrackWidthState] = useState(trackWidth.current);
-
-    const thumbLeft = (age / MAX_AGE) * trackWidthState;
-
-    const pageXToAge = (pageX: number): number => {
-        const localX = pageX - trackPageX.current;
-        const clamped = Math.max(0, Math.min(trackWidth.current, localX));
-        return Math.round((clamped / trackWidth.current) * MAX_AGE);
-    };
-
-    const isCurrentAgeLocked = (): boolean => {
-        if (!unlockedRanges) return false;
-        return !unlockedRanges.some((r) => age >= r.min && age <= r.max);
-    };
-
-    const trackColor = isCurrentAgeLocked() ? colors.onSurfaceMuted : colors.primary;
-
-    return (
-        <View style={sliderStyles.container}>
-            <View
-                ref={trackRef}
-                style={sliderStyles.track}
-                onLayout={() => {
-                    trackRef.current?.measure((_x, _y, width, _h, pageX) => {
-                        trackWidth.current = width;
-                        trackPageX.current = pageX;
-                        setTrackWidthState(width);
-                    });
-                }}
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
-                onResponderGrant={(e) => { onAgeChange(pageXToAge(e.nativeEvent.pageX)); }}
-                onResponderMove={(e) => { onAgeChange(pageXToAge(e.nativeEvent.pageX)); }}
-                onResponderRelease={(e) => {
-                    const finalAge = pageXToAge(e.nativeEvent.pageX);
-                    onAgeChange(finalAge);
-                    onSlidingComplete(finalAge);
-                }}
-                onResponderTerminate={(e) => {
-                    const finalAge = pageXToAge(e.nativeEvent.pageX);
-                    onSlidingComplete(finalAge);
-                }}
-            >
-                <View style={[sliderStyles.fill, { width: thumbLeft, backgroundColor: trackColor }]} />
-                {unlockedRanges && (
-                    <LockedZones trackWidth={trackWidthState} unlockedRanges={unlockedRanges} />
-                )}
-                <View style={[sliderStyles.thumb, { left: thumbLeft - 12, backgroundColor: trackColor }]} />
-            </View>
-            <View style={sliderStyles.ticks}>
-                {([0, 10, 20, 30, 40, 50, 60, 70, 80] as const).map((tick) => (
-                    <Text key={tick} style={[sliderStyles.tick, tick === age && sliderStyles.tickActive]}>
-                        {tick}
-                    </Text>
-                ))}
-            </View>
-        </View>
-    );
-}
-
-function LockedZones({ trackWidth, unlockedRanges }: { trackWidth: number; unlockedRanges: UnlockedRange[] }) {
-    const locked: Array<{ start: number; end: number }> = [];
-    const sorted = [...unlockedRanges].sort((a, b) => a.min - b.min);
-    let cursor = 0;
-    for (const r of sorted) {
-        if (r.min > cursor) locked.push({ start: cursor, end: r.min });
-        cursor = r.max + 1;
-    }
-    if (cursor <= MAX_AGE) locked.push({ start: cursor, end: MAX_AGE });
-    return (
-        <>
-            {locked.map((zone, i) => (
-                <View
-                    key={i}
-                    style={[
-                        sliderStyles.lockedZone,
-                        { left: (zone.start / MAX_AGE) * trackWidth, width: ((zone.end - zone.start) / MAX_AGE) * trackWidth },
-                    ]}
-                />
-            ))}
-        </>
-    );
-}
-
-const sliderStyles = StyleSheet.create({
-    container: { paddingVertical: 8 },
-    track: {
-        height: 6,
-        backgroundColor: colors.surfaceVariant,
-        borderRadius: radius.full,
-        position: 'relative',
-        marginHorizontal: 12,
-        overflow: 'visible',
-    },
-    fill: { position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: radius.full },
-    thumb: {
-        width: 24, height: 24, borderRadius: 12, position: 'absolute', top: -9,
-        shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 4,
-    },
-    lockedZone: { position: 'absolute', top: 0, height: '100%', backgroundColor: 'rgba(255,255,255,0.12)' },
-    ticks: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, marginHorizontal: 12 },
-    tick: { fontFamily: fonts.body.regular, fontSize: 10, color: colors.onSurfaceMuted },
-    tickActive: { color: colors.primary, fontFamily: fonts.body.bold },
-});
-
-// ─── Mirror: Active Aspects ───────────────────────────────────────────────────
-
-function MirrorActiveAspects({ aspects }: { aspects: MirrorAspect[] }) {
-    const { t, i18n } = useTranslation();
-    const isFr = i18n.language.startsWith('fr');
-
-    return (
-        <GlassCard style={mirrorStyles.card}>
-            <Text style={mirrorStyles.sectionTitle}>{t('mirror.activeAspectsTitle')}</Text>
-            {aspects.length === 0 ? (
-                <Text style={mirrorStyles.emptyText}>{t('mirror.noAspects')}</Text>
-            ) : (
-                aspects.map((aspect, i) => {
-                    const color = MIRROR_ASPECT_COLORS[aspect.aspect_type] ?? '#9ca3af';
-                    const transit = isFr ? getPlanetNameFr(aspect.transit_planet) : aspect.transit_planet;
-                    const natal = isFr ? getPlanetNameFr(aspect.natal_planet) : aspect.natal_planet;
-                    const type = t(`mirror.aspectTypes.${aspect.aspect_type}`, { defaultValue: aspect.aspect_type });
-                    return (
-                        <View key={i} style={mirrorStyles.aspectRow}>
-                            <View style={mirrorStyles.intensityBarBg}>
-                                <View style={[mirrorStyles.intensityBarFill, { width: `${Math.round(aspect.intensity * 100)}%`, backgroundColor: color }]} />
-                            </View>
-                            <View style={mirrorStyles.aspectInfoRow}>
-                                <Text style={mirrorStyles.aspectSymbol}>{aspect.symbol}</Text>
-                                <Text style={mirrorStyles.planetLabel}>{transit}</Text>
-                                <Text style={mirrorStyles.aspectTypeLabel}>{type}</Text>
-                                <Text style={mirrorStyles.planetLabel}>{natal}</Text>
-                                <View style={[mirrorStyles.badge, { backgroundColor: color + '22', borderColor: color }]}>
-                                    <Text style={[mirrorStyles.badgeText, { color }]}>{aspect.orb_exact.toFixed(1)}°</Text>
-                                </View>
-                            </View>
-                        </View>
-                    );
-                })
-            )}
-        </GlassCard>
-    );
-}
-
-// ─── Mirror: Transit Grid ─────────────────────────────────────────────────────
-
-const MIRROR_MAIN_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
-
-function MirrorTransitGrid({ positions }: { positions: Record<string, { Position: number; Sign: string; Retrograde: string }> }) {
-    const { t, i18n } = useTranslation();
-    const isFr = i18n.language.startsWith('fr');
-    return (
-        <GlassCard style={mirrorStyles.card}>
-            <Text style={mirrorStyles.sectionTitle}>{t('mirror.transitPositionsTitle')}</Text>
-            <View style={mirrorStyles.planetGrid}>
-                {MIRROR_MAIN_PLANETS.map((planet) => {
-                    const data = positions[planet];
-                    if (!data) return null;
-                    return (
-                        <View key={planet} style={mirrorStyles.planetCell}>
-                            <Text style={mirrorStyles.planetCellName}>{isFr ? getPlanetNameFr(planet) : planet}</Text>
-                            <Text style={mirrorStyles.planetCellSign}>
-                                {isFr ? getZodiacSignFr(data.Sign) : data.Sign}
-                                {data.Retrograde === 'Yes' ? ' ℞' : ''}
-                            </Text>
-                        </View>
-                    );
-                })}
-            </View>
-        </GlassCard>
-    );
 }
 
 // ─── Mirror: Pin Modal ────────────────────────────────────────────────────────
@@ -703,12 +529,157 @@ function MirrorPremiumModal({ visible, unlockedRanges, onClose }: {
     );
 }
 
+// ─── Mirror: Active Aspects ───────────────────────────────────────────────────
+
+const MIRROR_ASPECT_COLORS: Record<string, string> = {
+    conjunction: '#2dd4bf',
+    trine:       '#a78bfa',
+    sextile:     '#9ca3af',
+    square:      '#fb923c',
+    opposition:  '#fbbf24',
+};
+
+function MirrorActiveAspects({ aspects }: { aspects: MirrorAspect[] }) {
+    const { t, i18n } = useTranslation();
+    const isFr = i18n.language.startsWith('fr');
+
+    return (
+        <GlassCard style={mirrorStyles.card}>
+            <Text style={mirrorStyles.sectionTitle}>{t('mirror.activeAspectsTitle')}</Text>
+            {aspects.length === 0 ? (
+                <Text style={mirrorStyles.emptyText}>{t('mirror.noAspects')}</Text>
+            ) : (
+                aspects.map((aspect, i) => {
+                    const color = MIRROR_ASPECT_COLORS[aspect.aspect_type] ?? '#9ca3af';
+                    const transit = isFr ? getPlanetNameFr(aspect.transit_planet) : aspect.transit_planet;
+                    const natal   = isFr ? getPlanetNameFr(aspect.natal_planet)   : aspect.natal_planet;
+                    const type    = t(`mirror.aspectTypes.${aspect.aspect_type}`, { defaultValue: aspect.aspect_type });
+                    return (
+                        <View key={i} style={mirrorStyles.mirrorAspectRow}>
+                            <View style={mirrorStyles.intensityBarBg}>
+                                <View style={[mirrorStyles.intensityBarFill, {
+                                    width: `${Math.round(aspect.intensity * 100)}%`,
+                                    backgroundColor: color,
+                                }]} />
+                            </View>
+                            <View style={mirrorStyles.aspectInfoRow}>
+                                <Text style={mirrorStyles.aspectGlyph}>{aspect.symbol}</Text>
+                                <Text style={mirrorStyles.planetLabel}>{transit}</Text>
+                                <Text style={mirrorStyles.aspectTypeLabel}>{type}</Text>
+                                <Text style={mirrorStyles.planetLabel}>{natal}</Text>
+                                <View style={[mirrorStyles.orbBadge, { backgroundColor: color + '22', borderColor: color }]}>
+                                    <Text style={[mirrorStyles.orbBadgeText, { color }]}>{aspect.orb_exact.toFixed(1)}°</Text>
+                                </View>
+                            </View>
+                        </View>
+                    );
+                })
+            )}
+        </GlassCard>
+    );
+}
+
+// ─── Mirror: Transit Grid ─────────────────────────────────────────────────────
+
+const MIRROR_MAIN_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+
+function MirrorTransitGrid({ positions }: {
+    positions: Record<string, { Position: number; Sign: string; Retrograde: string }>;
+}) {
+    const { t, i18n } = useTranslation();
+    const isFr = i18n.language.startsWith('fr');
+    return (
+        <GlassCard style={mirrorStyles.card}>
+            <Text style={mirrorStyles.sectionTitle}>{t('mirror.transitPositionsTitle')}</Text>
+            <View style={mirrorStyles.planetGrid}>
+                {MIRROR_MAIN_PLANETS.map((planet) => {
+                    const data = positions[planet];
+                    if (!data) return null;
+                    return (
+                        <View key={planet} style={mirrorStyles.planetCell}>
+                            <Text style={mirrorStyles.planetCellName}>{isFr ? getPlanetNameFr(planet) : planet}</Text>
+                            <Text style={mirrorStyles.planetCellSign}>
+                                {isFr ? getZodiacSignFr(data.Sign) : data.Sign}
+                                {data.Retrograde === 'Yes' ? ' ℞' : ''}
+                            </Text>
+                        </View>
+                    );
+                })}
+            </View>
+        </GlassCard>
+    );
+}
+
+// ─── Mirror: Chapter Card ─────────────────────────────────────────────────────
+
+function MirrorChapterCard({ chapter, index, total }: {
+    chapter: MirrorChapter;
+    index: number;
+    total: number;
+}) {
+    const accent = resolveChapterAccent(chapter.accent, index);
+    const isFirst = index === 0;
+
+    return (
+        <View style={[
+            mirrorStyles.chapterCard,
+            { borderColor: isFirst ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)' },
+        ]}>
+            {/* Glass top-edge highlight */}
+            <View style={mirrorStyles.chapterTopHighlight} />
+            {/* Ambient glow top-right on first card */}
+            {isFirst && (
+                <View
+                    pointerEvents="none"
+                    style={[mirrorStyles.chapterGoldGlow, { backgroundColor: `${accent}0D` }]}
+                />
+            )}
+            <View style={mirrorStyles.chapterCardInner}>
+                {/* Header: glyph badge + theme label + counter */}
+                <View style={mirrorStyles.chapterHead}>
+                    <View style={[mirrorStyles.glyphBadge, {
+                        backgroundColor: `${accent}14`,
+                        borderColor: `${accent}33`,
+                    }]}>
+                        <Text style={[mirrorStyles.glyphText, { color: accent }]}>
+                            {chapter.glyph}
+                        </Text>
+                    </View>
+                    <Text style={mirrorStyles.chapterTheme}>{chapter.theme}</Text>
+                    <Text style={mirrorStyles.chapterStep}>
+                        {String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+                    </Text>
+                </View>
+                {/* Body — drop cap only for first chapter */}
+                {isFirst ? (
+                    <View style={mirrorStyles.chapterBodyRow}>
+                        <Text style={[mirrorStyles.dropCap, { color: accent }]}>
+                            {chapter.text.charAt(0)}
+                        </Text>
+                        <Text style={[mirrorStyles.chapterText, { flex: 1 }]}>
+                            {chapter.text.slice(1)}
+                        </Text>
+                    </View>
+                ) : (
+                    <Text style={mirrorStyles.chapterText}>{chapter.text}</Text>
+                )}
+            </View>
+        </View>
+    );
+}
+
 // ─── Mirror: Tab Content ──────────────────────────────────────────────────────
 
 function MirrorTabContent() {
     const { user } = useAuth();
     const { t } = useTranslation();
     const userId = user?.id;
+
+    const birthYear = useMemo(() => {
+        const bd = user?.birthProfile?.birthDate;
+        if (!bd) return new Date().getFullYear() - 30;
+        return new Date(bd).getFullYear();
+    }, [user?.birthProfile?.birthDate]);
 
     const initialAge = useMemo<number>(() => {
         const bd = user?.birthProfile?.birthDate;
@@ -719,19 +690,28 @@ function MirrorTabContent() {
 
     const [age, setAge] = useState<number>(initialAge);
     const [mirrorTransits, setMirrorTransits] = useState<MirrorTransitsData | null>(null);
+    const [chapters, setChapters] = useState<MirrorChapter[]>([]);
     const [interpretation, setInterpretation] = useState<string>('');
+    const [milestones, setMilestones] = useState<MirrorMilestone[]>(DEFAULT_MILESTONES);
     const [isLoadingTransits, setIsLoadingTransits] = useState(false);
     const [isLoadingInterp, setIsLoadingInterp] = useState(false);
     const [unlockedRanges, setUnlockedRanges] = useState<UnlockedRange[] | null>(null);
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [pinnedEvents, setPinnedEvents] = useState<PinnedEvent[]>([]);
     const [showPinModal, setShowPinModal] = useState(false);
+    const [thumbFeedback, setThumbFeedback] = useState<'up' | 'down' | null>(null);
 
+    const decade = Math.floor(age / 10) * 10;
+    const milestoneByAge = useMemo(() => new Map(milestones.map(m => [m.age, m])), [milestones]);
+    const milestoneAges = useMemo(() => new Set(milestones.map(m => m.age)), [milestones]);
+    const currentMilestone = milestoneByAge.get(age);
+    const displayYear = mirrorTransits?.target_year ?? (birthYear + age);
     const currentPin = pinnedEvents.find((p) => p.age === age);
+    const hasContent = chapters.length > 0 || !!interpretation;
 
     useEffect(() => { loadPins().then(setPinnedEvents); }, []);
 
-    // When birth profile changes, flush all cached mirror data for this user
+    // Flush cache when birth profile changes
     const prevBirthProfileKey = useRef<string | null>(null);
     const birthProfileKey = user?.birthProfile
         ? `${user.birthProfile.birthDate}_${user.birthProfile.birthCity}`
@@ -746,6 +726,7 @@ function MirrorTabContent() {
             mirrorTransitsCache.clear();
             cacheInvalidatePrefix(`u${userId}_mirror`);
             setMirrorTransits(null);
+            setChapters([]);
             setInterpretation('');
         }
         prevBirthProfileKey.current = birthProfileKey;
@@ -761,7 +742,6 @@ function MirrorTabContent() {
     }, []);
 
     const fetchTransits = useCallback(async (targetAge: number) => {
-        // In-memory session cache hit
         const memCached = mirrorTransitsCache.get(targetAge);
         if (memCached) {
             setMirrorTransits(memCached);
@@ -770,7 +750,6 @@ function MirrorTabContent() {
         }
         setIsLoadingTransits(true);
         setMirrorTransits(null);
-        setInterpretation('');
         try {
             const res = await getMirrorTransits(targetAge);
             const data: MirrorTransitsData = {
@@ -793,21 +772,27 @@ function MirrorTabContent() {
     }, [handlePremiumError]);
 
     const fetchInterpretation = useCallback(async (targetAge: number) => {
-        // File cache: interpretations are expensive AI calls, TTL 7 days — scoped by user
+        // Cache key — AI interpretations are expensive, TTL 7 days, scoped by user
         const cacheKey = `u${userId}_mirror_interp_${targetAge}`;
         const cached = await cacheGet<string>(cacheKey);
         if (cached) {
             setInterpretation(cached);
+            setChapters([]);
             return;
         }
         setIsLoadingInterp(true);
+        setChapters([]);
         setInterpretation('');
+        setThumbFeedback(null);
         try {
             const pin = pinnedEvents.find((p) => p.age === targetAge);
             const res = await getMirrorInterpretation(targetAge, pin?.label);
-            if (res.interpretation) {
+            if (res.milestones?.length) setMilestones(res.milestones);
+            if (res.chapters?.length) {
+                setChapters(res.chapters);
+            } else if (res.interpretation) {
                 setInterpretation(res.interpretation);
-                // Don't cache pinned-event interpretations (they're personalised to the note)
+                // Don't cache pinned-event interpretations (personalised to the note)
                 if (!pin?.label && userId) {
                     await cacheSet(cacheKey, res.interpretation, 7 * 24 * 3600);
                 }
@@ -817,13 +802,19 @@ function MirrorTabContent() {
         } finally {
             setIsLoadingInterp(false);
         }
-    }, [pinnedEvents, handlePremiumError]);
+    }, [pinnedEvents, handlePremiumError, userId]);
 
     useEffect(() => {
         setAge(initialAge);
         fetchTransits(initialAge);
         fetchInterpretation(initialAge);
     }, [initialAge]);
+
+    const handleAgeChange = useCallback((newAge: number) => {
+        setAge(newAge);
+        fetchTransits(newAge);
+        fetchInterpretation(newAge);
+    }, [fetchTransits, fetchInterpretation]);
 
     const handleSavePin = useCallback(async (label: string) => {
         const updated = [
@@ -836,55 +827,122 @@ function MirrorTabContent() {
 
     return (
         <View style={mirrorStyles.tabContent}>
-            {/* Slider card */}
-            <GlassCard style={mirrorStyles.card}>
-                <View style={mirrorStyles.ageRow}>
-                    <Text style={mirrorStyles.ageBig}>{t('mirror.ageLabel', { age })}</Text>
-                    {mirrorTransits && (
-                        <Text style={mirrorStyles.yearBadge}>{t('mirror.yearLabel', { year: mirrorTransits.target_year })}</Text>
-                    )}
-                </View>
-                {mirrorTransits && (
-                    <View style={mirrorStyles.intensityRow}>
-                        <Text style={mirrorStyles.intensityLabel}>{t('mirror.intensityLabel')}</Text>
-                        <View style={mirrorStyles.intensityTrack}>
-                            <View style={[mirrorStyles.intensityFill, { width: `${Math.round(mirrorTransits.global_intensity * 100)}%` }]} />
+            {/* ── Picker card ── */}
+            <GlassCard style={mirrorStyles.pickerCard}>
+
+                {/* Header: âge (gauche) + année/intensité (droite) */}
+                <View style={mirrorStyles.pickerHeader}>
+                    <View style={mirrorStyles.ageStack}>
+                        <View style={mirrorStyles.ageRow}>
+                            <Text style={mirrorStyles.contextAge}>{age}</Text>
+                            <Text style={mirrorStyles.contextSuffix}>ans</Text>
                         </View>
-                        <Text style={mirrorStyles.intensityPct}>{Math.round(mirrorTransits.global_intensity * 100)}%</Text>
+                        {currentMilestone && (
+                            <View style={mirrorStyles.milestoneTag}>
+                                <Text style={mirrorStyles.milestoneGlyph}>{currentMilestone.glyph}</Text>
+                                <Text style={mirrorStyles.milestoneName}>{currentMilestone.label}</Text>
+                            </View>
+                        )}
                     </View>
-                )}
-                <AgeSlider
-                    age={age}
-                    onAgeChange={setAge}
-                    onSlidingComplete={(a) => { fetchTransits(a); fetchInterpretation(a); }}
-                    unlockedRanges={unlockedRanges}
-                />
-                <Text style={mirrorStyles.sliderHint}>{t('mirror.sliderHint')}</Text>
-                {isLoadingTransits && <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />}
+                    <View style={mirrorStyles.pickerRight}>
+                        <View style={mirrorStyles.yearBadge}>
+                            {isLoadingTransits
+                                ? <ActivityIndicator size="small" color={colors.primary} />
+                                : <Text style={mirrorStyles.yearBadgeText}>{displayYear}</Text>
+                            }
+                        </View>
+                        {mirrorTransits && (
+                            <View style={mirrorStyles.intensityRow}>
+                                <View style={mirrorStyles.intensityTrack}>
+                                    <View style={[mirrorStyles.intensityFill, {
+                                        width: `${Math.round(mirrorTransits.global_intensity * 100)}%`,
+                                    }]} />
+                                </View>
+                                <Text style={mirrorStyles.intensityPct}>
+                                    {Math.round(mirrorTransits.global_intensity * 100)}%
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+
+                {/* Decade pills — horizontal scroll */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={mirrorStyles.decadesScroll}
+                    contentContainerStyle={mirrorStyles.decadesContent}
+                >
+                    {MIRROR_DECADES.map(d => {
+                        const isActiveDec = decade === d;
+                        return (
+                            <Pressable
+                                key={d}
+                                style={[mirrorStyles.decadePill, isActiveDec && mirrorStyles.decadePillActive]}
+                                onPress={() => { if (!isActiveDec) handleAgeChange(d); }}
+                            >
+                                <Text style={[mirrorStyles.decadeText, isActiveDec && mirrorStyles.decadeTextActive]}>
+                                    {d}–{d + 9}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </ScrollView>
+
+                {/* Year grid — 10 cellules égales */}
+                <View style={mirrorStyles.yearsRow}>
+                    {Array.from({ length: 10 }, (_, i) => decade + i).map(y => {
+                        const isActive = age === y;
+                        const isMilestone = milestoneAges.has(y);
+                        const m = milestoneByAge.get(y);
+                        return (
+                            <Pressable
+                                key={y}
+                                style={[mirrorStyles.yearBtn, isActive && mirrorStyles.yearBtnActive]}
+                                onPress={() => { if (y !== age) handleAgeChange(y); }}
+                            >
+                                {/* Indicateur milestone en haut */}
+                                <View style={mirrorStyles.yearTopSlot}>
+                                    {isMilestone && (
+                                        <Text style={[mirrorStyles.yearMilestoneGlyph, isActive && mirrorStyles.yearMilestoneGlyphActive]}>
+                                            {m?.glyph ?? '·'}
+                                        </Text>
+                                    )}
+                                </View>
+                                <Text style={[mirrorStyles.yearNum, isActive && mirrorStyles.yearNumActive]}>
+                                    {y}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </View>
             </GlassCard>
 
-            {/* Transit positions */}
-            {mirrorTransits && <MirrorTransitGrid positions={mirrorTransits.transit_positions} />}
+            {/* ── Loading state ── */}
+            {isLoadingInterp && (
+                <View style={mirrorStyles.loadingWrap}>
+                    <LoaderSaturn size={160} label={t('mirror.interpretationLoading')} />
+                </View>
+            )}
 
-            {/* Active aspects */}
-            {mirrorTransits && <MirrorActiveAspects aspects={mirrorTransits.aspects} />}
+            {/* ── Chapter cards (new structured format) ── */}
+            {!isLoadingInterp && chapters.length > 0 && (
+                <View style={mirrorStyles.chaptersWrap}>
+                    {chapters.map((c, i) => (
+                        <MirrorChapterCard key={i} chapter={c} index={i} total={chapters.length} />
+                    ))}
+                </View>
+            )}
 
-            {/* Interpretation */}
-            <GlassCard style={mirrorStyles.card}>
-                <Text style={mirrorStyles.sectionTitle}>{t('mirror.interpretationTitle')}</Text>
-                {isLoadingInterp ? (
-                    <View style={mirrorStyles.interpRow}>
-                        <ActivityIndicator color={colors.primary} />
-                        <Text style={mirrorStyles.interpLoadingText}>{t('mirror.interpretationLoading')}</Text>
-                    </View>
-                ) : interpretation ? (
+            {/* ── Fallback: legacy plain interpretation text ── */}
+            {!isLoadingInterp && chapters.length === 0 && !!interpretation && (
+                <GlassCard style={mirrorStyles.card}>
+                    <Text style={mirrorStyles.sectionTitle}>{t('mirror.interpretationTitle')}</Text>
                     <FormattedText text={interpretation} style={mirrorStyles.interpText} />
-                ) : (
-                    <Text style={mirrorStyles.emptyText}>{t('mirror.sliderHint')}</Text>
-                )}
-            </GlassCard>
+                </GlassCard>
+            )}
 
-            {/* Pinned event */}
+            {/* ── Pinned event indicator ── */}
             {currentPin && (
                 <GlassCard style={mirrorStyles.card}>
                     <View style={mirrorStyles.pinCard}>
@@ -893,11 +951,60 @@ function MirrorTabContent() {
                     </View>
                 </GlassCard>
             )}
-            <View style={mirrorStyles.pinBtnRow}>
-                <GhostButton label={t('mirror.pinButton')} onPress={() => setShowPinModal(true)} />
-            </View>
 
-            {/* Modals */}
+            {/* ── Pin CTA ── */}
+            {hasContent && (
+                <Pressable
+                    style={({ pressed }) => [mirrorStyles.pinCta, pressed && { opacity: 0.7 }]}
+                    onPress={() => setShowPinModal(true)}
+                >
+                    <Feather name="bookmark" size={14} color={colors.onSurface} />
+                    <Text style={mirrorStyles.pinCtaText}>{t('mirror.pinButton')}</Text>
+                </Pressable>
+            )}
+
+            {/* ── Feedback ── */}
+            {hasContent && !isLoadingInterp && (
+                <View style={mirrorStyles.feedbackRow}>
+                    <Text style={mirrorStyles.feedbackLabel}>
+                        {t('mirror.feedbackLabel', { defaultValue: 'Cette lecture résonne-t-elle ?' })}
+                    </Text>
+                    <View style={mirrorStyles.feedbackBtns}>
+                        <Pressable
+                            style={[mirrorStyles.feedbackBtn, thumbFeedback === 'up' && mirrorStyles.feedbackBtnActive]}
+                            onPress={() => setThumbFeedback(thumbFeedback === 'up' ? null : 'up')}
+                        >
+                            <Feather
+                                name="thumbs-up"
+                                size={14}
+                                color={thumbFeedback === 'up' ? colors.primary : colors.onSurfaceMuted}
+                            />
+                        </Pressable>
+                        <Pressable
+                            style={[mirrorStyles.feedbackBtn, thumbFeedback === 'down' && mirrorStyles.feedbackBtnActive]}
+                            onPress={() => setThumbFeedback(thumbFeedback === 'down' ? null : 'down')}
+                        >
+                            <Feather
+                                name="thumbs-down"
+                                size={14}
+                                color={thumbFeedback === 'down' ? colors.primary : colors.onSurfaceMuted}
+                            />
+                        </Pressable>
+                    </View>
+                </View>
+            )}
+
+            {/* ── Positions des transits ── */}
+            {mirrorTransits && (
+                <MirrorTransitGrid positions={mirrorTransits.transit_positions} />
+            )}
+
+            {/* ── Aspects actifs ── */}
+            {mirrorTransits && mirrorTransits.aspects.length > 0 && (
+                <MirrorActiveAspects aspects={mirrorTransits.aspects} />
+            )}
+
+            {/* ── Modals ── */}
             <MirrorPinModal
                 visible={showPinModal}
                 initialValue={currentPin?.label ?? ''}
@@ -1167,7 +1274,11 @@ export default function TransitsScreen() {
                                 </View>
                             </View>
 
-                            {tlLoading && <LoadingSkeleton />}
+                            {tlLoading && (
+                                <View style={styles.inlineLoaderWrap}>
+                                    <LoaderOrbitTrio size={200} label={t('transits.heroTitle')} />
+                                </View>
+                            )}
 
                             {!tlLoading && tlError && (
                                 <GlassCard opacity="low" radius="xl" style={styles.errorCard}>
@@ -1241,7 +1352,7 @@ export default function TransitsScreen() {
                             {/* Calendar grid */}
                             {calLoading ? (
                                 <View style={styles.calLoadingWrap}>
-                                    <ActivityIndicator color={colors.primary} />
+                                    <LoaderOrbitTrio size={160} label={t('transits.calendarHeroTitle')} />
                                 </View>
                             ) : calError ? (
                                 <GlassCard opacity="low" radius="xl" style={styles.errorCard}>
@@ -1693,6 +1804,11 @@ const styles = StyleSheet.create({
     calCard: {
         padding: spacing.md,
     },
+    inlineLoaderWrap: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: spacing.xxxl,
+    },
     calLoadingWrap: {
         alignItems: 'center',
         paddingVertical: spacing.xxxl,
@@ -1972,36 +2088,173 @@ const styles = StyleSheet.create({
 const mirrorStyles = StyleSheet.create({
     tabContent: { gap: 0 },
     card: { marginBottom: 16 },
-    ageRow: { flexDirection: 'row', alignItems: 'baseline', gap: 12, marginBottom: 8 },
-    ageBig: { fontFamily: fonts.display.bold, fontSize: 26, color: colors.onSurface },
-    yearBadge: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
-    intensityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-    intensityLabel: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted },
-    intensityTrack: { flex: 1, height: 4, backgroundColor: colors.surfaceVariant, borderRadius: radius.full, overflow: 'hidden' },
+
+    // ── Picker card ──────────────────────────────────────────────────────────
+    pickerCard: { marginBottom: 16 },
+
+    // Header: âge à gauche, badge année à droite
+    pickerHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    ageStack: { gap: 6 },
+    ageRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+    contextAge: { fontFamily: fonts.display.bold, fontSize: 52, color: colors.onSurface, lineHeight: 56 },
+    contextSuffix: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted, paddingBottom: 4 },
+    // Milestone tag sous l'âge
+    milestoneTag: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 10, paddingVertical: 4,
+        borderRadius: radius.full,
+        backgroundColor: `${colors.primary}12`,
+        alignSelf: 'flex-start',
+    },
+    milestoneGlyph: { fontSize: 12, color: colors.primary },
+    milestoneName: { fontFamily: fonts.body.semiBold, fontSize: 11, color: colors.primary, letterSpacing: 0.3 },
+    // Côté droit : badge année + barre intensité
+    pickerRight: { alignItems: 'flex-end', gap: 8, paddingTop: 4 },
+    yearBadge: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 14, paddingVertical: 7,
+        borderRadius: radius.full,
+        backgroundColor: `${colors.primary}12`,
+        borderWidth: 1, borderColor: `${colors.primary}30`,
+        minWidth: 72, justifyContent: 'center',
+    },
+    yearBadgeText: { fontFamily: fonts.body.bold, fontSize: 15, color: colors.primary, letterSpacing: 0.5 },
+    intensityRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    intensityTrack: { width: 64, height: 3, backgroundColor: colors.surfaceVariant, borderRadius: radius.full, overflow: 'hidden' },
     intensityFill: { height: '100%', backgroundColor: colors.primary, borderRadius: radius.full },
-    intensityPct: { fontFamily: fonts.body.semiBold, fontSize: 12, color: colors.primary },
-    sliderHint: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted, textAlign: 'center', marginTop: 4 },
+    intensityPct: { fontFamily: fonts.body.semiBold, fontSize: 11, color: colors.primary },
+
+    // Decade pills
+    decadesScroll: { marginBottom: 12 },
+    decadesContent: { flexDirection: 'row', gap: 5, paddingVertical: 2 },
+    decadePill: {
+        paddingHorizontal: 13, paddingVertical: 7,
+        borderRadius: radius.full,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
+    },
+    decadePillActive: {
+        backgroundColor: `${colors.primary}15`,
+        borderColor: `${colors.primary}55`,
+    },
+    decadeText: { fontFamily: fonts.body.semiBold, fontSize: 11, color: colors.onSurfaceMuted, letterSpacing: 0.4 },
+    decadeTextActive: { color: colors.primary },
+
+    // Year grid — cellules avec fond + glyph milestone au-dessus
+    yearsRow: { flexDirection: 'row', gap: 4 },
+    yearBtn: {
+        flex: 1,
+        alignItems: 'center',
+        paddingBottom: 9,
+        borderRadius: radius.md,
+        backgroundColor: colors.surfaceContainerHigh,
+        overflow: 'hidden',
+    },
+    yearBtnActive: {
+        backgroundColor: colors.primary,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.4,
+        shadowRadius: 7,
+        elevation: 5,
+    },
+    // Slot fixe au-dessus du chiffre pour aligner les boutons avec ou sans glyph
+    yearTopSlot: { height: 16, justifyContent: 'flex-end', marginBottom: 3 },
+    yearMilestoneGlyph: { fontSize: 9, color: colors.primary, lineHeight: 12, opacity: 0.8 },
+    yearMilestoneGlyphActive: { color: colors.surfaceLowest, opacity: 1 },
+    yearNum: { fontFamily: fonts.body.semiBold, fontSize: 12, color: colors.onSurfaceMuted },
+    yearNumActive: { color: colors.surfaceLowest, fontFamily: fonts.body.bold },
+
+    // ── Chapter cards ────────────────────────────────────────────────────────
+    chaptersWrap: { gap: 12, marginBottom: 16 },
+    chapterCard: {
+        backgroundColor: 'rgba(30, 19, 56, 0.40)',
+        borderRadius: radius.xl,
+        borderWidth: 1,
+        overflow: 'hidden',
+    },
+    chapterTopHighlight: {
+        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    },
+    chapterGoldGlow: {
+        position: 'absolute', top: -30, right: -30, width: 130, height: 130, borderRadius: 65,
+    },
+    chapterCardInner: { padding: spacing.xl },
+    chapterHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+    glyphBadge: { width: 28, height: 28, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+    glyphText: { fontSize: 15, lineHeight: 20 },
+    chapterTheme: {
+        flex: 1,
+        fontFamily: fonts.body.semiBold, fontSize: 10, letterSpacing: 2.4,
+        color: colors.onSurface, textTransform: 'uppercase',
+    },
+    chapterStep: { fontFamily: fonts.body.regular, fontSize: 10, color: colors.onSurfaceMuted, letterSpacing: 1 },
+    chapterBodyRow: { flexDirection: 'row', alignItems: 'flex-start' },
+    dropCap: { fontFamily: fonts.display.bold, fontSize: 46, lineHeight: 42, marginRight: 6 },
+    chapterText: { fontFamily: fonts.body.regular, fontSize: 14, lineHeight: 23, color: colors.onSurface },
+
+    // ── Pin CTA ──────────────────────────────────────────────────────────────
+    pinCta: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        paddingVertical: 14, borderRadius: 14,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        marginBottom: 16,
+    },
+    pinCtaText: {
+        fontFamily: fonts.body.semiBold, fontSize: 11,
+        letterSpacing: 2.16, textTransform: 'uppercase', color: colors.onSurface,
+    },
+
+    // ── Feedback ─────────────────────────────────────────────────────────────
+    feedbackRow: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 10, marginBottom: 24,
+    },
+    feedbackLabel: { fontFamily: fonts.body.regular, fontSize: 13, color: colors.onSurfaceMuted },
+    feedbackBtns: { flexDirection: 'row', gap: 8 },
+    feedbackBtn: {
+        width: 32, height: 32, borderRadius: 10,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        alignItems: 'center', justifyContent: 'center',
+    },
+    feedbackBtnActive: { backgroundColor: `${colors.primary}20`, borderColor: `${colors.primary}50` },
+
+    // ── Loading ───────────────────────────────────────────────────────────────
+    loadingWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, marginBottom: 16 },
+    loadingText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
+
+    // ── Interprétation fallback (format texte brut) ───────────────────────────
     sectionTitle: { fontFamily: fonts.display.medium, fontSize: 15, color: colors.onSurface, marginBottom: 12 },
     emptyText: { fontFamily: fonts.body.regular, fontSize: 13, color: colors.onSurfaceMuted, textAlign: 'center', paddingVertical: 8 },
+    interpText: { fontFamily: fonts.body.regular, fontSize: 15, lineHeight: 24, color: colors.onSurface },
+
+    // ── Pinned event ──────────────────────────────────────────────────────────
+    pinCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    pinText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurface, flex: 1, lineHeight: 20 },
+
+    // ── Transit grid ──────────────────────────────────────────────────────────
     planetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     planetCell: { backgroundColor: colors.surfaceVariant, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 6, minWidth: 76 },
     planetCellName: { fontFamily: fonts.body.regular, fontSize: 10, color: colors.onSurfaceMuted, marginBottom: 2 },
     planetCellSign: { fontFamily: fonts.body.semiBold, fontSize: 13, color: colors.onSurface },
-    aspectRow: { marginBottom: 12 },
+
+    // ── Aspects actifs ────────────────────────────────────────────────────────
+    mirrorAspectRow: { marginBottom: 12 },
     intensityBarBg: { height: 3, backgroundColor: colors.surfaceVariant, borderRadius: radius.full, overflow: 'hidden', marginBottom: 6 },
     intensityBarFill: { height: '100%', borderRadius: radius.full },
     aspectInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-    aspectSymbol: { fontSize: 16, color: colors.primary },
+    aspectGlyph: { fontSize: 16, color: colors.primary },
     planetLabel: { fontFamily: fonts.body.semiBold, fontSize: 13, color: colors.onSurface },
     aspectTypeLabel: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted, fontStyle: 'italic' },
-    badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.full, borderWidth: 1, flexShrink: 0 },
-    badgeText: { fontFamily: fonts.body.semiBold, fontSize: 10 },
-    interpRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-    interpLoadingText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
-    interpText: { fontFamily: fonts.body.regular, fontSize: 15, lineHeight: 24, color: colors.onSurface },
-    pinCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-    pinText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurface, flex: 1, lineHeight: 20 },
-    pinBtnRow: { marginBottom: 16 },
+    orbBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.full, borderWidth: 1, flexShrink: 0 },
+    orbBadgeText: { fontFamily: fonts.body.semiBold, fontSize: 10 },
+
+    // ── Modals ────────────────────────────────────────────────────────────────
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
     modalSheet: { backgroundColor: colors.surfaceContainerHigh, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: 24, paddingBottom: 40, gap: 16 },
     modalTitle: { fontFamily: fonts.display.bold, fontSize: 18, color: colors.onSurface },

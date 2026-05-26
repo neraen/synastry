@@ -1,73 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Text, Pressable, StyleSheet, Dimensions, Animated } from 'react-native';
+import { View, ScrollView, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, TabHeader, ProgressBar, CelestialChip } from '@/components/ui';
+import { FullPageLoader } from '@/components/loaders';
 import { colors, spacing, fonts, radius } from '@/theme';
 import { getCosmicHeadline, getHomeInsights, WeeklyEnergy, CurrentPeriod } from '@/services/astrology';
 import { cacheGet, cacheSet, cacheInvalidatePrefix } from '@/services/cache';
 
 const { width: W } = Dimensions.get('window');
 const CARD_WIDTH = (W - spacing.xl * 2 - spacing.md) / 2;
-
-// ─── Skeleton ──────────────────────────────────────────────────────────────────
-
-function SkeletonBlock({ width, height, style }: { width: number | string; height: number; style?: object }) {
-    const opacity = React.useRef(new Animated.Value(0.3)).current;
-
-    React.useEffect(() => {
-        const anim = Animated.loop(
-            Animated.sequence([
-                Animated.timing(opacity, { toValue: 0.6, duration: 800, useNativeDriver: true }),
-                Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-            ])
-        );
-        anim.start();
-        return () => anim.stop();
-    }, []);
-
-    return (
-        <Animated.View
-            style={[
-                { width, height, borderRadius: radius.md, backgroundColor: colors.surfaceContainerHigh },
-                { opacity },
-                style,
-            ]}
-        />
-    );
-}
-
-function WeeklyEnergySkeleton() {
-    return (
-        <GlassCard opacity="low" radius="xl">
-            <SkeletonBlock width="50%" height={14} style={{ marginBottom: spacing.sm }} />
-            <SkeletonBlock width="80%" height={20} style={{ marginBottom: spacing.lg }} />
-            <SkeletonBlock width="100%" height={12} style={{ marginBottom: spacing.sm }} />
-            <SkeletonBlock width="90%" height={12} style={{ marginBottom: spacing.xl }} />
-            <SkeletonBlock width="100%" height={6} style={{ borderRadius: radius.full, marginBottom: spacing.lg }} />
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                <SkeletonBlock width={70} height={28} style={{ borderRadius: radius.full }} />
-                <SkeletonBlock width={60} height={28} style={{ borderRadius: radius.full }} />
-                <SkeletonBlock width={80} height={28} style={{ borderRadius: radius.full }} />
-            </View>
-        </GlassCard>
-    );
-}
-
-function CurrentPeriodSkeleton() {
-    return (
-        <GlassCard opacity="low" radius="xl">
-            <SkeletonBlock width="40%" height={14} style={{ marginBottom: spacing.sm }} />
-            <SkeletonBlock width="65%" height={20} style={{ marginBottom: spacing.lg }} />
-            <SkeletonBlock width="100%" height={12} style={{ marginBottom: spacing.sm }} />
-            <SkeletonBlock width="95%" height={12} style={{ marginBottom: spacing.sm }} />
-            <SkeletonBlock width="85%" height={12} />
-        </GlassCard>
-    );
-}
 
 // ─── Tonality dot ──────────────────────────────────────────────────────────────
 
@@ -205,9 +150,7 @@ export default function Home() {
                     {hasBirthProfile && (
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>{t('home.weeklyEnergyLabel', 'Énergie de la semaine')}</Text>
-                            {insightsLoading && !weeklyEnergy ? (
-                                <WeeklyEnergySkeleton />
-                            ) : weeklyEnergy ? (
+                            {weeklyEnergy ? (
                                 <GlassCard opacity="low" radius="xl">
                                     <Text style={styles.insightTitle}>{weeklyEnergy.titre}</Text>
                                     <Text style={styles.insightBody}>{weeklyEnergy.resume}</Text>
@@ -236,9 +179,7 @@ export default function Home() {
                     {hasBirthProfile && (
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>{t('home.currentPeriodLabel', 'Ta période actuelle')}</Text>
-                            {insightsLoading && !currentPeriod ? (
-                                <CurrentPeriodSkeleton />
-                            ) : currentPeriod ? (
+                            {currentPeriod ? (
                                 <GlassCard opacity="low" radius="xl">
                                     <View style={styles.periodHeader}>
                                         <Text style={styles.insightTitle}>{currentPeriod.titre}</Text>
@@ -281,6 +222,7 @@ export default function Home() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
+            <FullPageLoader visible={insightsLoading} variant="default" label="Alignement des astres…" />
         </View>
     );
 }

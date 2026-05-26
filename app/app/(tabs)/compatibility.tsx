@@ -7,7 +7,6 @@ import {
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
-    ActivityIndicator,
 } from 'react-native';
 import { usePremium } from '@/hooks/usePremium';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,6 +29,7 @@ import {
     Starfield,
 } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
+import { FullPageLoader } from '@/components/loaders';
 import { calculateSynastryV2 } from '@/services/astrology';
 import { CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -201,19 +201,7 @@ export default function CompatibilityTab() {
         }
     }
 
-    if (isAuthLoading) {
-        return (
-            <View style={styles.screen}>
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.emptyWrap}>
-                        <ActivityIndicator color={colors.primary} size="large" />
-                    </View>
-                </SafeAreaView>
-            </View>
-        );
-    }
-
-    if (!isAuthenticated) {
+    if (!isAuthLoading && !isAuthenticated) {
         return (
             <EmptyState
                 emoji="💫"
@@ -224,7 +212,7 @@ export default function CompatibilityTab() {
         );
     }
 
-    if (!user?.hasBirthProfile) {
+    if (!isAuthLoading && !user?.hasBirthProfile) {
         return <NoBirthProfileCard />;
     }
 
@@ -313,20 +301,15 @@ export default function CompatibilityTab() {
 
                         {/* Submit */}
                         <View style={[styles.sectionPad, styles.actionsSection]}>
-                            {isLoading ? (
-                                <View style={styles.loadingRow}>
-                                    <ActivityIndicator color={colors.primary} />
-                                    <Text style={styles.loadingText}>{t('synastry.calculatingLabel')}</Text>
-                                </View>
-                            ) : freeLimitReached ? (
+                            {freeLimitReached ? (
                                 <PremiumLockedButton
                                     label={t('premium.synastryLimitBtn')}
                                     reason={t('premium.synastryLimitReason')}
                                     source="synastry_second_analysis"
                                 />
-                            ) : (
+                            ) : !isLoading ? (
                                 <GoldButton label={t('synastry.analyzeBtn')} onPress={handleSubmit} rightIcon />
-                            )}
+                            ) : null}
                         </View>
 
                         <View style={{ height: 100 }} />
@@ -338,6 +321,12 @@ export default function CompatibilityTab() {
                 onClose={() => setHelpVisible(false)}
                 title={i18n.language === 'fr' ? 'Guide — Compatibilité' : 'Guide — Compatibility'}
                 sections={COMPATIBILITY_HELP(i18n.language === 'fr')}
+            />
+            <FullPageLoader
+                visible={isAuthLoading || isLoading}
+                variant="synastry"
+                label="Conjonction en cours…"
+                hint="La synastrie met en miroir les planètes de deux personnes pour éclairer ce qui les rapproche, les défie et les fait grandir ensemble."
             />
         </View>
     );
@@ -375,11 +364,6 @@ const styles = StyleSheet.create({
 
     sectionPad: { paddingHorizontal: spacing.xl },
     actionsSection: { marginTop: spacing.xxl },
-    loadingRow: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: spacing.md, paddingVertical: spacing.lg,
-    },
-    loadingText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
 
     emptyWrap: {
         flex: 1, alignItems: 'center', justifyContent: 'center',

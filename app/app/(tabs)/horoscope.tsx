@@ -5,7 +5,6 @@ import {
     ScrollView,
     Pressable,
     StyleSheet,
-    ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +12,7 @@ import { useRouter } from 'expo-router';
 import i18n from 'i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader, HelpModal, NoBirthProfileCard, Starfield } from '@/components/ui';
+import { FullPageLoader } from '@/components/loaders';
 import type { HelpSection } from '@/components/ui';
 import { AstralHero } from '@/components/astral/AstralHero';
 import { getNatalChart, NatalChart } from '@/services/astrology';
@@ -88,22 +88,8 @@ export default function HoroscopeTab() {
         }
     }
 
-    // ── Loading ──
-    if (isAuthLoading || isLoading) {
-        return (
-            <View style={styles.screen}>
-                <SafeAreaView style={styles.safeArea} edges={['top']}>
-                    <View style={styles.centered}>
-                        <ActivityIndicator color={colors.primary} size="large" />
-                        <Text style={styles.loadingText}>Calcul du thème natal…</Text>
-                    </View>
-                </SafeAreaView>
-            </View>
-        );
-    }
-
     // ── Not authenticated ──
-    if (!isAuthenticated) {
+    if (!isAuthLoading && !isLoading && !isAuthenticated) {
         return (
             <View style={styles.screen}>
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -117,7 +103,7 @@ export default function HoroscopeTab() {
     }
 
     // ── No birth profile ──
-    if (!user?.hasBirthProfile) {
+    if (!isAuthLoading && !isLoading && !user?.hasBirthProfile) {
         return <NoBirthProfileCard />;
     }
 
@@ -195,6 +181,7 @@ export default function HoroscopeTab() {
                 title={i18n.language === 'fr' ? 'Guide — Thème natal' : 'Guide — Natal Chart'}
                 sections={HOROSCOPE_HELP(i18n.language === 'fr')}
             />
+            <FullPageLoader visible={isAuthLoading || isLoading} variant="natal" />
         </View>
     );
 }

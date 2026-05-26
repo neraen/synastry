@@ -6,6 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader, NoBirthProfileCard, FeedbackThumbs, Starfield } from '@/components/ui';
+import { FullPageLoader } from '@/components/loaders';
 import { getDailyHoroscope, DailyHoroscope } from '@/services/astrology';
 import { aiDisclaimerText } from '@/constants/legalTexts';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -95,23 +96,8 @@ export default function DailyHoroscopeTab() {
             weekday: 'long', day: 'numeric', month: 'long',
         });
 
-    // Loading
-    if (isAuthLoading || isLoading) {
-        return (
-            <View style={styles.screen}>
-                <SafeAreaView style={styles.safeArea}>
-                    <TabHeader />
-                    <View style={styles.emptyWrap}>
-                        <ActivityIndicator color={colors.primary} size="large" />
-                        <Text style={styles.loadingText}>{t('dailyHoroscope.loadingText')}</Text>
-                    </View>
-                </SafeAreaView>
-            </View>
-        );
-    }
-
     // Not authenticated
-    if (!isAuthenticated) {
+    if (!isAuthLoading && !isLoading && !isAuthenticated) {
         return (
             <EmptyState
                 emoji="🌟"
@@ -123,7 +109,7 @@ export default function DailyHoroscopeTab() {
     }
 
     // No birth profile
-    if (!user?.hasBirthProfile) {
+    if (!isAuthLoading && !isLoading && !user?.hasBirthProfile) {
         return <NoBirthProfileCard />;
     }
 
@@ -228,6 +214,11 @@ export default function DailyHoroscopeTab() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
+            <FullPageLoader
+                visible={isAuthLoading || isLoading}
+                variant="default"
+                hint="L'horoscope observe le dialogue entre les planètes d'aujourd'hui et votre signe de naissance, pour vous offrir des clés de compréhension au fil des jours."
+            />
         </View>
     );
 }

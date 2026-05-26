@@ -3,6 +3,8 @@
  */
 
 import { authApi } from './sessionManager';
+import { cacheInvalidatePrefix } from './cache';
+import { getStoredUser } from './auth';
 
 export interface BirthProfile {
     id?: number;
@@ -30,21 +32,41 @@ export async function getBirthProfile(): Promise<BirthProfileResponse> {
 }
 
 /**
- * Save (create or update) birth profile
+ * Save (create or update) birth profile.
+ * Invalidates the natal chart section cache since birth data changed.
  */
 export async function saveBirthProfile(profile: Omit<BirthProfile, 'id'>): Promise<BirthProfile> {
     const response = await authApi.post<{ message: string; profile: BirthProfile }>(
         '/api/birth-profile',
         profile as Record<string, unknown>
     );
+    await _invalidateNatalCache();
     return response.profile;
 }
 
 /**
- * Delete birth profile
+ * Delete birth profile.
+ * Invalidates the natal chart section cache.
  */
 export async function deleteBirthProfile(): Promise<void> {
     await authApi.delete('/api/birth-profile');
+    await _invalidateNatalCache();
+}
+
+async function _invalidateNatalCache(): Promise<void> {
+    try {
+        const user = await getStoredUser();
+        await cacheInvalidatePrefix(`natal_section_${user?.id ?? 'anon'}_`);
+        // Also clear memory cache via the registered hook
+        _onBirthProfileChanged?.();
+    } catch {}
+}
+
+let _onBirthProfileChanged: (() => void) | null = null;
+
+/** Called by astrology.ts to register its memory cache clear function. */
+export function registerBirthProfileChangeHook(fn: () => void): void {
+    _onBirthProfileChanged = fn;
 }
 
 /**

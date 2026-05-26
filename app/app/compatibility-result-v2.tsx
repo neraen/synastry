@@ -5,13 +5,13 @@ import {
     Text,
     StyleSheet,
     Pressable,
-    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { colors, fonts, spacing } from '@/theme';
 import { Starfield } from '@/components/ui';
+import { FullPageLoader } from '@/components/loaders';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { CompatibilityHeroV2 } from '@/components/compatibility-v2/CompatibilityHeroV2';
@@ -82,21 +82,7 @@ export default function CompatibilityResultV2Screen() {
         router.push('/(tabs)/compatibility');
     }
 
-    if (loading) {
-        return (
-            <View style={styles.screen}>
-                <Starfield />
-                <SafeAreaView style={styles.safeArea} edges={['top']}>
-                    <View style={styles.centered}>
-                        <ActivityIndicator color={colors.primary} size="large" />
-                        <Text style={styles.loadingText}>Analyse en cours…</Text>
-                    </View>
-                </SafeAreaView>
-            </View>
-        );
-    }
-
-    if (error || !data) {
+    if (!loading && (error || !data)) {
         return (
             <View style={styles.screen}>
                 <Starfield />
@@ -122,6 +108,7 @@ export default function CompatibilityResultV2Screen() {
                     </Pressable>
                 </View>
 
+                {data && (
                 <ScrollView
                     style={styles.scroll}
                     contentContainerStyle={styles.scrollContent}
@@ -172,7 +159,9 @@ export default function CompatibilityResultV2Screen() {
 
                     <View style={{ height: 40 }} />
                 </ScrollView>
+                )}
             </SafeAreaView>
+            <FullPageLoader visible={loading} variant="synastry" />
         </View>
     );
 }

@@ -3,9 +3,30 @@
  */
 
 import { authApi } from './sessionManager';
-import { getToken } from './auth';
+import { getToken, getStoredUser } from './auth';
 import { getApiUrl } from './apiConfig';
 import i18n from 'i18next';
+import { cacheGet, cacheSet, cacheInvalidatePrefix } from './cache';
+import { registerBirthProfileChangeHook } from './birthProfile';
+
+// ─── Natal chart section cache ────────────────────────────────────────────────
+// Two layers: memory (instant on back navigation) + file (persists across sessions)
+const NATAL_SECTION_TTL = 7 * 24 * 3600; // 7 days in seconds
+const natalSectionMemoryCache = new Map<string, NatalChartSectionResponse>();
+
+// Register hook so birth profile changes clear the memory cache
+registerBirthProfileChangeHook(() => natalSectionMemoryCache.clear());
+
+async function getNatalSectionCacheKey(section: string): Promise<string> {
+    const user = await getStoredUser();
+    return `natal_section_${user?.id ?? 'anon'}_${section}`;
+}
+
+export async function invalidateNatalChartCache(): Promise<void> {
+    natalSectionMemoryCache.clear();
+    const user = await getStoredUser();
+    await cacheInvalidatePrefix(`natal_section_${user?.id ?? 'anon'}_`);
+}
 
 // Types
 export interface PlanetPosition {
@@ -704,9 +725,24 @@ export interface MirrorTransitsResponse {
     global_intensity?: number;
 }
 
+export interface MirrorChapter {
+    theme: string;
+    glyph: string;
+    accent: string;    // color key: 'gold' | 'violet' | 'pink' | 'blue', or raw hex
+    text: string;
+}
+
+export interface MirrorMilestone {
+    age: number;
+    label: string;
+    glyph: string;
+}
+
 export interface MirrorInterpretationResponse {
     success: boolean;
-    interpretation?: string;
+    interpretation?: string;       // legacy single-string format
+    chapters?: MirrorChapter[];    // structured multi-chapter format
+    milestones?: MirrorMilestone[];
     error?: string;
     unlocked_ranges?: UnlockedRange[];
 }
@@ -773,13 +809,37 @@ export interface NatalChartPregenerateResponse {
 /**
  * Get a single section of the natal chart analysis.
  * Returns text for most sections, structured JSON for synthesis and aspects.
+ * Results are cached in memory (session) and on disk (7 days).
  */
 export async function getNatalChartAnalysisSection(
     section: string
 ): Promise<NatalChartSectionResponse> {
-    return authApi.get<NatalChartSectionResponse>(
+    const key = await getNatalSectionCacheKey(section);
+
+    // 1. Memory cache hit → instant
+    if (natalSectionMemoryCache.has(key)) {
+        return natalSectionMemoryCache.get(key)!;
+    }
+
+    // 2. File cache hit → avoids network on app restart
+    const cached = await cacheGet<NatalChartSectionResponse>(key);
+    if (cached) {
+        natalSectionMemoryCache.set(key, cached);
+        return cached;
+    }
+
+    // 3. Fetch from API
+    const result = await authApi.get<NatalChartSectionResponse>(
         `/api/natal-chart/section/${encodeURIComponent(section)}`
     );
+
+    // Only cache successful responses (not premium errors, not failures)
+    if (result.success && result.content) {
+        natalSectionMemoryCache.set(key, result);
+        cacheSet(key, result, NATAL_SECTION_TTL);
+    }
+
+    return result;
 }
 
 /**

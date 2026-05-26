@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
     ScrollView,
     Pressable,
     StyleSheet,
-    Animated,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip } from '@/components/ui';
+import { LoaderZodiac } from '@/components/loaders';
 import { usePremium } from '@/hooks/usePremium';
 import {
     getNatalChartAnalysisSection,
@@ -42,53 +42,6 @@ const ASPECT_TYPE_LABELS: Record<string, string> = {
     trigone: 'Trigone',
     carré: 'Carré',
 };
-
-// ─── Skeleton loader ──────────────────────────────────────────────────────────
-
-function SkeletonLine({ width }: { width: string | number }) {
-    const anim = useRef(new Animated.Value(0.3)).current;
-    useEffect(() => {
-        const pulse = Animated.loop(
-            Animated.sequence([
-                Animated.timing(anim, { toValue: 0.7, duration: 800, useNativeDriver: true }),
-                Animated.timing(anim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-            ])
-        );
-        pulse.start();
-        return () => pulse.stop();
-    }, [anim]);
-
-    return (
-        <Animated.View
-            style={{
-                height: 14,
-                borderRadius: 7,
-                backgroundColor: colors.surfaceContainerHighest,
-                opacity: anim,
-                width: width as any,
-                marginBottom: spacing.sm,
-            }}
-        />
-    );
-}
-
-function ContentSkeleton() {
-    return (
-        <View style={{ gap: spacing.md, paddingTop: spacing.lg }}>
-            <SkeletonLine width="100%" />
-            <SkeletonLine width="95%" />
-            <SkeletonLine width="80%" />
-            <View style={{ height: spacing.md }} />
-            <SkeletonLine width="100%" />
-            <SkeletonLine width="90%" />
-            <SkeletonLine width="70%" />
-            <View style={{ height: spacing.md }} />
-            <SkeletonLine width="100%" />
-            <SkeletonLine width="85%" />
-            <SkeletonLine width="60%" />
-        </View>
-    );
-}
 
 // ─── Premium Gate Fallback ──────────────────────────────────────────────────────
 
@@ -191,7 +144,14 @@ export default function NatalChartSectionScreen() {
 
     const renderContent = () => {
         if (isLoading) {
-            return <ContentSkeleton />;
+            return (
+                <View style={styles.loaderWrap}>
+                    <LoaderZodiac size={180} label="Lecture du thème…" />
+                    <Text style={styles.loaderHint}>
+                        Votre thème astral est une photographie du ciel au moment exact de votre naissance. Une carte unique qui révèle vos forces, vos défis et votre potentiel.
+                    </Text>
+                </View>
+            );
         }
 
         if (isPremiumGated) {
@@ -259,7 +219,7 @@ export default function NatalChartSectionScreen() {
             </View>
 
             {/* Chips */}
-            {chips.length > 0 && !isPremiumGated && (
+            {!isLoading && chips.length > 0 && !isPremiumGated && (
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -329,6 +289,21 @@ const styles = StyleSheet.create({
     },
 
     // Content
+    loaderWrap: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: spacing.xxxl,
+        gap: spacing.xxl,
+    },
+    loaderHint: {
+        fontFamily: fonts.body.regular,
+        fontSize: 14,
+        lineHeight: 22,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
+        paddingHorizontal: spacing.xl,
+    },
     contentWrap: {
         flex: 1,
     },

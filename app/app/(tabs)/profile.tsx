@@ -8,7 +8,6 @@ import {
     StyleSheet,
     Modal,
     Alert,
-    ActivityIndicator,
     Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader, Starfield } from '@/components/ui';
+import { FullPageLoader } from '@/components/loaders';
 import { getSignAvatar } from '@/utils/signAvatar';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
@@ -155,37 +155,25 @@ export default function ProfileTab() {
         try {
             await deleteAccount();
             setShowDeleteModal(false);
-            router.replace('/login');
-        } catch {
-            Alert.alert(t('common.error'), t('profile.deleteError'));
+            // Navigation handled by (tabs)/_layout.tsx redirect when isAuthenticated becomes false
+        } catch (e: any) {
+            Alert.alert(t('common.error'), e?.message || t('profile.deleteError'));
         } finally {
             setIsDeleting(false);
         }
     };
 
-    if (isLoading) {
-        return (
-            <View style={styles.screen}>
-                <SafeAreaView style={styles.safeArea}>
-                    <TabHeader />
-                    <View style={styles.centered}>
-                        <ActivityIndicator color={colors.primary} size="large" />
-                    </View>
-                </SafeAreaView>
-            </View>
-        );
-    }
+    if (!isLoading && (!isAuthenticated || !user)) return null;
 
-    if (!isAuthenticated || !user) return null;
-
-    const displayName = user.firstName || user.email.split('@')[0];
-    const initials = displayName.charAt(0).toUpperCase();
-    const signAvatar = getSignAvatar(user.birthProfile?.birthDate);
+    const displayName = user ? (user.firstName || user.email.split('@')[0]) : '';
+    const initials = displayName ? displayName.charAt(0).toUpperCase() : '';
+    const signAvatar = user ? getSignAvatar(user.birthProfile?.birthDate) : undefined;
 
     return (
         <View style={styles.screen}>
             <Starfield />
-            <SafeAreaView style={styles.safeArea} edges={['top']}>
+            {user && (
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <ScrollView
                     style={styles.scroll}
                     contentContainerStyle={styles.scrollContent}
@@ -427,6 +415,8 @@ export default function ProfileTab() {
                                 { label: 'Loaders', route: '/loaders-showcase' },
                                 { label: 'Loader Zodiac', route: '/loader-zodiac' },
                                 { label: 'Loader Saturn', route: '/loader-saturn' },
+                                { label: 'Loader Eclipse', route: '/loader-eclipse' },
+                                { label: 'Loader Lunar', route: '/loader-lunar-phases' },
                                 { label: 'Compat V2', route: '/compatibility-result-v2' },
                                 { label: 'Share V2', route: '/share-card-v2' },
                             ].map((item) => (
@@ -444,6 +434,7 @@ export default function ProfileTab() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
+        )}
 
             {/* ── Delete Account Modal ──────────────────────────────────────── */}
             <Modal
@@ -472,6 +463,7 @@ export default function ProfileTab() {
                     </GlassCard>
                 </View>
             </Modal>
+            <FullPageLoader visible={isLoading} variant="profile" />
         </View>
     );
 }

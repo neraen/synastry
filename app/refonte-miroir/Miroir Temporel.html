@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Lunestia — Miroir temporel, redesign</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  /* ---------- tokens (shared with the rest of the app) ---------- */
+  :root {
+    --bg: #120A24;
+    --bg-2: #1A1233;
+    --card: #1F1740;
+    --card-2: #261B4D;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.12);
+
+    --gold: #E5C266;
+    --gold-2: #F0D585;
+    --gold-dim: #B89549;
+    --gold-soft: rgba(229,194,102,0.16);
+    --gold-faint: rgba(229,194,102,0.08);
+
+    --text:   #ECE5F7;
+    --text-2: #BDB2D4;
+    --text-3: #8A82A6;
+
+    --violet: #9B5CFF;
+    --pink:   #E55A8C;
+    --green:  #4ADE80;
+    --blue:   #5DA9F5;
+    --orange: #E89B4C;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #f0eee9; }
+  body {
+    color: var(--text);
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===========================================================
+     Phone-frame surface
+     =========================================================== */
+  .mt-screen {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    padding: 16px 20px 0;
+    background:
+      radial-gradient(700px 500px at 50% -10%, rgba(155,92,255,0.10), transparent 60%),
+      radial-gradient(600px 400px at 100% 110%, rgba(229,194,102,0.05), transparent 65%),
+      var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* ===========================================================
+     Top app header
+     =========================================================== */
+  .mt-app-head {
+    display: flex; align-items: center;
+    gap: 10px;
+    padding: 4px 0 14px;
+  }
+  .mt-brand {
+    display: flex; align-items: center; gap: 8px;
+    font-family: "DM Serif Display", serif;
+    font-size: 22px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .mt-brand-spark {
+    color: var(--gold);
+    font-size: 16px;
+  }
+  .mt-app-head-spacer { flex: 1; }
+  .mt-greet { color: var(--text-2); font-size: 13.5px; }
+  .mt-avatar {
+    width: 32px; height: 32px;
+    border-radius: 99px;
+    background: radial-gradient(circle at 30% 30%, #d6c2ff, #7c5cd6 60%, #38216b 100%);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  /* ===========================================================
+     Section header
+     =========================================================== */
+  .mt-title {
+    font-family: "DM Serif Display", serif;
+    font-size: 36px;
+    line-height: 1.04;
+    margin: 6px 0 8px;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .mt-sub {
+    color: var(--text-2);
+    font-size: 14px;
+    margin: 0 0 18px;
+    max-width: 32ch;
+  }
+
+  /* ===========================================================
+     Top tabs (Transits | Calendrier | Miroir)
+     =========================================================== */
+  .mt-tabs {
+    display: flex; align-items: center;
+    gap: 6px;
+    margin: 0 0 22px;
+  }
+  .mt-tab-group {
+    flex: 1;
+    display: inline-flex;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .mt-tab {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 9px 14px;
+    border-radius: 99px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    flex: 1;
+    justify-content: center;
+    white-space: nowrap;
+    transition: color .15s, background .15s;
+  }
+  .mt-tab.is-active {
+    background: var(--gold);
+    color: #1a1233;
+    box-shadow: 0 4px 16px -4px rgba(229,194,102,0.4);
+  }
+  .mt-tab svg { width: 14px; height: 14px; }
+  .mt-help {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-3);
+    width: 30px; height: 30px;
+    border-radius: 99px;
+    display: grid; place-items: center;
+    cursor: pointer;
+  }
+
+  /* ===========================================================
+     Shared section label
+     =========================================================== */
+  .mt-section-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin: 0 0 12px 2px;
+  }
+
+  /* ===========================================================
+     Age picker — context strip (used by A and B)
+     =========================================================== */
+  .mt-context {
+    display: flex; align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .mt-context-age {
+    font-family: "DM Serif Display", serif;
+    font-size: 38px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .mt-context-age-suffix {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-size: 16px;
+    color: var(--text-2);
+    font-weight: 500;
+    margin-left: -2px;
+  }
+  .mt-context-year {
+    margin-left: auto;
+    color: var(--gold);
+    background: var(--gold-faint);
+    border: 1px solid rgba(229,194,102,0.22);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    padding: 5px 10px;
+    border-radius: 99px;
+  }
+
+  /* ===========================================================
+     VARIANT A — Décennies + années
+     Two-row picker:
+       Row 1: decade pills (0s · 10s · 20s · …)
+       Row 2: horizontal year strip within decade, snap-selected
+     =========================================================== */
+  .mtA-picker-card {
+    border-radius: 22px;
+    border: 1px solid var(--border-strong);
+    background:
+      radial-gradient(360px 200px at 80% -10%, rgba(229,194,102,0.10), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    padding: 18px 18px 16px;
+    margin-bottom: 22px;
+  }
+  .mtA-decades {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin: 0 -4px 14px;
+    padding: 4px;
+    scrollbar-width: none;
+  }
+  .mtA-decades::-webkit-scrollbar { display: none; }
+  .mtA-decade {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-2);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 99px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color .15s, background .15s, border-color .15s;
+  }
+  .mtA-decade.is-active {
+    background: var(--gold-soft);
+    color: var(--gold);
+    border-color: rgba(229,194,102,0.45);
+  }
+  .mtA-years {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+  }
+  .mtA-year {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-3);
+    font-family: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    padding: 9px 0;
+    cursor: pointer;
+    border-radius: 10px;
+    position: relative;
+    font-weight: 500;
+    transition: color .15s, background .15s;
+  }
+  .mtA-year:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .mtA-year.is-active {
+    color: #1a1233;
+    background: var(--gold);
+    font-weight: 700;
+  }
+  .mtA-year.is-milestone::after {
+    content: "";
+    position: absolute;
+    bottom: 3px; left: 50%;
+    width: 3px; height: 3px;
+    transform: translateX(-50%);
+    border-radius: 99px;
+    background: var(--gold-dim);
+  }
+  .mtA-year.is-active.is-milestone::after { display: none; }
+
+  /* Chapter cards */
+  .mtA-chapters { display: flex; flex-direction: column; gap: 12px; }
+  .mtA-chapter {
+    position: relative;
+    border-radius: 20px;
+    padding: 18px 20px 18px 22px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.005));
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .mtA-chapter::before {
+    content: "";
+    position: absolute;
+    top: 18px; bottom: 18px; left: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--chap-accent, var(--gold)), transparent);
+    opacity: 0.75;
+  }
+  .mtA-chapter--first {
+    background:
+      radial-gradient(220px 120px at 100% 0%, rgba(229,194,102,0.10), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01));
+    border-color: var(--border-strong);
+  }
+  .mtA-chapter-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .mtA-chap-glyph {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--gold-faint);
+    border: 1px solid rgba(229,194,102,0.20);
+    color: var(--chap-accent, var(--gold));
+    display: grid; place-items: center;
+    font-size: 16px;
+    font-family: "DejaVu Sans", "Apple Symbols", sans-serif;
+  }
+  .mtA-chap-theme {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+  }
+  .mtA-chap-step {
+    font-size: 10.5px;
+    color: var(--text-3);
+    letter-spacing: 0.14em;
+    font-variant-numeric: tabular-nums;
+  }
+  .mtA-chap-text {
+    margin: 0;
+    color: var(--text);
+    font-size: 14.5px;
+    line-height: 1.65;
+    text-wrap: pretty;
+  }
+  .mtA-dropcap {
+    float: left;
+    font-family: "DM Serif Display", serif;
+    font-size: 42px;
+    line-height: 0.95;
+    color: var(--gold);
+    padding: 4px 8px 0 0;
+    margin-top: 2px;
+  }
+
+  /* ===========================================================
+     VARIANT B — Jalons + stepper
+     Big age number, ±1 year arrows, life-milestones chip row
+     =========================================================== */
+  .mtB-stepper-card {
+    border-radius: 22px;
+    border: 1px solid var(--border-strong);
+    background:
+      radial-gradient(280px 200px at 90% -10%, rgba(229,194,102,0.15), transparent 70%),
+      radial-gradient(220px 200px at 0% 110%, rgba(155,92,255,0.16), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    padding: 18px 18px 16px;
+    margin-bottom: 22px;
+  }
+  .mtB-stepper-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .mtB-step-btn {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    width: 44px; height: 44px;
+    border-radius: 99px;
+    display: grid; place-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .mtB-step-btn:hover {
+    color: var(--gold);
+    border-color: rgba(229,194,102,0.4);
+    background: var(--gold-faint);
+  }
+  .mtB-step-btn:disabled {
+    color: var(--text-3); cursor: not-allowed; opacity: 0.4;
+  }
+  .mtB-age {
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+  .mtB-age-num {
+    font-family: "DM Serif Display", serif;
+    font-size: 56px;
+    line-height: 1;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .mtB-age-meta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .mtB-age-year {
+    color: var(--gold);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+  }
+  .mtB-age-dot {
+    width: 3px; height: 3px;
+    border-radius: 99px;
+    background: var(--text-3);
+  }
+  .mtB-milestones-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 8px;
+  }
+  .mtB-milestones {
+    display: flex; gap: 6px;
+    overflow-x: auto;
+    margin: 0 -4px;
+    padding: 2px 4px;
+    scrollbar-width: none;
+  }
+  .mtB-milestones::-webkit-scrollbar { display: none; }
+  .mtB-milestone {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-2);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 99px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: color .15s, background .15s, border-color .15s;
+  }
+  .mtB-milestone.is-active {
+    background: var(--gold-soft);
+    color: var(--gold);
+    border-color: rgba(229,194,102,0.45);
+  }
+  .mtB-milestone-glyph {
+    color: var(--gold-dim);
+    font-size: 13px;
+    line-height: 1;
+  }
+  .mtB-milestone.is-active .mtB-milestone-glyph { color: var(--gold); }
+
+  /* Hero pull-quote */
+  .mtB-hero {
+    position: relative;
+    border-radius: 22px;
+    padding: 22px 22px 20px;
+    background:
+      radial-gradient(260px 200px at 90% -10%, rgba(229,194,102,0.12), transparent 65%),
+      linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01));
+    border: 1px solid var(--border-strong);
+    margin-bottom: 16px;
+  }
+  .mtB-hero-glyph {
+    width: 36px; height: 36px;
+    border-radius: 11px;
+    background: var(--gold-faint);
+    border: 1px solid rgba(229,194,102,0.25);
+    color: var(--gold);
+    display: grid; place-items: center;
+    font-size: 19px;
+    margin-bottom: 12px;
+  }
+  .mtB-hero-quote {
+    margin: 0 0 12px;
+    font-family: "DM Serif Display", serif;
+    font-style: italic;
+    font-size: 21px;
+    line-height: 1.35;
+    color: var(--text);
+    text-wrap: pretty;
+  }
+  .mtB-hero-mark {
+    color: var(--gold);
+    font-size: 34px;
+    line-height: 0;
+    vertical-align: -10px;
+    margin-right: 4px;
+    opacity: 0.8;
+  }
+  .mtB-hero-tags {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .mtB-hero-tag {
+    display: inline-flex; align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-2);
+    padding: 5px 10px 5px 8px;
+    border-radius: 99px;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.03);
+  }
+  .mtB-hero-tag span { color: var(--gold); font-size: 13px; }
+
+  /* Accordion */
+  .mtB-expand {
+    display: flex; flex-direction: column;
+    gap: 6px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    padding: 6px;
+    margin-bottom: 16px;
+  }
+  .mtB-expand-item { border-radius: 14px; overflow: hidden; }
+  .mtB-expand-item.is-open .mtB-expand-head { background: rgba(229,194,102,0.06); }
+  .mtB-expand-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: background .15s;
+  }
+  .mtB-expand-head:hover { background: rgba(255,255,255,0.04); }
+  .mtB-expand-glyph {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--gold-faint);
+    color: var(--gold);
+    display: grid; place-items: center;
+    font-size: 15px;
+    border: 1px solid rgba(229,194,102,0.18);
+  }
+  .mtB-expand-theme {
+    flex: 1;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .mtB-expand-caret {
+    color: var(--text-3);
+    transition: transform .2s;
+  }
+  .mtB-expand-item.is-open .mtB-expand-caret {
+    transform: rotate(180deg);
+    color: var(--gold);
+  }
+  .mtB-expand-text {
+    margin: 0;
+    padding: 4px 14px 14px;
+    color: var(--text-2);
+    font-size: 14px;
+    line-height: 1.62;
+    text-wrap: pretty;
+  }
+
+  /* ===========================================================
+     VARIANT C — Timeline scroll
+     Horizontal scrubbable year ribbon with snap-to-year +
+     life milestones marked. Story-scroll chapters below.
+     =========================================================== */
+  .mtC-picker-card {
+    border-radius: 22px;
+    border: 1px solid var(--border-strong);
+    background:
+      radial-gradient(360px 220px at 50% -20%, rgba(155,92,255,0.14), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    padding: 18px 0 14px;
+    margin-bottom: 22px;
+    overflow: hidden;
+  }
+  .mtC-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 0 20px;
+    margin-bottom: 14px;
+  }
+  .mtC-header-age {
+    font-family: "DM Serif Display", serif;
+    font-size: 32px;
+    line-height: 1;
+    color: var(--text);
+  }
+  .mtC-header-age small {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    color: var(--text-2);
+    margin-left: 4px;
+  }
+  .mtC-header-year {
+    color: var(--gold);
+    background: var(--gold-faint);
+    border: 1px solid rgba(229,194,102,0.22);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    padding: 5px 10px;
+    border-radius: 99px;
+    font-variant-numeric: tabular-nums;
+  }
+  .mtC-track-wrap {
+    position: relative;
+    height: 76px;
+  }
+  .mtC-track-wrap::before,
+  .mtC-track-wrap::after {
+    /* fade edges */
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 36px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .mtC-track-wrap::before {
+    left: 0;
+    background: linear-gradient(90deg, var(--bg), transparent);
+  }
+  .mtC-track-wrap::after {
+    right: 0;
+    background: linear-gradient(-90deg, var(--bg), transparent);
+  }
+  .mtC-cursor {
+    position: absolute;
+    top: 8px; bottom: 26px;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--gold);
+    box-shadow: 0 0 12px rgba(229,194,102,0.6);
+    z-index: 3;
+    border-radius: 99px;
+  }
+  .mtC-cursor::before, .mtC-cursor::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+  }
+  .mtC-cursor::before {
+    top: -6px;
+    border-top: 6px solid var(--gold);
+  }
+  .mtC-cursor::after {
+    bottom: -6px;
+    border-bottom: 6px solid var(--gold);
+  }
+  .mtC-track {
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 50%;
+  }
+  .mtC-track::-webkit-scrollbar { display: none; }
+  .mtC-years {
+    display: flex; align-items: center;
+    height: 100%;
+    gap: 0;
+  }
+  .mtC-year-tick {
+    flex: 0 0 28px;
+    scroll-snap-align: center;
+    position: relative;
+    height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 8px;
+    cursor: pointer;
+  }
+  .mtC-tick {
+    width: 1px;
+    background: var(--text-3);
+    opacity: 0.35;
+  }
+  .mtC-tick--minor { height: 8px; }
+  .mtC-tick--major { height: 18px; opacity: 0.55; }
+  .mtC-tick--milestone {
+    width: 2px;
+    height: 22px;
+    background: var(--gold);
+    opacity: 0.8;
+  }
+  .mtC-year-tick.is-current .mtC-tick {
+    height: 30px;
+    background: var(--gold);
+    opacity: 1;
+  }
+  .mtC-year-label {
+    position: absolute;
+    bottom: 8px;
+    font-size: 10.5px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+  }
+  .mtC-year-tick.is-major .mtC-year-label { color: var(--text-2); }
+  .mtC-year-tick.is-milestone .mtC-year-label {
+    color: var(--gold-dim);
+    font-weight: 600;
+  }
+  .mtC-year-tick.is-current .mtC-year-label {
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  /* Story-scroll chapters */
+  .mtC-story {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column;
+  }
+  .mtC-story-item {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 14px;
+    padding: 18px 0;
+  }
+  .mtC-story-item + .mtC-story-item { border-top: 1px solid var(--border); }
+  .mtC-story-rail {
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-top: 2px;
+  }
+  .mtC-story-num {
+    font-family: "DM Serif Display", serif;
+    font-size: 22px;
+    color: var(--gold);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .mtC-story-glyph {
+    width: 32px; height: 32px;
+    border-radius: 99px;
+    background: var(--gold-faint);
+    border: 1px solid rgba(229,194,102,0.25);
+    color: var(--gold);
+    display: grid; place-items: center;
+    font-size: 16px;
+    font-family: "DejaVu Sans", "Apple Symbols", sans-serif;
+  }
+  .mtC-story-theme {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    margin-bottom: 8px;
+  }
+  .mtC-story-text {
+    margin: 0;
+    color: var(--text);
+    font-size: 14.5px;
+    line-height: 1.62;
+    text-wrap: pretty;
+  }
+
+  /* ===========================================================
+     Footer actions (Épingler) + feedback
+     =========================================================== */
+  .mt-pin-cta {
+    width: 100%;
+    appearance: none;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 10px;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .mt-pin-cta:hover {
+    border-color: rgba(229,194,102,0.45);
+    background: var(--gold-faint);
+    color: var(--gold);
+  }
+  .mt-pin-cta svg { width: 14px; height: 14px; }
+
+  .mt-feedback {
+    margin-top: 14px;
+    padding: 12px 4px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    color: var(--text-3);
+    font-size: 12.5px;
+  }
+  .mt-feedback-btns { display: flex; gap: 6px; }
+  .mt-feedback-btns button {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-3);
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .mt-feedback-btns button:hover {
+    color: var(--gold);
+    border-color: rgba(229,194,102,0.4);
+    background: var(--gold-faint);
+  }
+
+  /* ===========================================================
+     Bottom tab bar (same as the app)
+     =========================================================== */
+  .mt-tabbar {
+    margin-top: auto;
+    display: flex; align-items: center; justify-content: space-around;
+    padding: 14px 4px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .mt-tabbar-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    cursor: pointer;
+  }
+  .mt-tabbar-btn svg { width: 22px; height: 22px; }
+  .mt-tabbar-btn.is-active {
+    color: var(--gold);
+    background: var(--gold-faint);
+  }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="miroir-temporel.jsx"></script>
+</body>
+</html>

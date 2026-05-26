@@ -2,14 +2,18 @@
 
 namespace App\Service;
 
+use App\Entity\NatalChartSection;
 use App\Entity\User;
+use App\Repository\NatalChartSectionRepository;
 use App\Service\Webservice\OpenAiService;
-use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Orchestrates the 7-section natal chart analysis.
- * Handles caching, GPT calls, and premium gating.
+ *
+ * Generated content is persisted in `natal_chart_section` so it never changes
+ * across deployments or cache clears. If a user updates their birth profile,
+ * the chart hash changes and the content is regenerated automatically.
  */
 class NatalChartAnalysisService
 {
@@ -22,7 +26,8 @@ class NatalChartAnalysisService
     public function __construct(
         private OpenAiService $openAiService,
         private AstrologyAnalysisService $astrologyAnalysisService,
-        private CacheInterface $cache,
+        private NatalChartSectionRepository $sectionRepository,
+        private EntityManagerInterface $em,
     ) {}
 
     /**
@@ -52,22 +57,13 @@ class NatalChartAnalysisService
             return ['success' => false, 'error' => 'Profil de naissance requis'];
         }
 
-        // Compute stable cache key from chart data
-        $cacheHash = $this->computeCacheHash($chartPayload);
-        $cacheKey  = "natal_analysis_{$cacheHash}_{$section}";
+        $chartHash = $this->computeCacheHash($chartPayload);
 
         try {
-            $content = $this->cache->get($cacheKey, function (ItemInterface $item) use (
-                $user, $section, $chartPayload, $locale
-            ) {
-                // Permanent cache — natal data never changes
-                $item->expiresAfter(null);
-
-                return $this->generateSection($user, $section, $chartPayload, $locale);
-            });
+            $content = $this->getOrGenerateSection($user, $section, $chartPayload, $chartHash, $locale);
 
             if ($content === null) {
-                return ['success' => false, 'error' => 'Erreur lors de la génération de l\'analyse'];
+                return ['success' => false, 'error' => "Erreur lors de la génération de l'analyse"];
             }
 
             return [
@@ -118,6 +114,46 @@ class NatalChartAnalysisService
     // ─── Private helpers ──────────────────────────────────────────────────────
 
     /**
+     * Return DB-persisted content if available and chart hash matches,
+     * otherwise generate, persist, and return.
+     */
+    private function getOrGenerateSection(
+        User $user,
+        string $section,
+        array $chartPayload,
+        string $chartHash,
+        string $locale
+    ): mixed {
+        $record = $this->sectionRepository->findByUserAndSection($user, $section);
+
+        // Cache hit: hash matches → content is stable, return as-is
+        if ($record !== null && $record->getChartHash() === $chartHash) {
+            return $record->getContent();
+        }
+
+        // Generate fresh content (birth profile changed or first time)
+        $content = $this->generateSection($user, $section, $chartPayload, $locale);
+        if ($content === null) {
+            return null;
+        }
+
+        // Persist (insert or update)
+        if ($record === null) {
+            $record = new NatalChartSection();
+            $record->setUser($user);
+            $record->setSection($section);
+            $this->em->persist($record);
+        }
+
+        $record->setChartHash($chartHash);
+        $record->setContent($content);
+        $record->setGeneratedAt(new \DateTime());
+        $this->em->flush();
+
+        return $content;
+    }
+
+    /**
      * Get or compute the full chart payload for a user.
      */
     private function getChartPayload(User $user): ?array
@@ -160,9 +196,8 @@ class NatalChartAnalysisService
         string $locale
     ): mixed {
         $birthProfile = $user->getBirthProfile();
-        $name = $birthProfile?->getFirstName() ?? 'l\'utilisateur';
+        $name = $birthProfile?->getFirstName() ?? "l'utilisateur";
 
-        // Set model and locale
         $this->openAiService->setModel(self::MODEL);
         $this->openAiService->setLocale($locale);
 
@@ -173,11 +208,10 @@ class NatalChartAnalysisService
         }
 
         if ($section === 'aspects') {
-            return $this->generateAspects($chartPayload, $name, $systemPrompt, $user);
+            return $this->generateAspects($user, $chartPayload, $name, $systemPrompt);
         }
 
-        // All other sections need the synthesis first
-        return $this->generateTextSection($section, $chartPayload, $name, $systemPrompt, $user);
+        return $this->generateTextSection($user, $section, $chartPayload, $name, $systemPrompt, $locale);
     }
 
     /**
@@ -192,10 +226,8 @@ class NatalChartAnalysisService
             return null;
         }
 
-        // Parse JSON response
         $data = $this->parseJsonResponse($result);
         if (!$data || !isset($data['portrait'])) {
-            // If JSON parsing fails, return as raw text
             return ['portrait' => $result, 'axes' => [], 'notable_configs' => []];
         }
 
@@ -204,32 +236,20 @@ class NatalChartAnalysisService
 
     /**
      * Generate a text section (identity, emotions, mental, relationships, ambition, mission).
+     * Fetches synthesis from DB for context (generates it first if needed).
      */
     private function generateTextSection(
+        User $user,
         string $section,
         array $chartPayload,
         string $name,
         string $systemPrompt,
-        User $user
+        string $locale
     ): ?string {
-        // Get synthesis from cache (it should already be generated)
-        $cacheHash = $this->computeCacheHash($chartPayload);
-        $synthesisKey = "natal_analysis_{$cacheHash}_synthesis";
+        $chartHash = $this->computeCacheHash($chartPayload);
+        $synthesisContent = $this->getOrGenerateSection($user, 'synthesis', $chartPayload, $chartHash, $locale);
+        $synthesisResult = $synthesisContent ?? ['portrait' => '', 'axes' => [], 'notable_configs' => []];
 
-        $synthesis = null;
-        try {
-            // Try to get cached synthesis, generate if not available
-            $synthesis = $this->cache->get($synthesisKey, function (ItemInterface $item) use (
-                $chartPayload, $name, $systemPrompt
-            ) {
-                $item->expiresAfter(null);
-                return $this->generateSynthesis($chartPayload, $name, $systemPrompt);
-            });
-        } catch (\Throwable) {
-            // Continue without synthesis context
-        }
-
-        $synthesisResult = $synthesis ?? ['portrait' => '', 'axes' => [], 'notable_configs' => []];
         $prompt = NatalChartPrompts::buildSectionPrompt($section, $chartPayload, $synthesisResult, $name);
 
         return $this->callGpt($prompt, $systemPrompt);
@@ -237,28 +257,21 @@ class NatalChartAnalysisService
 
     /**
      * Generate the aspects section.
+     * Fetches synthesis from DB for context (generates it first if needed).
      */
     private function generateAspects(
+        User $user,
         array $chartPayload,
         string $name,
-        string $systemPrompt,
-        User $user
+        string $systemPrompt
     ): ?array {
-        // Get synthesis from cache
-        $cacheHash = $this->computeCacheHash($chartPayload);
-        $synthesisKey = "natal_analysis_{$cacheHash}_synthesis";
+        $chartHash = $this->computeCacheHash($chartPayload);
+        $synthesisRecord = $this->sectionRepository->findByUserAndSection($user, 'synthesis');
+        $synthesisContent = ($synthesisRecord && $synthesisRecord->getChartHash() === $chartHash)
+            ? $synthesisRecord->getContent()
+            : null;
+        $synthesisResult = $synthesisContent ?? ['portrait' => '', 'axes' => [], 'notable_configs' => []];
 
-        $synthesis = null;
-        try {
-            $synthesis = $this->cache->get($synthesisKey, function (ItemInterface $item) use (
-                $chartPayload, $name, $systemPrompt
-            ) {
-                $item->expiresAfter(null);
-                return $this->generateSynthesis($chartPayload, $name, $systemPrompt);
-            });
-        } catch (\Throwable) {}
-
-        $synthesisResult = $synthesis ?? ['portrait' => '', 'axes' => [], 'notable_configs' => []];
         $prompt = NatalChartPrompts::buildAspectsPrompt($chartPayload, $synthesisResult, $name);
 
         $result = $this->callGpt($prompt, $systemPrompt);
@@ -279,9 +292,6 @@ class NatalChartAnalysisService
      */
     private function callGpt(string $input, string $instructions): ?string
     {
-        // Use the private callResponsesApi via a wrapper approach
-        // We need to use an existing public method or create a generic one
-        // Using the existing pattern from OpenAiService
         $result = $this->openAiService->generateNatalChartSection($input, $instructions);
 
         if (!($result['success'] ?? false)) {
@@ -296,7 +306,6 @@ class NatalChartAnalysisService
      */
     private function parseJsonResponse(string $content): ?array
     {
-        // Remove markdown code blocks if present
         $content = preg_replace('/^```json?\s*/m', '', $content);
         $content = preg_replace('/```\s*$/m', '', $content);
         $content = trim($content);

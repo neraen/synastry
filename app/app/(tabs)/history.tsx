@@ -7,7 +7,6 @@ import {
     StyleSheet,
     RefreshControl,
     Alert,
-    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader, PremiumLockedButton } from '@/components/ui';
+import { FullPageLoader } from '@/components/loaders';
 import {
     getSynastryHistory,
     deleteSynastryHistoryEntry,
@@ -155,22 +155,8 @@ export default function HistoryTab() {
         );
     }, [t]);
 
-    // ── Loading ──
-    if (isAuthLoading || isLoading) {
-        return (
-            <View style={styles.screen}>
-                <SafeAreaView style={styles.safeArea}>
-                    <TabHeader />
-                    <View style={styles.centered}>
-                        <ActivityIndicator color={colors.primary} size="large" />
-                    </View>
-                </SafeAreaView>
-            </View>
-        );
-    }
-
     // ── Not authenticated ──
-    if (!isAuthenticated) {
+    if (!isAuthLoading && !isLoading && !isAuthenticated) {
         return (
             <View style={styles.screen}>
                 <SafeAreaView style={styles.safeArea}>
@@ -279,6 +265,7 @@ export default function HistoryTab() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
+            <FullPageLoader visible={isAuthLoading || isLoading} variant="default" />
         </View>
     );
 }
