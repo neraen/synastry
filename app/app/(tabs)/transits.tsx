@@ -621,25 +621,15 @@ function MirrorChapterCard({ chapter, index, total }: {
     const isFirst = index === 0;
 
     return (
-        <View style={[
-            mirrorStyles.chapterCard,
-            { borderColor: isFirst ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)' },
-        ]}>
-            {/* Glass top-edge highlight */}
-            <View style={mirrorStyles.chapterTopHighlight} />
-            {/* Ambient glow top-right on first card */}
-            {isFirst && (
-                <View
-                    pointerEvents="none"
-                    style={[mirrorStyles.chapterGoldGlow, { backgroundColor: `${accent}0D` }]}
-                />
-            )}
+        <View style={mirrorStyles.chapterCard}>
+            {/* Lateral accent bar */}
+            <View style={[mirrorStyles.chapterAccentBar, { backgroundColor: accent }]} />
             <View style={mirrorStyles.chapterCardInner}>
                 {/* Header: glyph badge + theme label + counter */}
                 <View style={mirrorStyles.chapterHead}>
                     <View style={[mirrorStyles.glyphBadge, {
-                        backgroundColor: `${accent}14`,
-                        borderColor: `${accent}33`,
+                        backgroundColor: `${accent}18`,
+                        borderColor: `${accent}40`,
                     }]}>
                         <Text style={[mirrorStyles.glyphText, { color: accent }]}>
                             {chapter.glyph}
@@ -828,7 +818,7 @@ function MirrorTabContent() {
     return (
         <View style={mirrorStyles.tabContent}>
             {/* ── Picker card ── */}
-            <GlassCard style={mirrorStyles.pickerCard}>
+            <View style={mirrorStyles.pickerCard}>
 
                 {/* Header: âge (gauche) + année/intensité (droite) */}
                 <View style={mirrorStyles.pickerHeader}>
@@ -916,7 +906,18 @@ function MirrorTabContent() {
                         );
                     })}
                 </View>
-            </GlassCard>
+
+                {/* Milestone bandeau — shown below grid when current age is a milestone */}
+                {currentMilestone && (
+                    <View style={mirrorStyles.milestoneBandeau}>
+                        <Text style={mirrorStyles.milestoneBandeauGlyph}>{currentMilestone.glyph}</Text>
+                        <View style={mirrorStyles.milestoneBandeauMeta}>
+                            <Text style={mirrorStyles.milestoneBandeauTag}>JALON ASTRAL</Text>
+                            <Text style={mirrorStyles.milestoneBandeauLabel}>{currentMilestone.label}</Text>
+                        </View>
+                    </View>
+                )}
+            </View>
 
             {/* ── Loading state ── */}
             {isLoadingInterp && (
@@ -2090,7 +2091,14 @@ const mirrorStyles = StyleSheet.create({
     card: { marginBottom: 16 },
 
     // ── Picker card ──────────────────────────────────────────────────────────
-    pickerCard: { marginBottom: 16 },
+    pickerCard: {
+        marginBottom: 16,
+        backgroundColor: 'rgba(21, 11, 44, 0.60)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.07)',
+        padding: 20,
+    },
 
     // Header: âge à gauche, badge année à droite
     pickerHeader: {
@@ -2101,9 +2109,9 @@ const mirrorStyles = StyleSheet.create({
     },
     ageStack: { gap: 6 },
     ageRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-    contextAge: { fontFamily: fonts.display.bold, fontSize: 52, color: colors.onSurface, lineHeight: 56 },
-    contextSuffix: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted, paddingBottom: 4 },
-    // Milestone tag sous l'âge
+    contextAge: { fontFamily: fonts.display.bold, fontSize: 56, color: colors.primary, lineHeight: 60 },
+    contextSuffix: { fontFamily: fonts.body.regular, fontSize: 15, color: colors.onSurfaceMuted, paddingBottom: 6 },
+    // Milestone tag (kept for legacy, now replaced by bandeau)
     milestoneTag: {
         flexDirection: 'row', alignItems: 'center', gap: 5,
         paddingHorizontal: 10, paddingVertical: 4,
@@ -2120,7 +2128,7 @@ const mirrorStyles = StyleSheet.create({
         paddingHorizontal: 14, paddingVertical: 7,
         borderRadius: radius.full,
         backgroundColor: `${colors.primary}12`,
-        borderWidth: 1, borderColor: `${colors.primary}30`,
+        borderWidth: 1, borderColor: `${colors.primary}28`,
         minWidth: 72, justifyContent: 'center',
     },
     yearBadgeText: { fontFamily: fonts.body.bold, fontSize: 15, color: colors.primary, letterSpacing: 0.5 },
@@ -2133,13 +2141,13 @@ const mirrorStyles = StyleSheet.create({
     decadesScroll: { marginBottom: 12 },
     decadesContent: { flexDirection: 'row', gap: 5, paddingVertical: 2 },
     decadePill: {
-        paddingHorizontal: 13, paddingVertical: 7,
+        paddingHorizontal: 14, paddingVertical: 7,
         borderRadius: radius.full,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
     },
     decadePillActive: {
-        backgroundColor: `${colors.primary}15`,
-        borderColor: `${colors.primary}55`,
+        backgroundColor: `${colors.primary}18`,
+        borderColor: `${colors.primary}50`,
     },
     decadeText: { fontFamily: fonts.body.semiBold, fontSize: 11, color: colors.onSurfaceMuted, letterSpacing: 0.4 },
     decadeTextActive: { color: colors.primary },
@@ -2150,16 +2158,16 @@ const mirrorStyles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         paddingBottom: 9,
-        borderRadius: radius.md,
-        backgroundColor: colors.surfaceContainerHigh,
+        borderRadius: 10,
+        backgroundColor: 'rgba(255,255,255,0.04)',
         overflow: 'hidden',
     },
     yearBtnActive: {
         backgroundColor: colors.primary,
         shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.4,
-        shadowRadius: 7,
+        shadowOpacity: 0.45,
+        shadowRadius: 8,
         elevation: 5,
     },
     // Slot fixe au-dessus du chiffre pour aligner les boutons avec ou sans glyph
@@ -2169,34 +2177,56 @@ const mirrorStyles = StyleSheet.create({
     yearNum: { fontFamily: fonts.body.semiBold, fontSize: 12, color: colors.onSurfaceMuted },
     yearNumActive: { color: colors.surfaceLowest, fontFamily: fonts.body.bold },
 
+    // Milestone bandeau below year grid
+    milestoneBandeau: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginTop: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        backgroundColor: 'rgba(155,92,255,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(155,92,255,0.22)',
+    },
+    milestoneBandeauGlyph: { fontSize: 20, color: '#9B5CFF' },
+    milestoneBandeauMeta: { gap: 2 },
+    milestoneBandeauTag: {
+        fontFamily: fonts.body.semiBold, fontSize: 9, letterSpacing: 2,
+        textTransform: 'uppercase', color: '#9B5CFF', opacity: 0.8,
+    },
+    milestoneBandeauLabel: {
+        fontFamily: fonts.display.regular, fontSize: 14, color: colors.onSurface,
+    },
+
     // ── Chapter cards ────────────────────────────────────────────────────────
     chaptersWrap: { gap: 12, marginBottom: 16 },
     chapterCard: {
-        backgroundColor: 'rgba(30, 19, 56, 0.40)',
-        borderRadius: radius.xl,
+        backgroundColor: 'rgba(21, 11, 44, 0.55)',
+        borderRadius: 16,
         borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.07)',
         overflow: 'hidden',
     },
-    chapterTopHighlight: {
-        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    chapterAccentBar: {
+        position: 'absolute',
+        left: 0, top: 0, bottom: 0,
+        width: 3,
     },
-    chapterGoldGlow: {
-        position: 'absolute', top: -30, right: -30, width: 130, height: 130, borderRadius: 65,
-    },
-    chapterCardInner: { padding: spacing.xl },
-    chapterHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
-    glyphBadge: { width: 28, height: 28, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+    chapterCardInner: { paddingTop: 20, paddingBottom: 20, paddingRight: 20, paddingLeft: 24 },
+    chapterHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+    glyphBadge: { width: 30, height: 30, borderRadius: 9, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
     glyphText: { fontSize: 15, lineHeight: 20 },
     chapterTheme: {
         flex: 1,
-        fontFamily: fonts.body.semiBold, fontSize: 10, letterSpacing: 2.4,
+        fontFamily: fonts.body.semiBold, fontSize: 10, letterSpacing: 2.5,
         color: colors.onSurface, textTransform: 'uppercase',
     },
-    chapterStep: { fontFamily: fonts.body.regular, fontSize: 10, color: colors.onSurfaceMuted, letterSpacing: 1 },
+    chapterStep: { fontFamily: fonts.body.regular, fontSize: 10, color: colors.onSurfaceMuted, letterSpacing: 1.2 },
     chapterBodyRow: { flexDirection: 'row', alignItems: 'flex-start' },
-    dropCap: { fontFamily: fonts.display.bold, fontSize: 46, lineHeight: 42, marginRight: 6 },
-    chapterText: { fontFamily: fonts.body.regular, fontSize: 14, lineHeight: 23, color: colors.onSurface },
+    dropCap: { fontFamily: fonts.display.bold, fontSize: 48, lineHeight: 44, marginRight: 6 },
+    chapterText: { fontFamily: fonts.body.regular, fontSize: 14, lineHeight: 24, color: colors.onSurface },
 
     // ── Pin CTA ──────────────────────────────────────────────────────────────
     pinCta: {

@@ -40,6 +40,17 @@ export default {
         NSCameraUsageDescription: 'Cette app nécessite un accès à la caméra pour prendre des photos.',
         NSPhotoLibraryUsageDescription: 'Cette app nécessite un accès à vos photos.',
         CFBundleAllowMixedLocalizations: true,
+        // Allow Linking.canOpenURL to detect installed social apps
+        LSApplicationQueriesSchemes: [
+          'whatsapp',
+          'twitter',
+          'instagram',
+          'instagram-stories',
+          'tiktok',
+          'snssdk1233', // TikTok alt scheme
+          'fb',
+          'fb-messenger',
+        ],
       },
       config: {
         usesNonExemptEncryption: false,

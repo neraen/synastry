@@ -103,9 +103,11 @@ export default function CompatibilityResultV2Screen() {
             <Starfield />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <View style={styles.header}>
-                    <Pressable onPress={() => router.back()} style={styles.backPressable} hitSlop={8}>
-                        <Feather name="arrow-left" size={22} color={colors.onSurface} />
+                    <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
+                        <Feather name="arrow-left" size={20} color={colors.onSurface} />
                     </Pressable>
+                    <Text style={styles.headerTitle}>Compatibilité</Text>
+                    <View style={styles.iconBtn} />
                 </View>
 
                 {data && (
@@ -169,8 +171,32 @@ export default function CompatibilityResultV2Screen() {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.surfaceLowest },
     safeArea: { flex: 1 },
-    header: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md },
-    backPressable: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.sm,
+        paddingBottom: spacing.md,
+        gap: spacing.md,
+    },
+    iconBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+        fontFamily: fonts.display.bold,
+        fontSize: 19,
+        color: colors.onSurface,
+    },
     scroll: { flex: 1 },
     scrollContent: { flexGrow: 1 },
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },

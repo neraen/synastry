@@ -236,17 +236,19 @@ export default function Login() {
                                 </View>
                             ) : (
                                 <>
-                                    {/* Google Sign-In */}
-                                    <Pressable
-                                        style={[styles.googleBtn, googleLoading && { opacity: 0.5 }]}
-                                        onPress={handleGoogleSignIn}
-                                        disabled={googleLoading}
-                                    >
-                                        <View style={styles.googleIconWrap}>
-                                            <MaterialCommunityIcons name="google" size={18} color={colors.primary} />
-                                        </View>
-                                        <Text style={styles.googleBtnText}>{t('auth.continueWithGoogle')}</Text>
-                                    </Pressable>
+                                    {/* Google Sign-In (Android only) */}
+                                    {Platform.OS !== 'ios' && (
+                                        <Pressable
+                                            style={[styles.googleBtn, googleLoading && { opacity: 0.5 }]}
+                                            onPress={handleGoogleSignIn}
+                                            disabled={googleLoading}
+                                        >
+                                            <View style={styles.googleIconWrap}>
+                                                <MaterialCommunityIcons name="google" size={18} color={colors.primary} />
+                                            </View>
+                                            <Text style={styles.googleBtnText}>{t('auth.continueWithGoogle')}</Text>
+                                        </Pressable>
+                                    )}
 
                                     {/* Apple Sign-In (iOS only) */}
                                     {Platform.OS === 'ios' && (

@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Lunestia — Miroir temporel · A</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  /* ---------- tokens (mirror react-native/src/theme/tokens.ts) ---------- */
+  :root {
+    --bg: #120A24;
+    --bg-2: #1A1233;
+    --card: #1F1740;
+    --card-2: #261B4D;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.12);
+
+    --gold: #E5C266;
+    --gold-2: #F0D585;
+    --gold-dim: #B89549;
+    --gold-soft: rgba(229,194,102,0.16);
+    --gold-faint: rgba(229,194,102,0.08);
+
+    --text:   #ECE5F7;
+    --text-2: #BDB2D4;
+    --text-3: #8A82A6;
+
+    --violet: #9B5CFF;
+    --pink:   #E55A8C;
+    --green:  #4ADE80;
+    --blue:   #5DA9F5;
+    --orange: #E89B4C;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; background: #ECE7DF; }
+  body {
+    color: var(--text);
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  /* ---------- phone shell ---------- */
+  .phone {
+    width: 393px;
+    border-radius: 44px;
+    overflow: hidden;
+    background: var(--bg);
+    box-shadow:
+      0 30px 80px -20px rgba(20, 10, 50, 0.35),
+      0 0 0 1px rgba(0,0,0,0.05);
+    border: 10px solid #0a0617;
+    border-bottom-width: 12px;
+    border-top-width: 12px;
+  }
+  .phone-notch {
+    position: relative;
+    height: 36px;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .phone-notch::before {
+    content: "";
+    width: 110px; height: 30px;
+    border-radius: 16px;
+    background: #000;
+  }
+
+  /* ---------- screen surface ---------- */
+  .mt-screen {
+    width: 100%;
+    padding: 14px 20px 20px;
+    background:
+      radial-gradient(700px 500px at 50% -10%, rgba(155,92,255,0.10), transparent 60%),
+      radial-gradient(600px 400px at 100% 110%, rgba(229,194,102,0.05), transparent 65%),
+      var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* ---------- app header ---------- */
+  .mt-app-head {
+    display: flex; align-items: center;
+    gap: 10px;
+    padding: 4px 0 10px;
+  }
+  .mt-brand {
+    display: flex; align-items: center; gap: 8px;
+    font-family: "DM Serif Display", serif;
+    font-size: 22px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .mt-brand-spark { color: var(--gold); font-size: 16px; }
+  .mt-app-head-spacer { flex: 1; }
+  .mt-greet { color: var(--text-2); font-size: 13.5px; }
+  .mt-avatar {
+    width: 32px; height: 32px;
+    border-radius: 99px;
+    background: radial-gradient(circle at 30% 30%, #d6c2ff, #7c5cd6 60%, #38216b 100%);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  /* ---------- title block ---------- */
+  .mt-title {
+    font-family: "DM Serif Display", serif;
+    font-size: 36px;
+    line-height: 1.04;
+    margin: 6px 0 8px;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .mt-sub {
+    color: var(--text-2);
+    font-size: 14px;
+    margin: 0 0 18px;
+    max-width: 32ch;
+  }
+
+  /* ---------- top tabs ---------- */
+  .mt-tabs {
+    display: flex; align-items: center;
+    gap: 6px;
+    margin: 0 0 22px;
+  }
+  .mt-tab-group {
+    flex: 1;
+    display: inline-flex;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .mt-tab {
+    appearance: none; border: none; background: transparent;
+    color: var(--text-2);
+    font-family: inherit;
+    font-size: 13.5px; font-weight: 600;
+    padding: 9px 14px;
+    border-radius: 99px;
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer;
+    flex: 1; justify-content: center; white-space: nowrap;
+    transition: color .15s, background .15s;
+  }
+  .mt-tab.is-active {
+    background: var(--gold);
+    color: #1a1233;
+    box-shadow: 0 4px 16px -4px rgba(229,194,102,0.4);
+  }
+  .mt-tab svg { width: 14px; height: 14px; }
+  .mt-help {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-3);
+    width: 30px; height: 30px;
+    border-radius: 99px;
+    display: grid; place-items: center;
+    cursor: pointer;
+  }
+
+  /* =====================================================================
+     DecadeYearPicker — isolated component CSS (prefix: dyp-)
+     ===================================================================== */
+  .dyp {
+    border-radius: 22px;
+    border: 1px solid var(--border-strong);
+    background:
+      radial-gradient(360px 200px at 80% -10%, rgba(229,194,102,0.10), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    padding: 18px 18px 16px;
+  }
+  .dyp-hero {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .dyp-age {
+    font-family: "DM Serif Display", serif;
+    font-size: 38px; line-height: 1;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .dyp-age-suffix {
+    font-size: 16px; color: var(--text-2); font-weight: 500;
+    margin-left: -2px;
+  }
+  .dyp-year {
+    margin-left: auto;
+    color: var(--gold);
+    background: var(--gold-faint);
+    border: 1px solid rgba(229,194,102,0.22);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    padding: 5px 10px;
+    border-radius: 99px;
+    font-variant-numeric: tabular-nums;
+  }
+  .dyp-decades {
+    display: flex; gap: 6px;
+    overflow-x: auto;
+    margin: 0 -4px 14px;
+    padding: 4px;
+    scrollbar-width: none;
+  }
+  .dyp-decades::-webkit-scrollbar { display: none; }
+  .dyp-decade {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-2);
+    font-family: inherit;
+    font-size: 12.5px; font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 99px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color .15s, background .15s, border-color .15s;
+  }
+  .dyp-decade.is-active {
+    background: var(--gold-soft);
+    color: var(--gold);
+    border-color: rgba(229,194,102,0.45);
+  }
+  .dyp-years {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+  }
+  .dyp-year-cell {
+    appearance: none; border: 0; background: transparent;
+    color: var(--text-3);
+    font-family: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    padding: 10px 0;
+    cursor: pointer;
+    border-radius: 10px;
+    position: relative;
+    font-weight: 500;
+    transition: color .15s, background .15s;
+  }
+  .dyp-year-cell:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .dyp-year-cell.is-active {
+    color: #1a1233; background: var(--gold); font-weight: 700;
+  }
+  .dyp-year-cell.is-out {
+    color: rgba(138,130,166,0.35); cursor: not-allowed;
+  }
+  .dyp-year-cell.is-out:hover { background: transparent; color: rgba(138,130,166,0.35); }
+  .dyp-year-cell.is-milestone::after {
+    content: "";
+    position: absolute;
+    bottom: 4px; left: 50%;
+    width: 3px; height: 3px;
+    transform: translateX(-50%);
+    border-radius: 99px;
+    background: var(--gold-dim);
+  }
+  .dyp-year-cell.is-active.is-milestone::after { display: none; }
+
+  .dyp-milestone {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(229,194,102,0.08);
+    border: 1px solid rgba(229,194,102,0.18);
+    display: flex; align-items: center; gap: 10px;
+    min-height: 48px;
+  }
+  .dyp-milestone-glyph {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: rgba(229,194,102,0.18);
+    color: var(--gold);
+    display: grid; place-items: center;
+    font-size: 16px;
+    font-family: "DejaVu Sans", "Apple Symbols", sans-serif;
+    flex-shrink: 0;
+  }
+  .dyp-milestone-meta {
+    display: flex; flex-direction: column; gap: 2px;
+    flex: 1;
+  }
+  .dyp-milestone-tag {
+    color: var(--gold-dim);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+  }
+  .dyp-milestone-label { color: var(--text); font-size: 14px; font-weight: 600; }
+
+  /* =====================================================================
+     ChapterCard — isolated component CSS (prefix: cc-)
+     ===================================================================== */
+  .cc-list { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; }
+  .cc {
+    position: relative;
+    border-radius: 20px;
+    padding: 18px 20px 18px 22px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.005));
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .cc::before {
+    content: "";
+    position: absolute;
+    top: 18px; bottom: 18px; left: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--cc-accent, var(--gold)), transparent);
+    opacity: 0.75;
+  }
+  .cc--first {
+    background:
+      radial-gradient(220px 120px at 100% 0%, rgba(229,194,102,0.10), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01));
+    border-color: var(--border-strong);
+  }
+  .cc-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .cc-glyph {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--gold-faint);
+    border: 1px solid rgba(229,194,102,0.20);
+    color: var(--cc-accent, var(--gold));
+    display: grid; place-items: center;
+    font-size: 16px;
+    font-family: "DejaVu Sans", "Apple Symbols", sans-serif;
+    flex-shrink: 0;
+  }
+  .cc-theme {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+  }
+  .cc-step {
+    font-size: 10.5px;
+    color: var(--text-3);
+    letter-spacing: 0.14em;
+    font-variant-numeric: tabular-nums;
+  }
+  .cc-text {
+    margin: 0;
+    color: var(--text);
+    font-size: 14.5px;
+    line-height: 1.65;
+    text-wrap: pretty;
+  }
+  .cc-dropcap {
+    float: left;
+    font-family: "DM Serif Display", serif;
+    font-size: 42px;
+    line-height: 0.95;
+    color: var(--gold);
+    padding: 4px 8px 0 0;
+    margin-top: 2px;
+  }
+
+  /* ---------- footer actions ---------- */
+  .mt-pin-cta {
+    width: 100%;
+    appearance: none;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.18em;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 10px;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .mt-pin-cta:hover {
+    border-color: rgba(229,194,102,0.45);
+    background: var(--gold-faint);
+    color: var(--gold);
+  }
+  .mt-pin-cta svg { width: 14px; height: 14px; }
+
+  .mt-feedback {
+    margin-top: 14px;
+    padding: 12px 4px 4px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    color: var(--text-3);
+    font-size: 12.5px;
+  }
+  .mt-feedback-btns { display: flex; gap: 6px; }
+  .mt-feedback-btns button {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-3);
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .mt-feedback-btns button:hover {
+    color: var(--gold);
+    border-color: rgba(229,194,102,0.4);
+    background: var(--gold-faint);
+  }
+
+  /* ---------- bottom tab bar ---------- */
+  .mt-tabbar {
+    margin-top: 12px;
+    display: flex; align-items: center; justify-content: space-around;
+    padding: 12px 4px;
+    border-top: 1px solid var(--border);
+  }
+  .mt-tabbar-btn {
+    appearance: none; border: none; background: transparent;
+    color: var(--text-3);
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    cursor: pointer;
+  }
+  .mt-tabbar-btn svg { width: 22px; height: 22px; }
+  .mt-tabbar-btn.is-active { color: var(--gold); background: var(--gold-faint); }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="decade-year-picker.jsx"></script>
+  <script type="text/babel" src="chapter-card.jsx"></script>
+  <script type="text/babel" src="miroir-temporel-screen.jsx"></script>
+</body>
+</html>

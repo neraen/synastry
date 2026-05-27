@@ -1,12 +1,15 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import Svg, { Circle as SvgCircle, Line, Path, Polygon } from 'react-native-svg';
-import { colors, fonts, spacing, radius } from '@/theme';
-import { GoldButton, GhostButton } from '@/components/ui';
+import Svg, { Circle as SvgCircle, Line, Polygon } from 'react-native-svg';
+import { fonts, spacing, radius } from '@/theme';
+import { GoldButton } from '@/components/ui';
+
+const TEXT = '#ECE5F7';
+const TEXT_3 = '#8A82A6';
 
 function ShareIcon() {
     return (
-        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.onSurface} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={TEXT_3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <SvgCircle cx="18" cy="5" r="3" />
             <SvgCircle cx="6" cy="12" r="3" />
             <SvgCircle cx="18" cy="19" r="3" />
@@ -18,7 +21,7 @@ function ShareIcon() {
 
 function StarIcon() {
     return (
-        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.onSurface} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={TEXT_3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <Polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
         </Svg>
     );
@@ -39,13 +42,13 @@ export function CompatibilityActionsV2({ partnerName, onShare, onTheme, onNew }:
                 <Pressable style={styles.ghostBtn} onPress={onShare}>
                     <View style={styles.btnContent}>
                         <ShareIcon />
-                        <Text style={styles.ghostBtnInner}>Partager</Text>
+                        <Text style={styles.ghostBtnLabel}>Partager</Text>
                     </View>
                 </Pressable>
                 <Pressable style={styles.ghostBtn} onPress={onTheme}>
                     <View style={styles.btnContent}>
                         <StarIcon />
-                        <Text style={styles.ghostBtnInner}>Thème de {partnerName}</Text>
+                        <Text style={styles.ghostBtnLabel}>Thème de {partnerName}</Text>
                     </View>
                 </Pressable>
             </View>
@@ -66,23 +69,24 @@ const styles = StyleSheet.create({
     },
     ghostBtn: {
         flex: 1,
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.md,
-        borderRadius: radius.full,
-        backgroundColor: 'rgba(30, 19, 56, 0.50)',
+        paddingVertical: 13,
+        paddingHorizontal: 14,
+        borderRadius: radius.md,
+        backgroundColor: 'rgba(255,255,255,0.03)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
+        borderColor: 'rgba(255,255,255,0.12)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     btnContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing.sm,
+        gap: 8,
     },
-    ghostBtnInner: {
+    ghostBtnLabel: {
         fontFamily: fonts.body.semiBold,
         fontSize: 13,
-        color: colors.onSurface,
+        color: TEXT,
+        fontWeight: '600',
     },
 });

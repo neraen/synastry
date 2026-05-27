@@ -1,8 +1,26 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, fonts, spacing, radius } from '@/theme';
-import { PlanetGlyph, SignGlyph, TagIconSvg } from './PlanetSignGlyphs';
+import Svg, { Path } from 'react-native-svg';
+import { fonts, spacing, radius } from '@/theme';
+import { SignGlyph, TagIconSvg } from './PlanetSignGlyphs';
 import type { CompatibilityItem } from './types';
+
+const PLANET_SYMBOLS: Record<string, string> = {
+    sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
+    jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆', pluto: '♇',
+};
+
+const GREEN = '#4ADE80';
+const ORANGE = '#E89B4C';
+const TEXT = '#ECE5F7';
+const TEXT_3 = '#8A82A6';
+const TEXT_4 = '#5C5478';
+const SURFACE = 'rgba(255,255,255,0.028)';
+const BORDER = 'rgba(255,255,255,0.07)';
+const BORDER_HI = 'rgba(255,255,255,0.12)';
+
+const VARIANT_COLOR = { strength: GREEN, watch: ORANGE };
+const VARIANT_DOT = { strength: GREEN, watch: ORANGE };
 
 interface Props {
     kicker: string;
@@ -10,43 +28,48 @@ interface Props {
     variant: 'strength' | 'watch';
 }
 
-const VARIANT_COLOR = {
-    strength: colors.primary,
-    watch: '#F59E0B',
-};
+function ChevronDown({ color }: { color: string }) {
+    return (
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M6 9l6 6 6-6" />
+        </Svg>
+    );
+}
 
 export function AccordionListV2({ kicker, items, variant }: Props) {
     const [openIdx, setOpenIdx] = useState(-1);
     const accentColor = VARIANT_COLOR[variant];
+    const dotColor = VARIANT_DOT[variant];
 
     return (
         <View style={styles.section}>
+            {/* Section head: dot + kicker + rule */}
             <View style={styles.sectionHead}>
+                <View style={[styles.dot, { backgroundColor: dotColor, shadowColor: dotColor }]} />
                 <Text style={styles.kicker}>{kicker}</Text>
+                <Text style={styles.count}>({items.length})</Text>
+                <View style={styles.rule} />
             </View>
-            <View style={styles.list}>
+
+            {/* Unified flush card */}
+            <View style={styles.card}>
                 {items.map((item, i) => {
                     const open = openIdx === i;
                     return (
-                        <View
-                            key={i}
-                            style={[
-                                styles.item,
-                                i === 0 && styles.itemFirst,
-                                i === items.length - 1 && styles.itemLast,
-                                open && styles.itemOpen,
-                            ]}
-                        >
+                        <View key={i} style={[styles.item, open && styles.itemOpen]}>
+                            {i > 0 && <View style={styles.sep} />}
                             <Pressable
                                 style={styles.head}
                                 onPress={() => setOpenIdx(open ? -1 : i)}
                                 android_ripple={{ color: `${accentColor}10` }}
                             >
-                                {/* Planet + sign glyph */}
-                                <View style={styles.glyphWrap}>
-                                    <PlanetGlyph id={item.planet} size={40} />
+                                {/* Planet symbol in rounded square + sign badge */}
+                                <View style={[styles.glyphWrap, { backgroundColor: `${accentColor}10`, borderColor: `${accentColor}22` }]}>
+                                    <Text style={[styles.glyphSymbol, { color: accentColor }]}>
+                                        {PLANET_SYMBOLS[item.planet] ?? '★'}
+                                    </Text>
                                     <View style={styles.badgeWrap}>
-                                        <SignGlyph id={item.badge} size={20} />
+                                        <SignGlyph id={item.badge} size={18} />
                                     </View>
                                 </View>
 
@@ -57,10 +80,11 @@ export function AccordionListV2({ kicker, items, variant }: Props) {
                                 </View>
 
                                 {/* Chevron */}
-                                <Text style={[styles.chev, open && styles.chevOpen]}>›</Text>
+                                <View style={[styles.chevWrap, open && styles.chevWrapOpen]}>
+                                    <ChevronDown color={TEXT_4} />
+                                </View>
                             </Pressable>
 
-                            {/* Expanded body */}
                             {open && (
                                 <View style={styles.body}>
                                     <Text style={styles.detail}>{item.detail}</Text>
@@ -90,96 +114,140 @@ const styles = StyleSheet.create({
         marginBottom: spacing.xxl,
     },
     sectionHead: {
-        marginBottom: spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 12,
+        marginHorizontal: 2,
+    },
+    dot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     kicker: {
         fontFamily: fonts.body.semiBold,
-        fontSize: 10,
-        letterSpacing: 1.5,
-        color: colors.onSurfaceMuted,
+        fontSize: 11,
+        letterSpacing: 2.3,
+        color: TEXT_3,
         textTransform: 'uppercase',
     },
-    list: {
-        gap: spacing.xs,
+    count: {
+        fontFamily: fonts.body.regular,
+        fontSize: 11,
+        color: TEXT_4,
+    },
+    rule: {
+        flex: 1,
+        height: 1,
+        backgroundColor: BORDER,
+    },
+    card: {
+        borderRadius: 20,
+        backgroundColor: SURFACE,
+        borderWidth: 1,
+        borderColor: BORDER,
+        overflow: 'hidden',
+        paddingVertical: 6,
+        paddingHorizontal: 0,
     },
     item: {
-        backgroundColor: 'rgba(30, 19, 56, 0.50)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.07)',
-        borderRadius: radius.md,
+        backgroundColor: 'transparent',
         overflow: 'hidden',
     },
-    itemFirst: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl },
-    itemLast: { borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl },
-    itemOpen: { borderColor: 'rgba(255,255,255,0.12)' },
+    itemOpen: {},
+    sep: {
+        height: 1,
+        backgroundColor: BORDER,
+        marginHorizontal: 0,
+    },
     head: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: spacing.lg,
-        gap: spacing.md,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        gap: 12,
     },
     glyphWrap: {
+        flexShrink: 0,
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
         position: 'relative',
-        width: 44,
-        height: 44,
+        overflow: 'visible',
+    },
+    glyphSymbol: {
+        fontSize: 18,
+        lineHeight: 22,
+        textAlign: 'center',
     },
     badgeWrap: {
         position: 'absolute',
-        bottom: -2,
+        bottom: -4,
         right: -4,
-        backgroundColor: colors.surfaceLowest,
-        borderRadius: 12,
+        backgroundColor: '#1A1233',
+        borderRadius: 8,
         padding: 1,
+        borderWidth: 1,
+        borderColor: BORDER_HI,
     },
     titleWrap: {
         flex: 1,
+        minWidth: 0,
     },
     title: {
-        fontFamily: fonts.display.regular,
-        fontSize: 15,
-        lineHeight: 21,
-        color: colors.onSurface,
+        fontFamily: fonts.body.semiBold,
+        fontSize: 14,
+        lineHeight: 19,
+        color: TEXT,
+        fontWeight: '600',
         marginBottom: 2,
     },
     summary: {
         fontFamily: fonts.body.regular,
         fontSize: 12,
-        color: colors.onSurfaceMuted,
+        color: TEXT_3,
     },
-    chev: {
-        fontFamily: fonts.body.bold,
-        fontSize: 20,
-        color: colors.onSurfaceMuted,
-        transform: [{ rotate: '90deg' }],
-        lineHeight: 24,
+    chevWrap: {
+        width: 16,
+        height: 16,
+        flexShrink: 0,
     },
-    chevOpen: {
-        transform: [{ rotate: '-90deg' }],
+    chevWrapOpen: {
+        transform: [{ rotate: '180deg' }],
     },
     body: {
-        paddingHorizontal: spacing.lg,
-        paddingBottom: spacing.lg,
         paddingTop: 0,
+        paddingBottom: 16,
+        paddingRight: 16,
+        paddingLeft: 68, // aligns with title: head padding 16 + glyph 40 + gap 12
     },
     detail: {
         fontFamily: fonts.body.regular,
         fontSize: 13,
-        lineHeight: 20,
-        color: `${colors.onSurface}CC`,
+        lineHeight: 21,
+        color: TEXT_3,
         marginBottom: spacing.md,
     },
     tags: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: spacing.xs,
+        gap: 6,
     },
     tag: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 5,
-        borderRadius: radius.full,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 99,
         borderWidth: 1,
     },
     tagLabel: {

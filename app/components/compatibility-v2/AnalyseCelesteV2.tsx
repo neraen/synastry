@@ -1,51 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import Svg, { Polygon, Circle as SvgCircle, Line } from 'react-native-svg';
-import { colors, fonts, spacing, radius } from '@/theme';
+import { fonts, spacing } from '@/theme';
 
-const STAR_BLUE = '#A8C4D8';
-
-function ConstellationCorner() {
-    return (
-        <View style={styles.corner}>
-            <Svg width={90} height={90} viewBox="0 0 100 100" fill="none">
-                <Line x1="15" y1="10" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.25" />
-                <Line x1="55" y1="28" x2="88" y2="12" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.22" />
-                <Line x1="55" y1="28" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.22" />
-                <Line x1="88" y1="12" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.18" />
-                <Line x1="72" y1="65" x2="95" y2="50" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.18" />
-                <Line x1="30" y1="55" x2="55" y2="28" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.16" />
-                <Line x1="30" y1="55" x2="72" y2="65" stroke={STAR_BLUE} strokeWidth="0.7" opacity="0.15" />
-                <SvgCircle cx="15" cy="10" r="1.8" fill={STAR_BLUE} opacity="0.3"  />
-                <SvgCircle cx="55" cy="28" r="2.4" fill={STAR_BLUE} opacity="0.4"  />
-                <SvgCircle cx="88" cy="12" r="1.6" fill={STAR_BLUE} opacity="0.3"  />
-                <SvgCircle cx="72" cy="65" r="2.0" fill={STAR_BLUE} opacity="0.32" />
-                <SvgCircle cx="95" cy="50" r="1.4" fill={STAR_BLUE} opacity="0.25" />
-                <SvgCircle cx="30" cy="55" r="1.6" fill={STAR_BLUE} opacity="0.28" />
-            </Svg>
-        </View>
-    );
-}
-import type { CompatibilityAnalyse } from './types';
-
-function StarIcon() {
-    return (
-        <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <Polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </Svg>
-    );
-}
-
-function ChevIcon({ open }: { open: boolean }) {
-    return (
-        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
-            <Svg viewBox="0 0 24 24">
-                <Svg><Line x1="6" y1="9" x2="12" y2="15" /><Line x1="12" y1="15" x2="18" y2="9" /></Svg>
-            </Svg>
-        </Svg>
-    );
-}
+const GOLD = '#E5C266';
+const TEXT = '#ECE5F7';
+const TEXT_2 = '#BDB2D4';
+const TEXT_3 = '#8A82A6';
+const BORDER = 'rgba(255,255,255,0.07)';
+const BORDER_HI = 'rgba(255,255,255,0.12)';
+const SURFACE = 'rgba(255,255,255,0.028)';
 
 interface Props {
     headline: string;
@@ -58,24 +21,20 @@ export function AnalyseCelesteV2({ headline, summary, longText }: Props) {
 
     return (
         <View style={styles.section}>
+            {/* Section head */}
+            <View style={styles.sectionHead}>
+                <View style={styles.dot} />
+                <Text style={styles.kicker}>Analyse céleste</Text>
+                <View style={styles.rule} />
+            </View>
+
             <View style={styles.card}>
-                <ConstellationCorner />
-
-                {/* Kicker */}
-                <View style={styles.kickerRow}>
-                    <StarIcon />
-                    <Text style={styles.kicker}> Analyse céleste</Text>
-                </View>
-
-                {/* Headline */}
                 <Text style={styles.headline}>{headline}</Text>
 
-                {/* Summary (always visible) */}
                 {summary.map((p, i) => (
                     <Text key={i} style={styles.bodyText}>{p}</Text>
                 ))}
 
-                {/* Long text (revealed on expand) */}
                 {open && (
                     <View style={styles.longTextWrap}>
                         {longText.map((p, i) => (
@@ -84,10 +43,9 @@ export function AnalyseCelesteV2({ headline, summary, longText }: Props) {
                     </View>
                 )}
 
-                {/* Read more button */}
                 <Pressable style={styles.readMoreBtn} onPress={() => setOpen(!open)}>
                     <Text style={styles.readMoreText}>{open ? 'Réduire' : 'Lire la suite'}</Text>
-                    <Text style={[styles.readMoreChev, open && { transform: [{ rotate: '180deg' }] }]}>›</Text>
+                    <Text style={[styles.readMoreChev, open && styles.readMoreChevOpen]}>›</Text>
                 </Pressable>
             </View>
         </View>
@@ -99,65 +57,90 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.xl,
         marginBottom: spacing.xxl,
     },
-    card: {
-        backgroundColor: 'rgba(30, 19, 56, 0.55)',
-        borderRadius: radius.xl,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        padding: spacing.xl,
-        overflow: 'hidden',
-    },
-    corner: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-    },
-    kickerRow: {
+    sectionHead: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: spacing.md,
+        gap: 10,
+        marginBottom: 12,
+        marginHorizontal: 2,
+    },
+    dot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: GOLD,
+        shadowColor: GOLD,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     kicker: {
         fontFamily: fonts.body.semiBold,
-        fontSize: 10,
-        letterSpacing: 1.5,
-        color: colors.primary,
+        fontSize: 11,
+        letterSpacing: 2.3,
+        color: TEXT_3,
         textTransform: 'uppercase',
+    },
+    rule: {
+        flex: 1,
+        height: 1,
+        backgroundColor: BORDER,
+    },
+    card: {
+        borderRadius: 20,
+        backgroundColor: SURFACE,
+        borderWidth: 1,
+        borderColor: BORDER,
+        paddingTop: 22,
+        paddingBottom: 22,
+        paddingHorizontal: 20,
     },
     headline: {
         fontFamily: fonts.display.bold,
-        fontSize: 20,
-        lineHeight: 28,
-        color: colors.onSurface,
-        marginBottom: spacing.md,
+        fontSize: 23,
+        lineHeight: 29,
+        color: TEXT,
+        marginBottom: 14,
     },
     bodyText: {
         fontFamily: fonts.body.regular,
         fontSize: 14,
         lineHeight: 22,
-        color: `${colors.onSurface}CC`,
-        marginBottom: spacing.sm,
+        color: TEXT_2,
+        marginBottom: 12,
     },
     longTextWrap: {
-        marginTop: spacing.xs,
+        marginTop: 4,
     },
     readMoreBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        marginTop: spacing.md,
+        gap: 6,
+        marginTop: 14,
         alignSelf: 'flex-start',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 99,
+        borderWidth: 1,
+        borderColor: BORDER_HI,
+        backgroundColor: 'rgba(255,255,255,0.04)',
     },
     readMoreText: {
         fontFamily: fonts.body.semiBold,
-        fontSize: 13,
-        color: colors.primary,
+        fontSize: 12,
+        letterSpacing: 0.6,
+        color: GOLD,
+        fontWeight: '600',
     },
     readMoreChev: {
         fontFamily: fonts.body.bold,
-        fontSize: 18,
-        color: colors.primary,
+        fontSize: 16,
+        color: GOLD,
+        lineHeight: 18,
         transform: [{ rotate: '90deg' }],
-        lineHeight: 20,
+    },
+    readMoreChevOpen: {
+        transform: [{ rotate: '-90deg' }],
     },
 });

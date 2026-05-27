@@ -8,9 +8,12 @@ import {
     Share,
     Platform,
     Dimensions,
+    Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop, Line as SvgLine } from 'react-native-svg';
+import * as Clipboard from 'expo-clipboard';
+import * as Sharing from 'expo-sharing';
 
 const STAR_BLUE = '#A8C4D8';
 
@@ -159,35 +162,123 @@ interface PageProps {
     data: CompatibilityV2Data;
 }
 
+type Social = 'instagram' | 'tiktok' | 'twitter' | 'whatsapp' | 'facebook' | 'copy';
+
 export function ShareCardPageV2({ data }: PageProps) {
     const router = useRouter();
     const [format, setFormat] = useState<Format>('story');
     const [toast, setToast] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
     const cardRef = useRef<View>(null);
 
     const flash = (msg: string) => {
         setToast(msg);
-        setTimeout(() => setToast(null), 2000);
+        setTimeout(() => setToast(null), 2200);
+    };
+
+    const shareText = `Compatibilité ${data.userName} & ${data.partnerName} : ${data.score}%\n\n« ${data.tagline} »\n\nDécouvre ta synastrie sur Lunestia → https://lunestia.app`;
+    const shortText = `${data.userName} & ${data.partnerName} : ${data.score}% de compat ✨ — Lunestia https://lunestia.app`;
+
+    const captureCard = async (): Promise<string | null> => {
+        try {
+            return await captureRef(cardRef, { format: 'png', quality: 0.95 });
+        } catch {
+            flash('Impossible de capturer la carte');
+            return null;
+        }
+    };
+
+    const shareImageViaSheet = async (uri: string, dialogTitle: string) => {
+        if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(uri, {
+                mimeType: 'image/png',
+                dialogTitle,
+                UTI: 'public.png',
+            });
+        } else {
+            await Share.share(Platform.OS === 'ios' ? { url: uri } : { message: shortText });
+        }
+    };
+
+    const tryDeepLink = async (url: string): Promise<boolean> => {
+        try {
+            const ok = await Linking.canOpenURL(url);
+            if (ok) {
+                await Linking.openURL(url);
+                return true;
+            }
+        } catch {}
+        return false;
+    };
+
+    const handleSocial = async (network: Social) => {
+        if (busy) return;
+        setBusy(true);
+        try {
+            if (network === 'copy') {
+                const uri = await captureCard();
+                await Clipboard.setStringAsync(shareText);
+                if (uri && Platform.OS === 'ios') {
+                    try {
+                        // Best-effort: also copy image bytes to clipboard on iOS
+                        // (expo-clipboard supports setImageAsync with base64)
+                        // Skipped here to keep the flow simple/reliable.
+                    } catch {}
+                }
+                flash('Texte copié dans le presse-papier');
+                return;
+            }
+
+            if (network === 'whatsapp') {
+                const encoded = encodeURIComponent(shortText);
+                const opened = await tryDeepLink(`whatsapp://send?text=${encoded}`);
+                if (!opened) {
+                    const uri = await captureCard();
+                    if (uri) await shareImageViaSheet(uri, 'Partager sur WhatsApp');
+                    else flash('WhatsApp n’est pas installé');
+                }
+                return;
+            }
+
+            if (network === 'twitter') {
+                // Twitter / X web intent (works whether app is installed or not)
+                const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shortText)}`;
+                // Prefer native X app deep link first, fallback to web intent
+                const opened = await tryDeepLink(`twitter://post?message=${encodeURIComponent(shortText)}`);
+                if (!opened) await Linking.openURL(intent);
+                return;
+            }
+
+            // Instagram / TikTok / Facebook → image share via system sheet
+            // (these apps accept the image as a native share target and create a post/story)
+            const uri = await captureCard();
+            if (!uri) return;
+
+            if (network === 'instagram') {
+                // iOS Instagram Stories deep link with pasteboard isn't supported via Expo's
+                // public APIs without a native module — system share sheet is the reliable path.
+                await shareImageViaSheet(uri, 'Partager sur Instagram');
+            } else if (network === 'tiktok') {
+                await shareImageViaSheet(uri, 'Partager sur TikTok');
+            } else if (network === 'facebook') {
+                await shareImageViaSheet(uri, 'Partager sur Facebook');
+            }
+        } catch (e: any) {
+            flash('Le partage a échoué');
+        } finally {
+            setBusy(false);
+        }
     };
 
     const handleCapture = async () => {
-        try {
-            const uri = await captureRef(cardRef, { format: 'png', quality: 0.9 });
-            if (Platform.OS === 'ios') {
-                await Share.share({ url: uri });
-            } else {
-                await Share.share({ message: `Compatibilité ${data.userName} & ${data.partnerName} : ${data.score}%\n\n« ${data.tagline} »\n\nLunestia` });
-            }
-        } catch {
-            flash('Impossible de capturer la carte');
-        }
+        const uri = await captureCard();
+        if (!uri) return;
+        await shareImageViaSheet(uri, 'Partager la carte');
     };
 
     const handleNativeShare = async () => {
         try {
-            await Share.share({
-                message: `Compatibilité ${data.userName} & ${data.partnerName} : ${data.score}%\n\n« ${data.tagline} »\n\nDécouvre ta synastrie sur Lunestia`,
-            });
+            await Share.share({ message: shareText });
         } catch {}
     };
 
@@ -240,18 +331,19 @@ export function ShareCardPageV2({ data }: PageProps) {
                     <View style={styles.socialSection}>
                         <Text style={styles.socialLabel}>Publier sur</Text>
                         <View style={styles.chipGrid}>
-                            {[
-                                { label: 'Instagram', icon: 'instagram' as const },
-                                { label: 'TikTok',    icon: 'music' as const },
-                                { label: 'X / Twitter', icon: 'twitter' as const },
-                                { label: 'WhatsApp',  icon: 'message-circle' as const },
-                                { label: 'Facebook',  icon: 'facebook' as const },
-                                { label: 'Copier',    icon: 'copy' as const },
-                            ].map(({ label, icon }) => (
+                            {([
+                                { label: 'Instagram', icon: 'instagram', network: 'instagram' },
+                                { label: 'TikTok',    icon: 'music',     network: 'tiktok' },
+                                { label: 'X / Twitter', icon: 'twitter', network: 'twitter' },
+                                { label: 'WhatsApp',  icon: 'message-circle', network: 'whatsapp' },
+                                { label: 'Facebook',  icon: 'facebook',  network: 'facebook' },
+                                { label: 'Copier',    icon: 'copy',      network: 'copy' },
+                            ] as const).map(({ label, icon, network }) => (
                                 <Pressable
                                     key={label}
-                                    style={styles.chip}
-                                    onPress={() => flash(`Préparation pour ${label}…`)}
+                                    style={[styles.chip, busy && { opacity: 0.5 }]}
+                                    onPress={() => handleSocial(network)}
+                                    disabled={busy}
                                 >
                                     <Feather name={icon} size={18} color={colors.primary} />
                                     <Text style={styles.chipLabel}>{label}</Text>
