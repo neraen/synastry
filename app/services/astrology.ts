@@ -675,7 +675,8 @@ export interface PartnerSummaryResponse {
     success: boolean;
     partnerName?: string;
     positions?: Record<string, PlanetPosition>;
-    summary?: string;
+    synthesis?: SynthesisData;
+    summary?: string; // legacy field, kept for backward compat
     error?: string;
 }
 

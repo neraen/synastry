@@ -10,11 +10,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { GlassCard, FormattedText, Starfield } from '@/components/ui';
+import { GlassCard, FormattedText, Starfield, CelestialChip } from '@/components/ui';
 import { FullPageLoader } from '@/components/loaders';
 import { AstralHero } from '@/components/astral/AstralHero';
-import { getPartnerSummary, PlanetPosition } from '@/services/astrology';
+import { getPartnerSummary, PlanetPosition, SynthesisData, SynthesisAxis } from '@/services/astrology';
 import { colors, spacing, radius, fonts } from '@/theme';
+
+const AXIS_COLORS = [colors.primary, colors.secondary, colors.accent.pink];
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
@@ -26,7 +28,7 @@ export default function PartnerChartScreen() {
     const [error, setError] = useState<string | null>(null);
     const [partnerName, setPartnerName] = useState('');
     const [positions, setPositions] = useState<Record<string, PlanetPosition>>({});
-    const [summary, setSummary] = useState<string | null>(null);
+    const [synthesis, setSynthesis] = useState<SynthesisData | null>(null);
 
     useEffect(() => {
         if (!historyId) return;
@@ -39,7 +41,11 @@ export default function PartnerChartScreen() {
                 if (res.success) {
                     setPartnerName(res.partnerName ?? '');
                     setPositions(res.positions ?? {});
-                    setSummary(res.summary ?? null);
+                    // synthesis is the new format; fallback to legacy summary field
+                    const synth = res.synthesis ?? (res.summary
+                        ? { portrait: res.summary, axes: [], notable_configs: [] }
+                        : null);
+                    setSynthesis(synth);
                 } else {
                     setError(res.error ?? 'Erreur de chargement');
                 }
@@ -101,19 +107,45 @@ export default function PartnerChartScreen() {
                         <AstralHero positions={positions} outerPadding={20} />
                     )}
 
-                    {/* Personality summary */}
-                    {summary !== null && (
+                    {/* Portrait */}
+                    {synthesis !== null && (
                         <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>Personnalité</Text>
+                            <Text style={styles.sectionLabel}>Portrait</Text>
                             <GlassCard opacity="low" radius="xl">
-                                {summary ? (
-                                    <FormattedText text={summary} style={styles.interpText} />
+                                {synthesis ? (
+                                    <FormattedText text={synthesis.portrait} style={styles.portraitText} />
                                 ) : (
                                     <View style={styles.interpLoading}>
                                         <ActivityIndicator color={colors.primary} size="small" />
                                     </View>
                                 )}
                             </GlassCard>
+                        </View>
+                    )}
+
+                    {/* Axes */}
+                    {synthesis?.axes && synthesis.axes.length > 0 && (
+                        <View style={styles.axesSection}>
+                            <Text style={styles.sectionLabel}>Axes du thème</Text>
+                            {synthesis.axes.map((axis: SynthesisAxis, idx: number) => (
+                                <View key={idx} style={[styles.axisCard, { borderLeftColor: AXIS_COLORS[idx % AXIS_COLORS.length] }]}>
+                                    <Text style={styles.axisTitle}>{axis.title}</Text>
+                                    <Text style={styles.axisDescription}>{axis.description}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+
+                    {/* Notable configs */}
+                    {synthesis?.notable_configs && synthesis.notable_configs.length > 0 && (
+                        <View style={styles.chipsWrap}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                <View style={styles.chipsRow}>
+                                    {synthesis.notable_configs.map((config: string, idx: number) => (
+                                        <CelestialChip key={idx} label={config} selected={false} icon="✦" />
+                                    ))}
+                                </View>
+                            </ScrollView>
                         </View>
                     )}
 
@@ -211,16 +243,52 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
     },
 
-    // Summary
-    interpText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 15,
-        lineHeight: 26,
+    // Portrait
+    portraitText: {
+        fontFamily: fonts.display.regular,
+        fontSize: 16,
+        lineHeight: 28,
         color: colors.onSurface,
+        fontStyle: 'italic',
     },
     interpLoading: {
         alignItems: 'center',
         paddingVertical: spacing.lg,
+    },
+
+    // Axes
+    axesSection: {
+        paddingHorizontal: spacing.xl,
+        marginBottom: spacing.xl,
+        gap: spacing.md,
+    },
+    axisCard: {
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary,
+        paddingLeft: spacing.lg,
+        paddingVertical: spacing.sm,
+    },
+    axisTitle: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 14,
+        color: colors.onSurface,
+        marginBottom: spacing.xs,
+    },
+    axisDescription: {
+        fontFamily: fonts.body.regular,
+        fontSize: 13,
+        lineHeight: 20,
+        color: colors.onSurfaceMuted,
+    },
+
+    // Notable configs chips
+    chipsWrap: {
+        marginBottom: spacing.xxl,
+        paddingHorizontal: spacing.xl,
+    },
+    chipsRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
     },
 
     // Error

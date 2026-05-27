@@ -195,6 +195,7 @@ class AstrologyController extends AbstractController
 
         $result = $this->astrologyService->getPartnerNatalSummary(
             $history->getPartnerName(),
+            $history->getPartnerBirthData(),
             $partnerPositions,
             $historyId
         );
@@ -207,7 +208,7 @@ class AstrologyController extends AbstractController
             'success'     => true,
             'partnerName' => $history->getPartnerName(),
             'positions'   => $partnerPositions,
-            'summary'     => $result['summary'],
+            'synthesis'   => $result['synthesis'],
         ]);
     }
 

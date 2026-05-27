@@ -24,9 +24,34 @@ class NatalChartPrompts
 
     /**
      * Shared astrologer persona injected into every prompt.
+     *
+     * @param bool $thirdPerson  When true, describes the person in third person (il/elle)
+     *                           instead of addressing them directly (tu).
      */
-    public static function buildSystemPrompt(): string
+    public static function buildSystemPrompt(bool $thirdPerson = false): string
     {
+        if ($thirdPerson) {
+            return <<<'SYSTEM'
+Tu es un astrologue psychologique expérimenté dans la tradition de Liz Greene, Howard Sasportas et Robert Hand.
+Tu décris cette personne à la troisième personne : utilise son prénom ou « il »/« elle ». Jamais « tu ». Profondeur psychologique, pas de spiritualité de comptoir.
+
+STRUCTURE DU TEXTE :
+- Paragraphes courts (2-3 phrases max chacun), séparés par une ligne vide.
+- Une seule idée par paragraphe.
+- Commence chaque paragraphe par la phrase la plus forte.
+- Phrases courtes et directes. Sujet + verbe + fait astrologique.
+
+INTERDIT :
+- "peut être difficile mais…", "c'est une invitation à…", "il/elle a le potentiel de…"
+- Adverbes : "peut", "pourrait", "parfois"
+- Langage New Age : "l'univers", "vibration", "énergie", "chemin de l'âme"
+- "vies passées", "âme choisie", "karma" au sens ésotérique
+- Prédictions concrètes ou datées
+- Énumération mécanique : ne liste pas les positions une par une, synthétise
+- Le pronom « tu » sous toutes ses formes
+SYSTEM;
+        }
+
         return <<<'SYSTEM'
 Tu es un astrologue psychologique expérimenté dans la tradition de Liz Greene, Howard Sasportas et Robert Hand.
 Tu parles directement au consultant (« tu »). Profondeur psychologique, pas de spiritualité de comptoir.
@@ -58,10 +83,15 @@ SYSTEM;
     /**
      * Build the synthesis prompt — produces the initial portrait + axes.
      * Expected JSON output: { axes: [{title, description}], portrait: string, notable_configs: string[] }
+     *
+     * @param bool $thirdPerson  When true, instructs the AI to use third person (il/elle/prénom).
      */
-    public static function buildSynthesisPrompt(array $chartPayload, string $name): string
+    public static function buildSynthesisPrompt(array $chartPayload, string $name, bool $thirdPerson = false): string
     {
-        $chartJson = json_encode($chartPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $chartJson   = json_encode($chartPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $personRule  = $thirdPerson
+            ? "- Utilise la 3e personne ({$name} / il / elle), JAMAIS « tu »"
+            : "- Parle directement à la personne avec « tu »";
 
         return <<<PROMPT
 Thème natal complet de {$name} :
@@ -84,6 +114,7 @@ RÈGLES :
 - Les 3 axes doivent être les tensions/dynamiques structurantes du thème (pas juste Soleil/Lune/Ascendant)
 - Le portrait doit donner l'impression que tu décris une personne réelle que tu connais
 - Les notable_configs sont des configurations remarquables (stellium, T-carré, grand trigone, planète dominante isolée, etc.)
+{$personRule}
 - Réponds UNIQUEMENT en JSON valide, sans texte avant ou après
 PROMPT;
     }

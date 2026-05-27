@@ -8,6 +8,7 @@ use App\Entity\SynastryHistory;
 use App\Entity\User;
 use App\Repository\NatalChartRepository;
 use App\Repository\SynastryHistoryRepository;
+use App\Service\NatalChartPrompts;
 use App\Service\Webservice\OpenAiService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -653,29 +654,107 @@ class AstrologyService
     }
 
     /**
-     * Get a short personality summary for a partner from their positions stored in synastry history.
+     * Get natal synthesis for a partner using their full chart payload (same quality as the user's own portrait).
+     * Recreates PlanetaryCalculator from stored birth data to get ASC, houses, nodes and aspects.
      * Cached 90 days per historyId + locale.
      */
-    public function getPartnerNatalSummary(string $partnerName, array $positions, int $historyId): array
+    public function getPartnerNatalSummary(string $partnerName, array $partnerBirthData, array $positions, int $historyId): array
     {
         $safeLocale = preg_replace('/[^a-z]/', '', $this->locale);
         $sun  = preg_replace('/[^a-zA-Z]/', '', $positions['Sun']['Sign'] ?? 'Unknown');
         $moon = preg_replace('/[^a-zA-Z]/', '', $positions['Moon']['Sign'] ?? 'Unknown');
-        $cacheKey = sprintf('partner_interp_%d_%s_%s_%s', $historyId, $sun, $moon, $safeLocale);
+        $cacheKey = sprintf('partner_synth_%d_%s_%s_%s', $historyId, $sun, $moon, $safeLocale);
 
-        $summary = $this->cache->get($cacheKey, function (ItemInterface $item) use ($partnerName, $positions) {
+        $synthesis = $this->cache->get($cacheKey, function (ItemInterface $item) use ($partnerName, $partnerBirthData, $positions) {
             $item->expiresAfter(self::PLANET_INTERP_TTL);
-            $result = $this->openAiService->getNatalChartInterpretation($partnerName, $positions);
-            if (!$result['success']) {
+
+            // Rebuild full chart payload from birth data (ASC, houses, nodes, aspects)
+            $chartPayload = $this->buildPartnerChartPayload($partnerName, $partnerBirthData, $positions);
+
+            $systemPrompt = NatalChartPrompts::buildSystemPrompt(true);
+            $prompt       = NatalChartPrompts::buildSynthesisPrompt($chartPayload, $partnerName, true);
+
+            $result = $this->openAiService->generateNatalChartSection($prompt, $systemPrompt);
+            if (!($result['success'] ?? false)) {
                 throw new \RuntimeException($result['error'] ?? 'AI error');
             }
-            return $result['interpretation'];
+
+            $content = $result['content'] ?? '';
+            $content = preg_replace('/^```json?\s*/m', '', $content);
+            $content = preg_replace('/```\s*$/m', '', $content);
+            $data    = json_decode(trim($content), true);
+
+            if (!$data || !isset($data['portrait'])) {
+                return ['portrait' => $content, 'axes' => [], 'notable_configs' => []];
+            }
+
+            return $data;
         });
 
         return [
-            'success' => true,
-            'summary' => $summary,
+            'success'   => true,
+            'synthesis' => $synthesis,
         ];
+    }
+
+    /**
+     * Rebuild a PlanetaryCalculator from stored birth data and return getFullChartPayload().
+     * Falls back to positions-only payload if birth data is insufficient.
+     */
+    private function buildPartnerChartPayload(string $partnerName, array $partnerBirthData, array $positions): array
+    {
+        $lat = $partnerBirthData['latitude'] ?? null;
+        $lon = $partnerBirthData['longitude'] ?? null;
+
+        if ($lat === null || $lon === null
+            || empty($partnerBirthData['year'])
+            || empty($partnerBirthData['month'])
+            || empty($partnerBirthData['day'])
+        ) {
+            return ['planets' => $positions];
+        }
+
+        $dateStr = sprintf('%04d-%02d-%02d',
+            $partnerBirthData['year'],
+            $partnerBirthData['month'],
+            $partnerBirthData['day']
+        );
+        $timeStr = sprintf('%02d:%02d:00',
+            $partnerBirthData['hours'] ?? 12,
+            $partnerBirthData['minutes'] ?? 0
+        );
+
+        $dt = new \DateTime("$dateStr $timeStr");
+
+        // Prefer IANA timezone name for DST-correct offset
+        $timezoneName = $partnerBirthData['timezoneName'] ?? null;
+        if ($timezoneName) {
+            try {
+                $tz     = new \DateTimeZone($timezoneName);
+                $ref    = new \DateTime($dateStr . ' 12:00:00', $tz);
+                $offset = $tz->getOffset($ref) / 3600;
+            } catch (\Exception $e) {
+                $offset = $partnerBirthData['timezone'] ?? 0;
+            }
+        } else {
+            $offset = $partnerBirthData['timezone'] ?? 0;
+        }
+
+        $offsetMinutes = (int) ((float) $offset * 60);
+        $dt->modify("-{$offsetMinutes} minutes");
+
+        try {
+            $calc = new PlanetaryCalculator(
+                $dt->format('Y-m-d'),
+                $dt->format('H:i'),
+                (float) $lat,
+                (float) $lon,
+                $partnerName
+            );
+            return $calc->getFullChartPayload();
+        } catch (\Exception $e) {
+            return ['planets' => $positions];
+        }
     }
 
 
