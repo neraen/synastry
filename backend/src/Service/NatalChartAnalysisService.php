@@ -236,7 +236,9 @@ class NatalChartAnalysisService
 
     /**
      * Generate a text section (identity, emotions, mental, relationships, ambition, mission).
-     * Fetches synthesis from DB for context (generates it first if needed).
+     * Reads synthesis from DB for context without generating it inline — avoids chaining two
+     * slow AI calls in the same HTTP request (which causes timeouts on first load).
+     * Synthesis will be available on next load once pre-generated via preGenerateAll.
      */
     private function generateTextSection(
         User $user,
@@ -246,8 +248,11 @@ class NatalChartAnalysisService
         string $systemPrompt,
         string $locale
     ): ?string {
-        $chartHash = $this->computeCacheHash($chartPayload);
-        $synthesisContent = $this->getOrGenerateSection($user, 'synthesis', $chartPayload, $chartHash, $locale);
+        $chartHash     = $this->computeCacheHash($chartPayload);
+        $synthesisRecord = $this->sectionRepository->findByUserAndSection($user, 'synthesis');
+        $synthesisContent = ($synthesisRecord && $synthesisRecord->getChartHash() === $chartHash)
+            ? $synthesisRecord->getContent()
+            : null;
         $synthesisResult = $synthesisContent ?? ['portrait' => '', 'axes' => [], 'notable_configs' => []];
 
         $prompt = NatalChartPrompts::buildSectionPrompt($section, $chartPayload, $synthesisResult, $name);
