@@ -11,9 +11,16 @@ class OpenAiService
     private HttpClientInterface $client;
     private string $apiKey;
     private string $apiUrl;
+    private string $anthropicApiKey;
     private PromptLocaleService $localeService;
     private const MODEL_DEFAULT  = 'gpt-4.1-mini';
-    private const ALLOWED_MODELS = ['gpt-4.1-mini', 'gpt-4o', 'gpt-5-mini'];
+    private const ALLOWED_MODELS = [
+        'gpt-4.1-mini',
+        'gpt-4o',
+        'gpt-5-mini',
+        'claude-sonnet-4-20250514',
+        'claude-haiku-4-5-20251001',
+    ];
 
     private string $model = self::MODEL_DEFAULT;
 
@@ -67,7 +74,13 @@ PERSONA;
         $this->client = $client;
         $this->apiKey = $apiKey ?: ($_ENV['OPENAI_API_KEY'] ?? '');
         $this->apiUrl = $apiUrl ?: ($_ENV['OPENAI_API_URL'] ?? 'https://api.openai.com/v1');
+        $this->anthropicApiKey = $_ENV['ANTHROPIC_API_KEY'] ?? '';
         $this->localeService = new PromptLocaleService();
+    }
+
+    private function isAnthropicModel(): bool
+    {
+        return str_starts_with($this->model, 'claude-');
     }
 
     /**
@@ -105,9 +118,14 @@ PERSONA;
 
     /**
      * Call OpenAI Responses API (/v1/responses)
+     * Automatically routes to Anthropic Messages API for Claude models.
      */
     private function callResponsesApi(string $input, ?string $instructions = null): array
     {
+        if ($this->isAnthropicModel()) {
+            return $this->callAnthropicApi($input, $instructions);
+        }
+
         $payload = [
             'model' => $this->model,
             'input' => $input,
@@ -138,6 +156,59 @@ PERSONA;
                             break 2;
                         }
                     }
+                }
+            }
+
+            if (!$outputText) {
+                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
+            }
+
+            return [
+                'success' => true,
+                'content' => $outputText,
+                'model'   => $data['model'] ?? $this->model,
+                'usage'   => $data['usage'] ?? null,
+            ];
+
+        } catch (ExceptionInterface $e) {
+            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Call Anthropic Messages API (/v1/messages).
+     * Used automatically when model starts with "claude-".
+     */
+    private function callAnthropicApi(string $input, ?string $instructions = null): array
+    {
+        $payload = [
+            'model'      => $this->model,
+            'max_tokens' => 4096,
+            'messages'   => [['role' => 'user', 'content' => $input]],
+        ];
+
+        if ($instructions) {
+            $payload['system'] = $instructions;
+        }
+
+        try {
+            $response = $this->client->request('POST', 'https://api.anthropic.com/v1/messages', [
+                'headers' => [
+                    'x-api-key'         => $this->anthropicApiKey,
+                    'anthropic-version' => '2023-06-01',
+                    'Content-Type'      => 'application/json',
+                ],
+                'json'    => $payload,
+                'timeout' => 180,
+            ]);
+
+            $data = $response->toArray();
+
+            $outputText = null;
+            foreach ($data['content'] ?? [] as $block) {
+                if (($block['type'] ?? '') === 'text') {
+                    $outputText = $block['text'];
+                    break;
                 }
             }
 
@@ -832,7 +903,12 @@ PROMPT;
     public function getChatResponse(array $messages, array $userContext, ?\Closure $toolHandler = null, array $tools = [], ?string $previousResponseId = null): array
     {
         $chatMessages = $this->buildChatMessages($messages, $userContext, $tools);
-        $result = $this->callMultiTurnApi($chatMessages, $toolHandler, $tools, $previousResponseId);
+
+        if ($this->isAnthropicModel()) {
+            $result = $this->callAnthropicMultiTurnApi($chatMessages);
+        } else {
+            $result = $this->callMultiTurnApi($chatMessages, $toolHandler, $tools, $previousResponseId);
+        }
 
         if (!$result['success']) {
             return $result;
@@ -1094,6 +1170,64 @@ TOOLS;
     }
 
     /**
+     * Call Anthropic Messages API for multi-turn conversation (no tool support).
+     */
+    private function callAnthropicMultiTurnApi(array $chatMessages): array
+    {
+        $system   = '';
+        $messages = [];
+
+        foreach ($chatMessages as $msg) {
+            if (in_array($msg['role'], ['developer', 'system'], true)) {
+                $system .= ($system !== '' ? "\n\n" : '') . $msg['content'];
+            } else {
+                $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
+            }
+        }
+
+        $payload = [
+            'model'      => $this->model,
+            'max_tokens' => 4096,
+            'messages'   => $messages,
+        ];
+
+        if ($system !== '') {
+            $payload['system'] = $system;
+        }
+
+        try {
+            $response = $this->client->request('POST', 'https://api.anthropic.com/v1/messages', [
+                'headers' => [
+                    'x-api-key'         => $this->anthropicApiKey,
+                    'anthropic-version' => '2023-06-01',
+                    'Content-Type'      => 'application/json',
+                ],
+                'json'    => $payload,
+                'timeout' => 180,
+            ]);
+
+            $data       = $response->toArray();
+            $outputText = null;
+
+            foreach ($data['content'] ?? [] as $block) {
+                if (($block['type'] ?? '') === 'text') {
+                    $outputText = $block['text'];
+                    break;
+                }
+            }
+
+            if (!$outputText) {
+                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
+            }
+
+            return ['success' => true, 'content' => $outputText, 'response_id' => null];
+
+        } catch (ExceptionInterface $e) {
+            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Call OpenAI Responses API (/v1/responses) for multi-turn conversation with optional tool use.
      *
      * When $previousResponseId is provided, only the last user message is sent as input —
@@ -1247,6 +1381,10 @@ TOOLS;
         ?string $previousResponseId,
         callable $onDelta
     ): array {
+        if ($this->isAnthropicModel()) {
+            return $this->streamAnthropicChatResponse($chatMessages, $onDelta);
+        }
+
         $instructions = '';
         $inputMessages = [];
         foreach ($chatMessages as $msg) {
@@ -1325,6 +1463,83 @@ TOOLS;
             }
 
             return ['success' => true, 'response_id' => $responseId];
+
+        } catch (ExceptionInterface $e) {
+            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Stream an Anthropic chat response via SSE.
+     * Calls $onDelta for each text token.
+     */
+    private function streamAnthropicChatResponse(array $chatMessages, callable $onDelta): array
+    {
+        $system   = '';
+        $messages = [];
+
+        foreach ($chatMessages as $msg) {
+            if (in_array($msg['role'], ['developer', 'system'], true)) {
+                $system .= ($system !== '' ? "\n\n" : '') . $msg['content'];
+            } else {
+                $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
+            }
+        }
+
+        $payload = [
+            'model'      => $this->model,
+            'max_tokens' => 4096,
+            'stream'     => true,
+            'messages'   => $messages,
+        ];
+
+        if ($system !== '') {
+            $payload['system'] = $system;
+        }
+
+        try {
+            $response = $this->client->request('POST', 'https://api.anthropic.com/v1/messages', [
+                'headers' => [
+                    'x-api-key'         => $this->anthropicApiKey,
+                    'anthropic-version' => '2023-06-01',
+                    'Content-Type'      => 'application/json',
+                ],
+                'json'    => $payload,
+                'timeout' => 180,
+                'buffer'  => false,
+            ]);
+
+            $buffer = '';
+
+            foreach ($this->client->stream($response) as $chunk) {
+                $buffer .= $chunk->getContent();
+
+                while (($pos = strpos($buffer, "\n\n")) !== false) {
+                    $rawEvent = substr($buffer, 0, $pos);
+                    $buffer   = substr($buffer, $pos + 2);
+
+                    $dataStr = '';
+                    foreach (explode("\n", $rawEvent) as $line) {
+                        if (str_starts_with($line, 'data: ')) {
+                            $dataStr = substr($line, 6);
+                        }
+                    }
+
+                    if ($dataStr === '' || $dataStr === '[DONE]') continue;
+
+                    $event = json_decode($dataStr, true);
+                    if (!is_array($event)) continue;
+
+                    if (($event['type'] ?? '') === 'content_block_delta') {
+                        $delta = $event['delta']['text'] ?? '';
+                        if ($delta !== '') {
+                            $onDelta($delta);
+                        }
+                    }
+                }
+            }
+
+            return ['success' => true, 'response_id' => null];
 
         } catch (ExceptionInterface $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];

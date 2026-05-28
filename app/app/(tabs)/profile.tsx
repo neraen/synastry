@@ -24,7 +24,7 @@ import { deleteAccountText } from '@/constants/legalTexts';
 import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
 import { api } from '@/services/api';
 import { getToken } from '@/services/auth';
-import { getAiModel, setAiModel, MODEL_MINI, MODEL_PRO, MODEL_MINI5, AiModel } from '@/services/aiModelConfig';
+import { getAiModel, setAiModel, MODEL_MINI, MODEL_PRO, MODEL_MINI5, MODEL_CLAUDE_SONNET, MODEL_CLAUDE_HAIKU, AiModel } from '@/services/aiModelConfig';
 
 // ─── Preference Row ────────────────────────────────────────────────────────────
 interface PrefRowProps {
@@ -367,9 +367,11 @@ export default function ProfileTab() {
                             <View style={styles.devModelPicker}>
                                 {(
                                     [
-                                        { key: 'mini',  label: MODEL_MINI,  sub: 'Rapide — défaut' },
-                                        { key: 'pro',   label: MODEL_PRO,   sub: 'Qualité max'     },
-                                        { key: 'mini5', label: MODEL_MINI5, sub: 'Nouveau'         },
+                                        { key: 'mini',         label: MODEL_MINI,          sub: 'Rapide — défaut' },
+                                        { key: 'pro',          label: MODEL_PRO,            sub: 'Qualité max'     },
+                                        { key: 'mini5',        label: MODEL_MINI5,          sub: 'Nouveau'         },
+                                        { key: 'claude-sonnet', label: MODEL_CLAUDE_SONNET, sub: 'Anthropic'       },
+                                        { key: 'claude-haiku',  label: MODEL_CLAUDE_HAIKU,  sub: 'Anthropic — rapide' },
                                     ] as { key: AiModel; label: string; sub: string }[]
                                 ).map(({ key, label, sub }) => {
                                     const active = aiModel === key;
