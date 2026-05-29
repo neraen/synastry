@@ -3,15 +3,11 @@
 namespace App\Service\Webservice;
 
 use App\Service\PromptLocaleService;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 
 class OpenAiService
 {
-    private HttpClientInterface $client;
-    private string $apiKey;
-    private string $apiUrl;
-    private string $anthropicApiKey;
+    private OpenAiProvider $openAiProvider;
+    private AnthropicProvider $anthropicProvider;
     private PromptLocaleService $localeService;
     private const MODEL_DEFAULT  = 'gpt-4.1-mini';
     private const ALLOWED_MODELS = [
@@ -67,15 +63,11 @@ FORBIDDEN in your response:
 PERSONA;
 
     public function __construct(
-        HttpClientInterface $client,
-        string $apiUrl = 'https://api.openai.com/v1',
-        string $apiKey = '',
-        string $anthropicApiKey = ''
+        OpenAiProvider $openAiProvider,
+        AnthropicProvider $anthropicProvider
     ) {
-        $this->client = $client;
-        $this->apiKey = $apiKey ?: ($_ENV['OPENAI_API_KEY'] ?? '');
-        $this->apiUrl = $apiUrl ?: ($_ENV['OPENAI_API_URL'] ?? 'https://api.openai.com/v1');
-        $this->anthropicApiKey = $anthropicApiKey;
+        $this->openAiProvider = $openAiProvider;
+        $this->anthropicProvider = $anthropicProvider;
         $this->localeService = new PromptLocaleService();
     }
 
@@ -124,121 +116,19 @@ PERSONA;
     }
 
     /**
-     * Call OpenAI Responses API (/v1/responses)
-     * Automatically routes to Anthropic Messages API for Claude models.
+     * Get the appropriate provider for the current model.
      */
-    private function callResponsesApi(string $input, ?string $instructions = null): array
+    private function getProvider(): AiProviderInterface
     {
-        if ($this->isAnthropicModel()) {
-            return $this->callAnthropicApi($input, $instructions);
-        }
-
-        $payload = [
-            'model' => $this->model,
-            'input' => $input,
-        ];
-
-        if ($instructions) {
-            $payload['instructions'] = $instructions;
-        }
-
-        try {
-            $response = $this->client->request('POST', $this->apiUrl . '/responses', [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type'  => 'application/json',
-                ],
-                'json'    => $payload,
-                'timeout' => 180,
-            ]);
-
-            $data = $response->toArray();
-
-            $outputText = null;
-            foreach ($data['output'] ?? [] as $item) {
-                if (($item['type'] ?? '') === 'message') {
-                    foreach ($item['content'] ?? [] as $content) {
-                        if (($content['type'] ?? '') === 'output_text') {
-                            $outputText = $content['text'];
-                            break 2;
-                        }
-                    }
-                }
-            }
-
-            if (!$outputText) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
-            }
-
-            return [
-                'success' => true,
-                'content' => $outputText,
-                'model'   => $data['model'] ?? $this->model,
-                'usage'   => $data['usage'] ?? null,
-            ];
-
-        } catch (ExceptionInterface $e) {
-            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
-        }
+        return $this->isAnthropicModel() ? $this->anthropicProvider : $this->openAiProvider;
     }
 
     /**
-     * Call Anthropic Messages API (/v1/messages).
-     * Used automatically when model starts with "claude-".
+     * One-shot prompt → response, routed to the correct provider.
      */
-    private function callAnthropicApi(string $input, ?string $instructions = null): array
+    private function callResponsesApi(string $input, ?string $instructions = null): array
     {
-        $payload = [
-            'model'      => $this->model,
-            'max_tokens' => 4096,
-            'messages'   => [['role' => 'user', 'content' => $input]],
-        ];
-
-        if ($instructions) {
-            $payload['system'] = $instructions;
-        }
-
-        try {
-            $response = $this->client->request('POST', 'https://api.anthropic.com/v1/messages', [
-                'headers' => [
-                    'x-api-key'         => $this->anthropicApiKey,
-                    'anthropic-version' => '2023-06-01',
-                    'Content-Type'      => 'application/json',
-                ],
-                'json'    => $payload,
-                'timeout' => 180,
-            ]);
-
-            $statusCode = $response->getStatusCode();
-            $data       = $response->toArray(false);
-
-            if ($statusCode !== 200) {
-                $errorMsg = $data['error']['message'] ?? "HTTP {$statusCode}";
-                return ['success' => false, 'error' => "Anthropic error ({$statusCode}): {$errorMsg}"];
-            }
-
-            $outputText = null;
-            foreach ($data['content'] ?? [] as $block) {
-                if (($block['type'] ?? '') === 'text') {
-                    $outputText = $block['text'];
-                    break;
-                }
-            }
-
-            if (!$outputText) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
-            }
-
-            return [
-                'success' => true,
-                'content' => $outputText,
-                'model'   => $data['model'] ?? $this->model,
-                'usage'   => $data['usage'] ?? null,
-            ];
-
-        } catch (ExceptionInterface $e) {
-            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
-        }
+        return $this->getProvider()->call($this->model, $input, $instructions);
     }
 
     /**
@@ -926,11 +816,7 @@ PROMPT;
     {
         $chatMessages = $this->buildChatMessages($messages, $userContext, $tools);
 
-        if ($this->isAnthropicModel()) {
-            $result = $this->callAnthropicMultiTurnApi($chatMessages);
-        } else {
-            $result = $this->callMultiTurnApi($chatMessages, $toolHandler, $tools, $previousResponseId);
-        }
+        $result = $this->getProvider()->callMultiTurn($this->model, $chatMessages, $toolHandler, $tools, $previousResponseId);
 
         if (!$result['success']) {
             return $result;
@@ -1191,205 +1077,6 @@ TOOLS;
         return implode("\n", $lines);
     }
 
-    /**
-     * Call Anthropic Messages API for multi-turn conversation (no tool support).
-     */
-    private function callAnthropicMultiTurnApi(array $chatMessages): array
-    {
-        $system   = '';
-        $messages = [];
-
-        foreach ($chatMessages as $msg) {
-            if (in_array($msg['role'], ['developer', 'system'], true)) {
-                $system .= ($system !== '' ? "\n\n" : '') . $msg['content'];
-            } else {
-                $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
-            }
-        }
-
-        $payload = [
-            'model'      => $this->model,
-            'max_tokens' => 4096,
-            'messages'   => $messages,
-        ];
-
-        if ($system !== '') {
-            $payload['system'] = $system;
-        }
-
-        try {
-            $response = $this->client->request('POST', 'https://api.anthropic.com/v1/messages', [
-                'headers' => [
-                    'x-api-key'         => $this->anthropicApiKey,
-                    'anthropic-version' => '2023-06-01',
-                    'Content-Type'      => 'application/json',
-                ],
-                'json'    => $payload,
-                'timeout' => 180,
-            ]);
-
-            $data       = $response->toArray();
-            $outputText = null;
-
-            foreach ($data['content'] ?? [] as $block) {
-                if (($block['type'] ?? '') === 'text') {
-                    $outputText = $block['text'];
-                    break;
-                }
-            }
-
-            if (!$outputText) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
-            }
-
-            return ['success' => true, 'content' => $outputText, 'response_id' => null];
-
-        } catch (ExceptionInterface $e) {
-            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
-        }
-    }
-
-    /**
-     * Call OpenAI Responses API (/v1/responses) for multi-turn conversation with optional tool use.
-     *
-     * When $previousResponseId is provided, only the last user message is sent as input —
-     * OpenAI chains the conversation server-side. This avoids resending the full history
-     * and sidesteps the "lost in the middle" problem for ongoing conversations.
-     */
-    private function callMultiTurnApi(array $chatMessages, ?\Closure $toolHandler = null, array $tools = [], ?string $previousResponseId = null): array
-    {
-        // Split developer/system messages (→ instructions) from conversation messages (→ input)
-        $instructions = '';
-        $inputMessages = [];
-
-        foreach ($chatMessages as $msg) {
-            if (in_array($msg['role'], ['developer', 'system'], true)) {
-                $instructions .= ($instructions !== '' ? "\n\n" : '') . $msg['content'];
-            } else {
-                $inputMessages[] = ['role' => $msg['role'], 'content' => $msg['content']];
-            }
-        }
-
-        // Convert tools to Responses API format
-        $formattedTools = [];
-        if (!empty($tools)) {
-            $formattedTools = array_map(function (array $tool): array {
-                if (isset($tool['function'])) {
-                    return [
-                        'type'        => 'function',
-                        'name'        => $tool['function']['name'],
-                        'description' => $tool['function']['description'] ?? '',
-                        'parameters'  => $tool['function']['parameters'] ?? new \stdClass(),
-                    ];
-                }
-                return $tool;
-            }, $tools);
-        }
-
-        // Build payload — when chaining, only send the latest user message
-        $payload = ['model' => $this->model];
-        if ($instructions !== '') {
-            $payload['instructions'] = $instructions;
-        }
-        if (!empty($formattedTools)) {
-            $payload['tools'] = $formattedTools;
-        }
-
-        if ($previousResponseId !== null) {
-            $payload['previous_response_id'] = $previousResponseId;
-            // Only send the most recent user message — history is held server-side
-            $lastUser = null;
-            foreach (array_reverse($inputMessages) as $msg) {
-                if ($msg['role'] === 'user') { $lastUser = $msg; break; }
-            }
-            $payload['input'] = $lastUser ? [$lastUser] : $inputMessages;
-        } else {
-            $payload['input'] = $inputMessages;
-        }
-
-        $headers = [
-            'Authorization' => 'Bearer ' . $this->apiKey,
-            'Content-Type'  => 'application/json',
-        ];
-
-        try {
-            $response = $this->client->request('POST', $this->apiUrl . '/responses', [
-                'headers' => $headers,
-                'json'    => $payload,
-                'timeout' => 180,
-            ]);
-
-            $data          = $response->toArray();
-            $responseId    = $data['id'] ?? null;
-            $outputText    = null;
-            $toolCalls     = [];
-
-            foreach ($data['output'] ?? [] as $item) {
-                if (($item['type'] ?? '') === 'function_call') {
-                    $toolCalls[] = $item;
-                } elseif (($item['type'] ?? '') === 'message') {
-                    foreach ($item['content'] ?? [] as $content) {
-                        if (($content['type'] ?? '') === 'output_text') {
-                            $outputText = $content['text'];
-                        }
-                    }
-                }
-            }
-
-            // Handle tool calls — chain from the current response via previous_response_id
-            if (!empty($toolCalls) && $toolHandler !== null) {
-                $toolResultItems = [];
-                foreach ($toolCalls as $toolCall) {
-                    $arguments  = json_decode($toolCall['arguments'], true) ?? [];
-                    $toolResult = $toolHandler($toolCall['name'], $arguments);
-                    $toolResultItems[] = [
-                        'type'    => 'function_call_output',
-                        'call_id' => $toolCall['call_id'],
-                        'output'  => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
-                    ];
-                }
-
-                $payload2 = [
-                    'model'                => $this->model,
-                    'previous_response_id' => $responseId,
-                    'input'                => $toolResultItems,
-                ];
-                if ($instructions !== '') {
-                    $payload2['instructions'] = $instructions;
-                }
-                if (!empty($formattedTools)) {
-                    $payload2['tools'] = $formattedTools;
-                }
-
-                $response2  = $this->client->request('POST', $this->apiUrl . '/responses', [
-                    'headers' => $headers,
-                    'json'    => $payload2,
-                    'timeout' => 180,
-                ]);
-                $data2      = $response2->toArray();
-                $responseId = $data2['id'] ?? $responseId;
-
-                foreach ($data2['output'] ?? [] as $item) {
-                    if (($item['type'] ?? '') === 'message') {
-                        foreach ($item['content'] ?? [] as $content) {
-                            if (($content['type'] ?? '') === 'output_text') {
-                                $outputText = $content['text'];
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!$outputText) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
-            }
-
-            return ['success' => true, 'content' => $outputText, 'response_id' => $responseId];
-
-        } catch (ExceptionInterface $e) {
-            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
-        }
-    }
 
     /**
      * Stream a multi-turn chat response via SSE.
@@ -1403,241 +1090,7 @@ TOOLS;
         ?string $previousResponseId,
         callable $onDelta
     ): array {
-        if ($this->isAnthropicModel()) {
-            return $this->streamAnthropicChatResponse($chatMessages, $onDelta);
-        }
-
-        $instructions = '';
-        $inputMessages = [];
-        foreach ($chatMessages as $msg) {
-            if (in_array($msg['role'], ['developer', 'system'], true)) {
-                $instructions .= ($instructions !== '' ? "\n\n" : '') . $msg['content'];
-            } else {
-                $inputMessages[] = ['role' => $msg['role'], 'content' => $msg['content']];
-            }
-        }
-
-        $formattedTools = [];
-        if (!empty($tools)) {
-            $formattedTools = array_map(function (array $tool): array {
-                if (isset($tool['function'])) {
-                    return [
-                        'type'        => 'function',
-                        'name'        => $tool['function']['name'],
-                        'description' => $tool['function']['description'] ?? '',
-                        'parameters'  => $tool['function']['parameters'] ?? new \stdClass(),
-                    ];
-                }
-                return $tool;
-            }, $tools);
-        }
-
-        $payload = ['model' => $this->model, 'stream' => true];
-        if ($instructions !== '') {
-            $payload['instructions'] = $instructions;
-        }
-        if (!empty($formattedTools)) {
-            $payload['tools'] = $formattedTools;
-        }
-        if ($previousResponseId !== null) {
-            $payload['previous_response_id'] = $previousResponseId;
-            $lastUser = null;
-            foreach (array_reverse($inputMessages) as $msg) {
-                if ($msg['role'] === 'user') { $lastUser = $msg; break; }
-            }
-            $payload['input'] = $lastUser ? [$lastUser] : $inputMessages;
-        } else {
-            $payload['input'] = $inputMessages;
-        }
-
-        $headers = [
-            'Authorization' => 'Bearer ' . $this->apiKey,
-            'Content-Type'  => 'application/json',
-        ];
-
-        try {
-            // ── Phase 1: stream the initial response ──────────────────────
-            [$responseId, $toolCalls] = $this->doStreamRequest($payload, $headers, $onDelta);
-
-            // ── Phase 2: if tool calls, execute them then stream result ───
-            if (!empty($toolCalls) && $toolHandler !== null) {
-                $toolResultItems = [];
-                foreach ($toolCalls as $toolCall) {
-                    $arguments  = json_decode($toolCall['arguments'], true) ?? [];
-                    $toolResult = $toolHandler($toolCall['name'], $arguments);
-                    $toolResultItems[] = [
-                        'type'    => 'function_call_output',
-                        'call_id' => $toolCall['call_id'],
-                        'output'  => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
-                    ];
-                }
-
-                $payload2 = [
-                    'model'                => $this->model,
-                    'stream'               => true,
-                    'previous_response_id' => $responseId,
-                    'input'                => $toolResultItems,
-                ];
-                if ($instructions !== '') $payload2['instructions'] = $instructions;
-                if (!empty($formattedTools)) $payload2['tools'] = $formattedTools;
-
-                [$responseId] = $this->doStreamRequest($payload2, $headers, $onDelta);
-            }
-
-            return ['success' => true, 'response_id' => $responseId];
-
-        } catch (ExceptionInterface $e) {
-            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
-        }
-    }
-
-    /**
-     * Stream an Anthropic chat response via SSE.
-     * Calls $onDelta for each text token.
-     */
-    private function streamAnthropicChatResponse(array $chatMessages, callable $onDelta): array
-    {
-        $system   = '';
-        $messages = [];
-
-        foreach ($chatMessages as $msg) {
-            if (in_array($msg['role'], ['developer', 'system'], true)) {
-                $system .= ($system !== '' ? "\n\n" : '') . $msg['content'];
-            } else {
-                $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
-            }
-        }
-
-        $payload = [
-            'model'      => $this->model,
-            'max_tokens' => 4096,
-            'stream'     => true,
-            'messages'   => $messages,
-        ];
-
-        if ($system !== '') {
-            $payload['system'] = $system;
-        }
-
-        try {
-            $response = $this->client->request('POST', 'https://api.anthropic.com/v1/messages', [
-                'headers' => [
-                    'x-api-key'         => $this->anthropicApiKey,
-                    'anthropic-version' => '2023-06-01',
-                    'Content-Type'      => 'application/json',
-                ],
-                'json'    => $payload,
-                'timeout' => 180,
-                'buffer'  => false,
-            ]);
-
-            $buffer = '';
-
-            foreach ($this->client->stream($response) as $chunk) {
-                $buffer .= $chunk->getContent();
-
-                while (($pos = strpos($buffer, "\n\n")) !== false) {
-                    $rawEvent = substr($buffer, 0, $pos);
-                    $buffer   = substr($buffer, $pos + 2);
-
-                    $dataStr = '';
-                    foreach (explode("\n", $rawEvent) as $line) {
-                        if (str_starts_with($line, 'data: ')) {
-                            $dataStr = substr($line, 6);
-                        }
-                    }
-
-                    if ($dataStr === '' || $dataStr === '[DONE]') continue;
-
-                    $event = json_decode($dataStr, true);
-                    if (!is_array($event)) continue;
-
-                    if (($event['type'] ?? '') === 'content_block_delta') {
-                        $delta = $event['delta']['text'] ?? '';
-                        if ($delta !== '') {
-                            $onDelta($delta);
-                        }
-                    }
-                }
-            }
-
-            return ['success' => true, 'response_id' => null];
-
-        } catch (ExceptionInterface $e) {
-            return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
-        }
-    }
-
-    /**
-     * Execute one streaming API call, invoking $onDelta for each text token.
-     * Returns [responseId, toolCalls[]]
-     */
-    private function doStreamRequest(array $payload, array $headers, callable $onDelta): array
-    {
-        $response = $this->client->request('POST', $this->apiUrl . '/responses', [
-            'headers' => $headers,
-            'json'    => $payload,
-            'timeout' => 180,
-            'buffer'  => false,
-        ]);
-
-        $buffer     = '';
-        $responseId = null;
-        $toolCalls  = [];
-        // Accumulate function call arguments per item_id
-        $toolCallAccum = [];
-
-        foreach ($this->client->stream($response) as $chunk) {
-            $buffer .= $chunk->getContent();
-
-            // Process complete SSE events (separated by \n\n)
-            while (($pos = strpos($buffer, "\n\n")) !== false) {
-                $rawEvent = substr($buffer, 0, $pos);
-                $buffer   = substr($buffer, $pos + 2);
-
-                $eventType = '';
-                $dataStr   = '';
-                foreach (explode("\n", $rawEvent) as $line) {
-                    if (str_starts_with($line, 'event: ')) {
-                        $eventType = substr($line, 7);
-                    } elseif (str_starts_with($line, 'data: ')) {
-                        $dataStr = substr($line, 6);
-                    }
-                }
-
-                if ($dataStr === '' || $dataStr === '[DONE]') continue;
-
-                $event = json_decode($dataStr, true);
-                if (!is_array($event)) continue;
-
-                $type = $event['type'] ?? '';
-
-                if ($type === 'response.output_text.delta') {
-                    $delta = $event['delta'] ?? '';
-                    if ($delta !== '') {
-                        $onDelta($delta);
-                    }
-                } elseif ($type === 'response.function_call_arguments.delta') {
-                    $itemId = $event['item_id'] ?? '';
-                    if ($itemId) {
-                        $toolCallAccum[$itemId]['args'] = ($toolCallAccum[$itemId]['args'] ?? '') . ($event['delta'] ?? '');
-                    }
-                } elseif ($type === 'response.output_item.done') {
-                    $item = $event['item'] ?? [];
-                    if (($item['type'] ?? '') === 'function_call') {
-                        $toolCalls[] = [
-                            'name'      => $item['name'] ?? '',
-                            'call_id'   => $item['call_id'] ?? '',
-                            'arguments' => $item['arguments'] ?? ($toolCallAccum[$item['id'] ?? '']['args'] ?? '{}'),
-                        ];
-                    }
-                } elseif ($type === 'response.completed') {
-                    $responseId = $event['response']['id'] ?? null;
-                }
-            }
-        }
-
-        return [$responseId, $toolCalls];
+        return $this->getProvider()->stream($this->model, $chatMessages, $toolHandler, $tools, $previousResponseId, $onDelta);
     }
 
     /**

@@ -28,11 +28,14 @@ services:
             - '../src/Kernel.php'
 
     # Service-specific configuration (must be after App\ to override)
-    App\Service\Webservice\OpenAiService:
+    App\Service\Webservice\OpenAiProvider:
         arguments:
             $apiUrl: '%openai.api_url%'
             $apiKey: '%openai.api_key%'
-            $anthropicApiKey: '%anthropic.api_key%'
+
+    App\Service\Webservice\AnthropicProvider:
+        arguments:
+            $apiKey: '%anthropic.api_key%'
 
     App\Service\GoogleAuthService:
         arguments:
