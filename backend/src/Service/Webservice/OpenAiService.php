@@ -84,12 +84,18 @@ PERSONA;
         return str_starts_with($this->model, 'claude-');
     }
 
+    /** Legacy model ID aliases (old header values → current IDs). */
+    private const MODEL_ALIASES = [
+        'claude-sonnet-4-20250514' => 'claude-sonnet-4-6',
+    ];
+
     /**
-     * Override the OpenAI model for this request.
-     * Only accepted values from ALLOWED_MODELS are applied.
+     * Override the AI model for this request.
+     * Resolves legacy aliases and only accepts values from ALLOWED_MODELS.
      */
     public function setModel(string $model): void
     {
+        $model = self::MODEL_ALIASES[$model] ?? $model;
         if (in_array($model, self::ALLOWED_MODELS, true)) {
             $this->model = $model;
         }
