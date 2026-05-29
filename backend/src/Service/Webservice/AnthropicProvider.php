@@ -24,10 +24,24 @@ class AnthropicProvider implements AiProviderInterface
 
     public function call(string $model, string $input, ?string $instructions = null, ?int $maxTokens = null): array
     {
+        // Detect if JSON output is expected from the instructions
+        $jsonExpected = $instructions && (
+            stripos($instructions, 'JSON') !== false
+            || stripos($instructions, 'json') !== false
+        );
+
+        $messages = [['role' => 'user', 'content' => $input]];
+
+        // Prefill technique: force Claude to start outputting JSON directly
+        // by adding an assistant message that begins with "{"
+        if ($jsonExpected) {
+            $messages[] = ['role' => 'assistant', 'content' => '{'];
+        }
+
         $payload = [
             'model'      => $model,
-            'max_tokens' => $maxTokens ?? 4096,
-            'messages'   => [['role' => 'user', 'content' => $input]],
+            'max_tokens' => $maxTokens ?? 8192,
+            'messages'   => $messages,
         ];
 
         if ($instructions) {
@@ -53,6 +67,11 @@ class AnthropicProvider implements AiProviderInterface
 
             if (!$outputText) {
                 return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
+            }
+
+            // Prepend the "{" we used as prefill since Claude continues from there
+            if ($jsonExpected) {
+                $outputText = '{' . $outputText;
             }
 
             return [

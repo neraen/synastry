@@ -358,8 +358,7 @@ Rédige une interprétation précise qui couvre :
                 : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence de ton analyse, mais ne base pas toute ton interprétation dessus. Nuance toujours avec les aspects qualitatifs du thème.";
         }
 
-        $maxTokens = $this->isAnthropicModel() ? 4096 : null;
-        $result = $this->callResponsesApi($prompt, $instructions, $maxTokens);
+        $result = $this->callResponsesApi($prompt, $instructions);
 
         if (!$result['success']) {
             return $result;
@@ -418,8 +417,7 @@ Rédige une interprétation précise qui couvre :
                 : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence, mais nuance avec les aspects qualitatifs du thème.";
         }
 
-        $maxTokens = $this->isAnthropicModel() ? 4096 : null;
-        $result = $this->callResponsesApi($prompt, $instructions, $maxTokens);
+        $result = $this->callResponsesApi($prompt, $instructions);
 
         if (!$result['success']) {
             return $result;
