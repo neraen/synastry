@@ -426,7 +426,7 @@ Rédige une interprétation précise qui couvre :
         $jsonData = $this->parseJsonResponse($result['content']);
 
         if (!$jsonData) {
-            return ['success' => false, 'error' => 'Failed to parse v2 JSON response', 'raw_content' => mb_substr($result['content'], 0, 500)];
+            return ['success' => false, 'error' => 'Failed to parse v2 JSON response'];
         }
 
         // Validate and sanitize planet/badge/icon values

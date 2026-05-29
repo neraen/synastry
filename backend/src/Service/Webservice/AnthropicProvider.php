@@ -190,9 +190,10 @@ class AnthropicProvider implements AiProviderInterface
     private function headers(): array
     {
         return [
-            'x-api-key'        => $this->apiKey,
-            'anthropic-version' => '2023-06-01',
-            'Content-Type'      => 'application/json',
+            'x-api-key'         => $this->apiKey,
+            'anthropic-version'  => '2023-06-01',
+            'anthropic-beta'     => 'prompt-caching-2024-07-31',
+            'Content-Type'       => 'application/json',
         ];
     }
 
