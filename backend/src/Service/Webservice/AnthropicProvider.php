@@ -191,8 +191,7 @@ class AnthropicProvider implements AiProviderInterface
     {
         return [
             'x-api-key'         => $this->apiKey,
-            'anthropic-version'  => '2023-06-01',
-            'anthropic-beta'     => 'prompt-caching-2024-07-31',
+            'anthropic-version'  => '2025-04-14',
             'Content-Type'       => 'application/json',
         ];
     }
