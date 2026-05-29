@@ -8,6 +8,7 @@ parameters:
     astroapi.api_key: '%env(ASTROAPI_API_KEY)%'
     openai.api_url: '%env(OPENAI_API_URL)%'
     openai.api_key: '%env(OPENAI_API_KEY)%'
+    anthropic.api_key: '%env(default::ANTHROPIC_API_KEY)%'
     google.client_id: '%env(GOOGLE_CLIENT_ID)%'
     apple.client_id: '%env(APPLE_CLIENT_ID)%'
 
@@ -31,6 +32,7 @@ services:
         arguments:
             $apiUrl: '%openai.api_url%'
             $apiKey: '%openai.api_key%'
+            $anthropicApiKey: '%anthropic.api_key%'
 
     App\Service\GoogleAuthService:
         arguments:

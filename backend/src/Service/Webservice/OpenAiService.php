@@ -69,12 +69,13 @@ PERSONA;
     public function __construct(
         HttpClientInterface $client,
         string $apiUrl = 'https://api.openai.com/v1',
-        string $apiKey = ''
+        string $apiKey = '',
+        string $anthropicApiKey = ''
     ) {
         $this->client = $client;
         $this->apiKey = $apiKey ?: ($_ENV['OPENAI_API_KEY'] ?? '');
         $this->apiUrl = $apiUrl ?: ($_ENV['OPENAI_API_URL'] ?? 'https://api.openai.com/v1');
-        $this->anthropicApiKey = $_ENV['ANTHROPIC_API_KEY'] ?? '';
+        $this->anthropicApiKey = $anthropicApiKey;
         $this->localeService = new PromptLocaleService();
     }
 
