@@ -203,7 +203,13 @@ PERSONA;
                 'timeout' => 180,
             ]);
 
-            $data = $response->toArray();
+            $statusCode = $response->getStatusCode();
+            $data       = $response->toArray(false);
+
+            if ($statusCode !== 200) {
+                $errorMsg = $data['error']['message'] ?? "HTTP {$statusCode}";
+                return ['success' => false, 'error' => "Anthropic error ({$statusCode}): {$errorMsg}"];
+            }
 
             $outputText = null;
             foreach ($data['content'] ?? [] as $block) {
