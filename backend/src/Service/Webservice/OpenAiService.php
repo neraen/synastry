@@ -358,7 +358,7 @@ Rédige une interprétation précise qui couvre :
                 : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence de ton analyse, mais ne base pas toute ton interprétation dessus. Nuance toujours avec les aspects qualitatifs du thème.";
         }
 
-        $maxTokens = $this->isAnthropicModel() ? 1024 : null;
+        $maxTokens = $this->isAnthropicModel() ? 4096 : null;
         $result = $this->callResponsesApi($prompt, $instructions, $maxTokens);
 
         if (!$result['success']) {
@@ -418,7 +418,7 @@ Rédige une interprétation précise qui couvre :
                 : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence, mais nuance avec les aspects qualitatifs du thème.";
         }
 
-        $maxTokens = $this->isAnthropicModel() ? 1024 : null;
+        $maxTokens = $this->isAnthropicModel() ? 4096 : null;
         $result = $this->callResponsesApi($prompt, $instructions, $maxTokens);
 
         if (!$result['success']) {
@@ -428,7 +428,7 @@ Rédige une interprétation précise qui couvre :
         $jsonData = $this->parseJsonResponse($result['content']);
 
         if (!$jsonData) {
-            return ['success' => false, 'error' => 'Failed to parse v2 JSON response'];
+            return ['success' => false, 'error' => 'Failed to parse v2 JSON response', 'raw_content' => mb_substr($result['content'], 0, 500)];
         }
 
         // Validate and sanitize planet/badge/icon values

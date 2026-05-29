@@ -276,7 +276,10 @@ class AstrologyController extends AbstractController
         );
 
         if (!$result['success']) {
-            return $this->json(['error' => $result['error']], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json([
+                'error' => $result['error'],
+                'raw_content' => $result['raw_content'] ?? null,
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         return $this->json($result);
