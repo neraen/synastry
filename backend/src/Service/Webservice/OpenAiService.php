@@ -126,9 +126,9 @@ PERSONA;
     /**
      * One-shot prompt → response, routed to the correct provider.
      */
-    private function callResponsesApi(string $input, ?string $instructions = null): array
+    private function callResponsesApi(string $input, ?string $instructions = null, ?int $maxTokens = null): array
     {
-        return $this->getProvider()->call($this->model, $input, $instructions);
+        return $this->getProvider()->call($this->model, $input, $instructions, $maxTokens);
     }
 
     /**
@@ -358,7 +358,8 @@ Rédige une interprétation précise qui couvre :
                 : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence de ton analyse, mais ne base pas toute ton interprétation dessus. Nuance toujours avec les aspects qualitatifs du thème.";
         }
 
-        $result = $this->callResponsesApi($prompt, $instructions);
+        $maxTokens = $this->isAnthropicModel() ? 1024 : null;
+        $result = $this->callResponsesApi($prompt, $instructions, $maxTokens);
 
         if (!$result['success']) {
             return $result;
@@ -417,7 +418,8 @@ Rédige une interprétation précise qui couvre :
                 : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence, mais nuance avec les aspects qualitatifs du thème.";
         }
 
-        $result = $this->callResponsesApi($prompt, $instructions);
+        $maxTokens = $this->isAnthropicModel() ? 1024 : null;
+        $result = $this->callResponsesApi($prompt, $instructions, $maxTokens);
 
         if (!$result['success']) {
             return $result;

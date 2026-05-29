@@ -15,7 +15,7 @@ interface AiProviderInterface
      *
      * @return array{success: bool, content?: string, model?: string, usage?: array|null, error?: string}
      */
-    public function call(string $model, string $input, ?string $instructions = null): array;
+    public function call(string $model, string $input, ?string $instructions = null, ?int $maxTokens = null): array;
 
     /**
      * Multi-turn conversation with optional tool use.

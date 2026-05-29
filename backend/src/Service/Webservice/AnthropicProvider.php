@@ -22,11 +22,11 @@ class AnthropicProvider implements AiProviderInterface
         $this->apiKey = $apiKey;
     }
 
-    public function call(string $model, string $input, ?string $instructions = null): array
+    public function call(string $model, string $input, ?string $instructions = null, ?int $maxTokens = null): array
     {
         $payload = [
             'model'      => $model,
-            'max_tokens' => 4096,
+            'max_tokens' => $maxTokens ?? 4096,
             'messages'   => [['role' => 'user', 'content' => $input]],
         ];
 

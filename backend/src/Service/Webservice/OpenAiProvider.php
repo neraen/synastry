@@ -22,7 +22,7 @@ class OpenAiProvider implements AiProviderInterface
         $this->apiKey = $apiKey;
     }
 
-    public function call(string $model, string $input, ?string $instructions = null): array
+    public function call(string $model, string $input, ?string $instructions = null, ?int $maxTokens = null): array
     {
         $payload = ['model' => $model, 'input' => $input];
 
