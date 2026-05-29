@@ -390,6 +390,7 @@ class ChatController extends AbstractController
 
         // Snapshot for closure
         $openAiService      = $this->openAiService;
+        error_log('[CHAT_STREAM] Model at controller: ' . $openAiService->getModel() . ' | Header: ' . $request->headers->get('X-Ai-Model', 'NONE'));
         $remainingSnap      = $remainingMessages;
         $em                 = $this->em;
 
