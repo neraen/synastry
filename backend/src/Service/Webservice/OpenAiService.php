@@ -18,7 +18,7 @@ class OpenAiService
         'gpt-4.1-mini',
         'gpt-4o',
         'gpt-5-mini',
-        'claude-sonnet-4-20250514',
+        'claude-sonnet-4-6',
         'claude-haiku-4-5-20251001',
     ];
 

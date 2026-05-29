@@ -13,7 +13,7 @@ export type AiModel = 'mini' | 'pro' | 'mini5' | 'claude-sonnet' | 'claude-haiku
 export const MODEL_MINI          = 'gpt-4.1-mini';
 export const MODEL_PRO           = 'gpt-4o';
 export const MODEL_MINI5         = 'gpt-5-mini';
-export const MODEL_CLAUDE_SONNET = 'claude-sonnet-4-20250514';
+export const MODEL_CLAUDE_SONNET = 'claude-sonnet-4-6';
 export const MODEL_CLAUDE_HAIKU  = 'claude-haiku-4-5-20251001';
 
 const VALID_MODELS: AiModel[] = ['mini', 'pro', 'mini5', 'claude-sonnet', 'claude-haiku'];
