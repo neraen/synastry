@@ -96,7 +96,7 @@ class AnthropicProvider implements AiProviderInterface
         ];
 
         if ($system !== '') {
-            $payload['system'] = $system;
+            $payload['system'] = $this->buildCacheableSystem($system);
         }
 
         try {
@@ -138,7 +138,7 @@ class AnthropicProvider implements AiProviderInterface
         ];
 
         if ($system !== '') {
-            $payload['system'] = $system;
+            $payload['system'] = $this->buildCacheableSystem($system);
         }
 
         try {
@@ -193,6 +193,24 @@ class AnthropicProvider implements AiProviderInterface
             'x-api-key'        => $this->apiKey,
             'anthropic-version' => '2023-06-01',
             'Content-Type'      => 'application/json',
+        ];
+    }
+
+    /**
+     * Convert a system prompt string into a cacheable structured block.
+     * Anthropic caches the system content for ~5 min, saving ~2900 input tokens
+     * on every follow-up message in the same chat session.
+     *
+     * @see https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+     */
+    private function buildCacheableSystem(string $system): array
+    {
+        return [
+            [
+                'type' => 'text',
+                'text' => $system,
+                'cache_control' => ['type' => 'ephemeral'],
+            ],
         ];
     }
 
