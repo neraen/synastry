@@ -602,7 +602,7 @@ Rédige une interprétation précise qui couvre :
     }
 
     /**
-     * Parse JSON from AI response (handle markdown code blocks)
+     * Parse JSON from AI response (handle markdown code blocks and surrounding text).
      */
     private function parseJsonResponse(string $content): ?array
     {
@@ -611,10 +611,19 @@ Rédige une interprétation précise qui couvre :
         $content = preg_replace('/```\s*$/m', '', $content);
         $content = trim($content);
 
+        // Try direct decode first
         $data = json_decode($content, true);
-
         if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
             return $data;
+        }
+
+        // Fallback: extract the largest {...} block from the response
+        // (handles cases where the model adds preamble or postamble text)
+        if (preg_match('/\{.*\}/s', $content, $matches)) {
+            $data = json_decode($matches[0], true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
+                return $data;
+            }
         }
 
         return null;
