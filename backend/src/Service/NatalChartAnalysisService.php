@@ -20,9 +20,6 @@ class NatalChartAnalysisService
     // Sections that require premium access
     private const PREMIUM_SECTIONS = ['mission'];
 
-    // AI model to use for natal chart analysis
-    private const MODEL = 'claude-haiku-4-5-20251001';
-
     public function __construct(
         private OpenAiService $openAiService,
         private AstrologyAnalysisService $astrologyAnalysisService,
@@ -198,7 +195,6 @@ class NatalChartAnalysisService
         $birthProfile = $user->getBirthProfile();
         $name = $birthProfile?->getFirstName() ?? "l'utilisateur";
 
-        $this->openAiService->setModel(self::MODEL);
         $this->openAiService->setLocale($locale);
 
         $systemPrompt = NatalChartPrompts::buildSystemPrompt();

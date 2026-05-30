@@ -5,7 +5,6 @@
 import { authApi } from './sessionManager';
 import { getToken, getStoredUser } from './auth';
 import { getApiUrl } from './apiConfig';
-import { getAiModelHeader } from './aiModelConfig';
 import i18n from 'i18next';
 import { cacheGet, cacheSet, cacheInvalidatePrefix } from './cache';
 import { registerBirthProfileChangeHook } from './birthProfile';
@@ -558,7 +557,6 @@ export function sendChatMessageStream(
         xhr.setRequestHeader('Content-Type', 'application/json');
         if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.setRequestHeader('Accept-Language', locale);
-        xhr.setRequestHeader('X-Ai-Model', getAiModelHeader());
         xhr.timeout = 120000;
 
         // onprogress fires incrementally as chunks arrive — true streaming in React Native

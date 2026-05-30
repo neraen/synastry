@@ -24,7 +24,6 @@ import { deleteAccountText } from '@/constants/legalTexts';
 import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
 import { api } from '@/services/api';
 import { getToken } from '@/services/auth';
-import { getAiModel, setAiModel, MODEL_MINI, MODEL_PRO, MODEL_MINI5, MODEL_CLAUDE_SONNET, MODEL_CLAUDE_HAIKU, AiModel } from '@/services/aiModelConfig';
 
 // ─── Preference Row ────────────────────────────────────────────────────────────
 interface PrefRowProps {
@@ -123,21 +122,14 @@ export default function ProfileTab() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isLocal, setIsLocal] = useState(getApiEnv() === 'local');
-    const [aiModel, setAiModelState] = useState<AiModel>(getAiModel());
 
     useEffect(() => {
         setIsLocal(getApiEnv() === 'local');
-        setAiModelState(getAiModel());
     }, []);
 
     async function toggleApiEnv(value: boolean) {
         setIsLocal(value);
         await setApiEnv(value ? 'local' : 'prod');
-    }
-
-    async function selectAiModel(model: AiModel) {
-        setAiModelState(model);
-        await setAiModel(model);
     }
 
     async function forcePremium() {
@@ -360,34 +352,6 @@ export default function ProfileTab() {
                                     trackColor={{ false: `${colors.primary}40`, true: `${colors.secondary}60` }}
                                     thumbColor={isLocal ? colors.secondary : colors.primary}
                                 />
-                            </View>
-
-                            <View style={styles.devDivider} />
-
-                            <View style={styles.devModelPicker}>
-                                {(
-                                    [
-                                        { key: 'mini',         label: MODEL_MINI,          sub: 'Rapide — défaut' },
-                                        { key: 'pro',          label: MODEL_PRO,            sub: 'Qualité max'     },
-                                        { key: 'mini5',        label: MODEL_MINI5,          sub: 'Nouveau'         },
-                                        { key: 'claude-sonnet', label: MODEL_CLAUDE_SONNET, sub: 'Anthropic'       },
-                                        { key: 'claude-haiku',  label: MODEL_CLAUDE_HAIKU,  sub: 'Anthropic — rapide' },
-                                    ] as { key: AiModel; label: string; sub: string }[]
-                                ).map(({ key, label, sub }) => {
-                                    const active = aiModel === key;
-                                    return (
-                                        <Pressable
-                                            key={key}
-                                            style={[styles.devModelOption, active && styles.devModelOptionActive]}
-                                            onPress={() => selectAiModel(key)}
-                                        >
-                                            <Text style={[styles.devTitle, active && styles.devModelLabelActive]} numberOfLines={1}>
-                                                {label}
-                                            </Text>
-                                            <Text style={styles.devUrl}>{sub}</Text>
-                                        </Pressable>
-                                    );
-                                })}
                             </View>
 
                             <View style={styles.devDivider} />

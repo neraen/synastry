@@ -11,13 +11,6 @@ class OpenAiService
     private PromptLocaleService $localeService;
     private const MODEL_DEFAULT  = 'claude-haiku-4-5-20251001';
     private const MODEL_TRANSITS = 'gpt-4.1-mini';
-    private const ALLOWED_MODELS = [
-        'gpt-4.1-mini',
-        'gpt-4o',
-        'gpt-5-mini',
-        'claude-sonnet-4-6',
-        'claude-haiku-4-5-20251001',
-    ];
 
     private string $model = self::MODEL_DEFAULT;
 
@@ -70,28 +63,6 @@ PERSONA;
         $this->openAiProvider = $openAiProvider;
         $this->anthropicProvider = $anthropicProvider;
         $this->localeService = new PromptLocaleService();
-    }
-
-    private function isAnthropicModel(): bool
-    {
-        return str_starts_with($this->model, 'claude-');
-    }
-
-    /** Legacy model ID aliases (old header values → current IDs). */
-    private const MODEL_ALIASES = [
-        'claude-sonnet-4-20250514' => 'claude-sonnet-4-6',
-    ];
-
-    /**
-     * Override the AI model for this request.
-     * Resolves legacy aliases and only accepts values from ALLOWED_MODELS.
-     */
-    public function setModel(string $model): void
-    {
-        $model = self::MODEL_ALIASES[$model] ?? $model;
-        if (in_array($model, self::ALLOWED_MODELS, true)) {
-            $this->model = $model;
-        }
     }
 
     public function getModel(): string
