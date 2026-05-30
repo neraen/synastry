@@ -20,8 +20,8 @@ class NatalChartAnalysisService
     // Sections that require premium access
     private const PREMIUM_SECTIONS = ['mission'];
 
-    // GPT model to use for natal chart analysis
-    private const MODEL = 'gpt-4.1-mini';
+    // AI model to use for natal chart analysis
+    private const MODEL = 'claude-haiku-4-5-20251001';
 
     public function __construct(
         private OpenAiService $openAiService,

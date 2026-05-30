@@ -9,7 +9,8 @@ class OpenAiService
     private OpenAiProvider $openAiProvider;
     private AnthropicProvider $anthropicProvider;
     private PromptLocaleService $localeService;
-    private const MODEL_DEFAULT  = 'gpt-4.1-mini';
+    private const MODEL_DEFAULT  = 'claude-haiku-4-5-20251001';
+    private const MODEL_TRANSITS = 'gpt-4.1-mini';
     private const ALLOWED_MODELS = [
         'gpt-4.1-mini',
         'gpt-4o',
@@ -120,15 +121,22 @@ PERSONA;
      */
     private function getProvider(): AiProviderInterface
     {
-        return $this->isAnthropicModel() ? $this->anthropicProvider : $this->openAiProvider;
+        return $this->getProviderForModel($this->model);
+    }
+
+    private function getProviderForModel(string $model): AiProviderInterface
+    {
+        return str_starts_with($model, 'claude-') ? $this->anthropicProvider : $this->openAiProvider;
     }
 
     /**
      * One-shot prompt → response, routed to the correct provider.
+     * Pass $modelOverride to use a specific model instead of the default.
      */
-    private function callResponsesApi(string $input, ?string $instructions = null, ?int $maxTokens = null): array
+    private function callResponsesApi(string $input, ?string $instructions = null, ?int $maxTokens = null, ?string $modelOverride = null): array
     {
-        return $this->getProvider()->call($this->model, $input, $instructions, $maxTokens);
+        $model = $modelOverride ?? $this->model;
+        return $this->getProviderForModel($model)->call($model, $input, $instructions, $maxTokens);
     }
 
     /**
@@ -717,7 +725,7 @@ INST;
             ? "You are a precise astrologer. Identify the 3 most significant upcoming transits based on the natal chart and current planetary positions.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- Respond ONLY with a valid JSON array, no text before or after\n- Each transit must be personally significant based on the natal chart positions\n- Write descriptions in clear, non-technical language"
             : "Tu es un astrologue précis. Identifie les 3 prochains transits les plus significatifs basés sur le thème natal et les positions planétaires actuelles.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Réponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ou après\n- Chaque transit doit être personnellement significatif d'après les positions natales\n- Rédige les descriptions dans un langage clair et non technique";
 
-        $result = $this->callResponsesApi($prompt, $instructions);
+        $result = $this->callResponsesApi($prompt, $instructions, null, self::MODEL_TRANSITS);
 
         if (!$result['success']) {
             return $result;
@@ -1238,7 +1246,7 @@ Analyse ce transit en respectant cette structure dans le paragraphe :
 PROMPT;
         }
 
-        $result = $this->callResponsesApi($input, $instructions);
+        $result = $this->callResponsesApi($input, $instructions, null, self::MODEL_TRANSITS);
 
         if (!$result['success']) {
             return $result;
