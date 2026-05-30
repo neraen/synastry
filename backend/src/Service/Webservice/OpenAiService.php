@@ -832,13 +832,24 @@ PROMPT;
     /**
      * Build the assembled chat messages array (developer prompt + user messages).
      * Used by both getChatResponse and the streaming endpoint.
+     *
+     * Returns multiple developer messages with a 'cache' hint so that providers
+     * can apply prompt caching on stable segments (instructions, natal positions)
+     * while leaving volatile data (date, transits) uncached.
      */
     public function buildChatMessages(array $messages, array $userContext, array $tools = []): array
     {
         $isEnglish = $this->localeService->getLocale() === 'en';
-        $developerPrompt = $this->buildDeveloperPrompt($isEnglish, $userContext, $tools);
+        $segments = $this->buildDeveloperPromptSegments($isEnglish, $userContext, $tools);
 
-        $chatMessages = [['role' => 'developer', 'content' => $developerPrompt]];
+        $chatMessages = [];
+        foreach ($segments as $segment) {
+            $chatMessages[] = [
+                'role'    => 'developer',
+                'content' => $segment['content'],
+                'cache'   => $segment['cache'],
+            ];
+        }
         foreach ($messages as $m) {
             $chatMessages[] = ['role' => $m['role'], 'content' => trim((string) $m['content'])];
         }
@@ -846,11 +857,19 @@ PROMPT;
     }
 
     /**
-     * Build the Lyra developer prompt including persona, tool instructions, and user context data.
+     * Build the Lyra developer prompt as cacheable segments.
+     *
+     * Returns an array of segments, each with 'content' (string) and 'cache' (bool).
+     * Segment 1: Static instructions (persona, rules, examples) — cacheable, identical across all users/messages.
+     * Segment 2: User natal data (identity, positions, partner) — cacheable, stable within a session.
+     * Segment 3: Dynamic context (today's date, upcoming transits) — not cached, changes daily.
+     *
+     * @return array<array{content: string, cache: bool}>
      */
-    private function buildDeveloperPrompt(bool $isEnglish, array $userContext, array $tools = []): string
+    private function buildDeveloperPromptSegments(bool $isEnglish, array $userContext, array $tools = []): array
     {
-        $developerPrompt = <<<'PROMPT'
+        // ── Segment 1: Static instructions (cacheable) ──────────────────────
+        $staticPrompt = <<<'PROMPT'
 ## QUI TU ES
 
 Tu es Lyra, astrologue dans l'app Lunestia. Tu pratiques une astrologie psychologique dans la lignée de Liz Greene, Howard Sasportas et Robert Hand — sans jamais les citer. Tu parles comme une amie lucide : directe, chaleureuse, jamais solennelle. Tu n'es ni coach, ni thérapeute, ni oracle.
@@ -963,32 +982,34 @@ User : "Est-ce qu'on va se séparer ?"
 Lyra : "Là c'est tendu, oui. Il y a une pression sur ton couple jusqu'en juin et ça force à regarder en face ce qui ne fonctionne plus. De son côté, il y a aussi un besoin d'indépendance qui monte en ce moment. Ça ne veut pas dire rupture, ça veut dire que ce qui n'est pas solide va être testé. Si la base tient, vous en sortez plus clairs. Si elle ne tient pas, ça se verra tout seul."
 PROMPT;
 
-        // Tool instructions
+        // Tool instructions (static, always the same)
         if (!empty($tools)) {
-            $developerPrompt .= <<<'TOOLS'
+            $staticPrompt .= <<<'TOOLS'
 
 
 ---
 
 ## UTILISATION DES OUTILS
-- Utilise d'abord les transits déjà fournis dans le contexte. N'appelle un outil que si la période demandée N'EST PAS couverte par les données ci-dessous.
-- Si l'utilisateur pose une question sur une période future non couverte, utilise `get_transits`.
-- Si l'utilisateur demande dans quel signe se trouve une planète AUJOURD'HUI ou un jour précis, utilise `get_sky` avec la valeur `days_from_now` appropriée.
+- Les données de contexte couvrent les 3 prochains mois. Utilise-les en priorité.
+- Pour toute question sur le passé ou au-delà de 3 mois dans le futur, utilise `get_transits` avec le nombre de mois approprié (négatif pour le passé).
+- Si l'utilisateur demande dans quel signe se trouve une planète un jour précis, utilise `get_sky` avec la valeur `days_from_now` appropriée.
 TOOLS;
         }
 
-        // Context data
-        $contextParts = [];
+        $segments = [['content' => $staticPrompt, 'cache' => true]];
+
+        // ── Segment 2: User natal data (cacheable, stable within a session) ─
+        $userDataParts = [];
         $identityLines = [];
         if (!empty($userContext['name']))       $identityLines[] = "Prénom : {$userContext['name']}";
         if (!empty($userContext['birth_date'])) $identityLines[] = "Naissance : {$userContext['birth_date']}";
         if (!empty($userContext['birth_city'])) $identityLines[] = "Ville : {$userContext['birth_city']}";
         if (!empty($identityLines)) {
-            $contextParts[] = "— Utilisateur —\n" . implode("\n", $identityLines);
+            $userDataParts[] = "— Utilisateur —\n" . implode("\n", $identityLines);
         }
 
         if (!empty($userContext['positions'])) {
-            $contextParts[] = "Thème natal de l'utilisateur :\n" . $this->formatPositions($userContext['positions']);
+            $userDataParts[] = "Thème natal de l'utilisateur :\n" . $this->formatPositions($userContext['positions']);
         }
 
         if (!empty($userContext['partner_name'])) {
@@ -999,18 +1020,30 @@ TOOLS;
             if (!empty($userContext['partner_positions'])) {
                 $partnerBlock .= "\nThème natal de {$partnerName} :\n" . $this->formatPositions($userContext['partner_positions']);
             }
-            $contextParts[] = $partnerBlock;
+            $userDataParts[] = $partnerBlock;
         }
+
+        if (!empty($userDataParts)) {
+            $segments[] = [
+                'content' => "## THÈME NATAL\n" . implode("\n\n", $userDataParts),
+                'cache'   => true,
+            ];
+        }
+
+        // ── Segment 3: Dynamic context (NOT cached, changes daily) ──────────
+        $today = (new \DateTime())->format('d/m/Y');
+        $dynamicParts = ["Date du jour : {$today}"];
 
         if (!empty($userContext['upcoming_transits'])) {
-            $contextParts[] = "— Transits à venir (12 prochains mois, calculés) —\n" . $this->formatUpcomingTransits($userContext['upcoming_transits'], $isEnglish);
+            $dynamicParts[] = "— Transits à venir (3 prochains mois, calculés) —\n" . $this->formatUpcomingTransits($userContext['upcoming_transits'], $isEnglish);
         }
 
-        if (!empty($contextParts)) {
-            $developerPrompt .= "\n\n---\n## DONNÉES DE RÉFÉRENCE\n" . implode("\n\n", $contextParts);
-        }
+        $segments[] = [
+            'content' => "## CONTEXTE TEMPOREL\n" . implode("\n\n", $dynamicParts),
+            'cache'   => false,
+        ];
 
-        return $developerPrompt;
+        return $segments;
     }
 
     /**

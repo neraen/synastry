@@ -167,7 +167,7 @@ class ChatController extends AbstractController
             $transitCacheKey = sprintf('chat_upcoming_transits_%d', $user->getId());
             $upcomingTransits = $this->cache->get($transitCacheKey, function (ItemInterface $item) use ($user) {
                 $item->expiresAfter(self::TRANSIT_CACHE_TTL);
-                return $this->astrologyAnalysisService->getUpcomingTransitSummary($user, 12);
+                return $this->astrologyAnalysisService->getUpcomingTransitSummary($user, 3);
             });
             if (!empty($upcomingTransits)) {
                 $userContext['upcoming_transits'] = $upcomingTransits;
@@ -357,7 +357,7 @@ class ChatController extends AbstractController
                 $transitCacheKey  = sprintf('chat_upcoming_transits_%d', $user->getId());
                 $upcomingTransits = $this->cache->get($transitCacheKey, function (\Symfony\Contracts\Cache\ItemInterface $item) use ($user) {
                     $item->expiresAfter(self::TRANSIT_CACHE_TTL);
-                    return $this->astrologyAnalysisService->getUpcomingTransitSummary($user, 12);
+                    return $this->astrologyAnalysisService->getUpcomingTransitSummary($user, 3);
                 });
                 if (!empty($upcomingTransits)) {
                     $userContext['upcoming_transits'] = $upcomingTransits;

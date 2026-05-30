@@ -87,7 +87,7 @@ class AnthropicProvider implements AiProviderInterface
 
     public function callMultiTurn(string $model, array $chatMessages, ?\Closure $toolHandler = null, array $tools = [], ?string $previousResponseId = null): array
     {
-        [$system, $messages] = $this->splitMessages($chatMessages);
+        [$systemBlocks, $messages] = $this->splitMessages($chatMessages);
 
         $payload = [
             'model'      => $model,
@@ -95,8 +95,8 @@ class AnthropicProvider implements AiProviderInterface
             'messages'   => $messages,
         ];
 
-        if ($system !== '') {
-            $payload['system'] = $this->buildCacheableSystem($system);
+        if (!empty($systemBlocks)) {
+            $payload['system'] = $this->buildCacheableSystem($systemBlocks);
         }
 
         try {
@@ -128,7 +128,7 @@ class AnthropicProvider implements AiProviderInterface
 
     public function stream(string $model, array $chatMessages, ?\Closure $toolHandler, array $tools, ?string $previousResponseId, callable $onDelta): array
     {
-        [$system, $messages] = $this->splitMessages($chatMessages);
+        [$systemBlocks, $messages] = $this->splitMessages($chatMessages);
 
         $payload = [
             'model'      => $model,
@@ -137,8 +137,8 @@ class AnthropicProvider implements AiProviderInterface
             'messages'   => $messages,
         ];
 
-        if ($system !== '') {
-            $payload['system'] = $this->buildCacheableSystem($system);
+        if (!empty($systemBlocks)) {
+            $payload['system'] = $this->buildCacheableSystem($systemBlocks);
         }
 
         try {
@@ -198,21 +198,28 @@ class AnthropicProvider implements AiProviderInterface
     }
 
     /**
-     * Convert a system prompt string into a cacheable structured block.
-     * Anthropic caches the system content for ~5 min, saving ~2900 input tokens
-     * on every follow-up message in the same chat session.
+     * Convert system blocks into Anthropic structured content with selective caching.
+     *
+     * Each block with 'cache' => true gets a cache_control breakpoint.
+     * Anthropic caches from the beginning up to each breakpoint for ~5 min,
+     * saving input tokens on follow-up messages in the same chat session.
+     *
+     * Typical layout:
+     *   Block 1 (cached): static instructions (~2500 tokens) — shared across ALL users
+     *   Block 2 (cached): user natal positions (~200 tokens) — stable within a session
+     *   Block 3 (not cached): today's date + transits — changes daily
      *
      * @see https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
      */
-    private function buildCacheableSystem(string $system): array
+    private function buildCacheableSystem(array $systemBlocks): array
     {
-        return [
-            [
-                'type' => 'text',
-                'text' => $system,
-                'cache_control' => ['type' => 'ephemeral'],
-            ],
-        ];
+        return array_map(function (array $block) {
+            $item = ['type' => 'text', 'text' => $block['text']];
+            if ($block['cache'] ?? false) {
+                $item['cache_control'] = ['type' => 'ephemeral'];
+            }
+            return $item;
+        }, $systemBlocks);
     }
 
     private function extractText(array $data): ?string
@@ -226,22 +233,27 @@ class AnthropicProvider implements AiProviderInterface
     }
 
     /**
-     * Split developer/system messages into system prompt, rest into messages array.
-     * @return array{0: string, 1: array}
+     * Split developer/system messages into structured system blocks, rest into messages array.
+     * Preserves the 'cache' hint from each developer message for selective prompt caching.
+     *
+     * @return array{0: array<array{text: string, cache: bool}>, 1: array}
      */
     private function splitMessages(array $chatMessages): array
     {
-        $system   = '';
-        $messages = [];
+        $systemBlocks = [];
+        $messages     = [];
 
         foreach ($chatMessages as $msg) {
             if (in_array($msg['role'], ['developer', 'system'], true)) {
-                $system .= ($system !== '' ? "\n\n" : '') . $msg['content'];
+                $systemBlocks[] = [
+                    'text'  => $msg['content'],
+                    'cache' => $msg['cache'] ?? false,
+                ];
             } else {
                 $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
             }
         }
 
-        return [$system, $messages];
+        return [$systemBlocks, $messages];
     }
 }
