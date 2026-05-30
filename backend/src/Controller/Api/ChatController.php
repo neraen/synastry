@@ -134,14 +134,12 @@ class ChatController extends AbstractController
                 ], Response::HTTP_FORBIDDEN);
             }
 
-            // Increment: delete and re-store with new count
+            // Increment: force recomputation with beta=INF (always calls callback & saves)
             $newCount = $count + 1;
-            $this->cache->delete($cacheKey);
             $this->cache->get($cacheKey, function (ItemInterface $item) use ($newCount) {
-                $tomorrow = new \DateTime('tomorrow midnight');
-                $item->expiresAt($tomorrow);
+                $item->expiresAt(new \DateTime('tomorrow midnight'));
                 return $newCount;
-            });
+            }, \INF);
 
             $remainingMessages = self::DAILY_FREE_LIMIT - $newCount;
         }
@@ -327,11 +325,10 @@ class ChatController extends AbstractController
                 ], Response::HTTP_FORBIDDEN);
             }
             $newCount = $count + 1;
-            $this->cache->delete($cacheKey);
             $this->cache->get($cacheKey, function (\Symfony\Contracts\Cache\ItemInterface $item) use ($newCount) {
                 $item->expiresAt(new \DateTime('tomorrow midnight'));
                 return $newCount;
-            });
+            }, \INF);
             $remainingMessages = self::DAILY_FREE_LIMIT - $newCount;
         }
 
