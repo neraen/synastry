@@ -2,74 +2,55 @@
 
 namespace App\Service\Webservice;
 
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
+use Anthropic\Client as AnthropicClient;
+use Anthropic\Messages\CacheControlEphemeral;
+use Anthropic\Messages\MessageParam;
+use Anthropic\Messages\RawContentBlockDeltaEvent;
+use Anthropic\Messages\TextBlock;
+use Anthropic\Messages\TextBlockParam;
+use Anthropic\Messages\TextDelta;
 
 /**
- * Anthropic Messages API provider (/v1/messages).
+ * Anthropic Messages API provider using the official SDK.
  * Handles one-shot, multi-turn, and streaming for Claude models.
  */
 class AnthropicProvider implements AiProviderInterface
 {
-    private const API_URL = 'https://api.anthropic.com/v1/messages';
+    private AnthropicClient $client;
 
-    private HttpClientInterface $client;
-    private string $apiKey;
-
-    public function __construct(HttpClientInterface $client, string $apiKey)
+    public function __construct(string $apiKey)
     {
-        $this->client = $client;
-        $this->apiKey = $apiKey;
+        $this->client = new AnthropicClient(apiKey: $apiKey);
     }
 
     public function call(string $model, string $input, ?string $instructions = null, ?int $maxTokens = null): array
     {
-        // Detect if JSON output is expected from the instructions
         $jsonExpected = $instructions && (
             stripos($instructions, 'JSON') !== false
             || stripos($instructions, 'json') !== false
         );
 
-        $messages = [['role' => 'user', 'content' => $input]];
+        $messages = [MessageParam::with(content: $input, role: 'user')];
 
-        // Prefill technique: force Claude to start outputting JSON directly
-        // by adding an assistant message that begins with "{"
+        // Prefill technique: force Claude to start outputting JSON
         if ($jsonExpected) {
-            $messages[] = ['role' => 'assistant', 'content' => '{'];
-        }
-
-        $payload = [
-            'model'      => $model,
-            'max_tokens' => $maxTokens ?? 8192,
-            'messages'   => $messages,
-        ];
-
-        if ($instructions) {
-            $payload['system'] = $instructions;
+            $messages[] = MessageParam::with(content: '{', role: 'assistant');
         }
 
         try {
-            $response = $this->client->request('POST', self::API_URL, [
-                'headers' => $this->headers(),
-                'json'    => $payload,
-                'timeout' => 180,
-            ]);
+            $response = $this->client->messages->create(
+                maxTokens: $maxTokens ?? 8192,
+                messages: $messages,
+                model: $model,
+                system: $instructions,
+            );
 
-            $statusCode = $response->getStatusCode();
-            $data       = $response->toArray(false);
-
-            if ($statusCode !== 200) {
-                $errorMsg = $data['error']['message'] ?? "HTTP {$statusCode}";
-                return ['success' => false, 'error' => "Anthropic error ({$statusCode}): {$errorMsg}"];
-            }
-
-            $outputText = $this->extractText($data);
+            $outputText = $this->extractText($response);
 
             if (!$outputText) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
+                return ['success' => false, 'error' => 'No response from AI'];
             }
 
-            // Prepend the "{" we used as prefill since Claude continues from there
             if ($jsonExpected) {
                 $outputText = '{' . $outputText;
             }
@@ -77,10 +58,15 @@ class AnthropicProvider implements AiProviderInterface
             return [
                 'success' => true,
                 'content' => $outputText,
-                'model'   => $data['model'] ?? $model,
-                'usage'   => $data['usage'] ?? null,
+                'model'   => $response->model,
+                'usage'   => [
+                    'input_tokens'  => $response->usage->inputTokens,
+                    'output_tokens' => $response->usage->outputTokens,
+                    'cache_creation_input_tokens' => $response->usage->cacheCreationInputTokens ?? 0,
+                    'cache_read_input_tokens'     => $response->usage->cacheReadInputTokens ?? 0,
+                ],
             ];
-        } catch (ExceptionInterface $e) {
+        } catch (\Throwable $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
     }
@@ -89,39 +75,22 @@ class AnthropicProvider implements AiProviderInterface
     {
         [$systemBlocks, $messages] = $this->splitMessages($chatMessages);
 
-        $payload = [
-            'model'      => $model,
-            'max_tokens' => 4096,
-            'messages'   => $messages,
-        ];
-
-        if (!empty($systemBlocks)) {
-            $payload['system'] = $this->buildCacheableSystem($systemBlocks);
-        }
-
         try {
-            $response = $this->client->request('POST', self::API_URL, [
-                'headers' => $this->headers(),
-                'json'    => $payload,
-                'timeout' => 180,
-            ]);
+            $response = $this->client->messages->create(
+                maxTokens: 4096,
+                messages: $messages,
+                model: $model,
+                system: !empty($systemBlocks) ? $this->buildCacheableSystem($systemBlocks) : null,
+            );
 
-            $statusCode = $response->getStatusCode();
-            $data       = $response->toArray(false);
-
-            if ($statusCode !== 200) {
-                $errorMsg = $data['error']['message'] ?? "HTTP {$statusCode}";
-                return ['success' => false, 'error' => "Anthropic error ({$statusCode}): {$errorMsg}"];
-            }
-
-            $outputText = $this->extractText($data);
+            $outputText = $this->extractText($response);
 
             if (!$outputText) {
-                return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
+                return ['success' => false, 'error' => 'No response from AI'];
             }
 
             return ['success' => true, 'content' => $outputText, 'response_id' => null];
-        } catch (ExceptionInterface $e) {
+        } catch (\Throwable $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
     }
@@ -130,113 +99,66 @@ class AnthropicProvider implements AiProviderInterface
     {
         [$systemBlocks, $messages] = $this->splitMessages($chatMessages);
 
-        $payload = [
-            'model'      => $model,
-            'max_tokens' => 4096,
-            'stream'     => true,
-            'messages'   => $messages,
-        ];
-
-        if (!empty($systemBlocks)) {
-            $payload['system'] = $this->buildCacheableSystem($systemBlocks);
-        }
-
         try {
-            $response = $this->client->request('POST', self::API_URL, [
-                'headers' => $this->headers(),
-                'json'    => $payload,
-                'timeout' => 180,
-                'buffer'  => false,
-            ]);
+            $stream = $this->client->messages->createStream(
+                maxTokens: 4096,
+                messages: $messages,
+                model: $model,
+                system: !empty($systemBlocks) ? $this->buildCacheableSystem($systemBlocks) : null,
+            );
 
-            $buffer = '';
-
-            foreach ($this->client->stream($response) as $chunk) {
-                $buffer .= $chunk->getContent();
-
-                while (($pos = strpos($buffer, "\n\n")) !== false) {
-                    $rawEvent = substr($buffer, 0, $pos);
-                    $buffer   = substr($buffer, $pos + 2);
-
-                    $dataStr = '';
-                    foreach (explode("\n", $rawEvent) as $line) {
-                        if (str_starts_with($line, 'data: ')) {
-                            $dataStr = substr($line, 6);
-                        }
-                    }
-
-                    if ($dataStr === '' || $dataStr === '[DONE]') continue;
-
-                    $event = json_decode($dataStr, true);
-                    if (!is_array($event)) continue;
-
-                    if (($event['type'] ?? '') === 'content_block_delta') {
-                        $delta = $event['delta']['text'] ?? '';
-                        if ($delta !== '') {
-                            $onDelta($delta);
-                        }
+            foreach ($stream as $event) {
+                if ($event instanceof RawContentBlockDeltaEvent && $event->delta instanceof TextDelta) {
+                    $text = $event->delta->text;
+                    if ($text !== '') {
+                        $onDelta($text);
                     }
                 }
             }
 
             return ['success' => true, 'response_id' => null];
-        } catch (ExceptionInterface $e) {
+        } catch (\Throwable $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
     }
 
     // ── Private helpers ─────────────────────────────────────────────────
 
-    private function headers(): array
-    {
-        return [
-            'x-api-key'         => $this->apiKey,
-            'anthropic-version'  => '2023-06-01',
-            'anthropic-beta'     => 'prompt-caching-2024-07-31',
-            'Content-Type'       => 'application/json',
-        ];
-    }
-
     /**
-     * Convert system blocks into Anthropic structured content with selective caching.
+     * Build system blocks with selective prompt caching using SDK types.
      *
-     * Each block with 'cache' => true gets a cache_control breakpoint.
-     * Anthropic caches from the beginning up to each breakpoint for ~5 min,
-     * saving input tokens on follow-up messages in the same chat session.
+     * Blocks with 'cache' => true get a CacheControlEphemeral breakpoint.
+     * Anthropic caches from the start up to each breakpoint for ~5 min.
      *
-     * Typical layout:
-     *   Block 1 (cached): static instructions (~2500 tokens) — shared across ALL users
-     *   Block 2 (cached): user natal positions (~200 tokens) — stable within a session
-     *   Block 3 (not cached): today's date + transits — changes daily
-     *
-     * @see https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+     * @return list<TextBlockParam>
      */
     private function buildCacheableSystem(array $systemBlocks): array
     {
         return array_map(function (array $block) {
-            $item = ['type' => 'text', 'text' => $block['text']];
-            if ($block['cache'] ?? false) {
-                $item['cache_control'] = ['type' => 'ephemeral'];
-            }
-            return $item;
+            return TextBlockParam::with(
+                text: $block['text'],
+                cacheControl: ($block['cache'] ?? false) ? CacheControlEphemeral::with() : null,
+            );
         }, $systemBlocks);
     }
 
-    private function extractText(array $data): ?string
+    /**
+     * Extract text from a Message response.
+     */
+    private function extractText(object $message): ?string
     {
-        foreach ($data['content'] ?? [] as $block) {
-            if (($block['type'] ?? '') === 'text') {
-                return $block['text'];
+        foreach ($message->content as $block) {
+            if ($block instanceof TextBlock) {
+                return $block->text;
             }
         }
         return null;
     }
 
     /**
-     * Split developer/system messages into structured system blocks, rest into messages array.
-     * Preserves the 'cache' hint from each developer message for selective prompt caching.
+     * Split developer/system messages into structured system blocks + conversation messages.
      *
-     * @return array{0: array<array{text: string, cache: bool}>, 1: array}
+     * @return array{0: array<array{text: string, cache: bool}>, 1: list<MessageParam>}
      */
     private function splitMessages(array $chatMessages): array
     {
@@ -250,7 +172,10 @@ class AnthropicProvider implements AiProviderInterface
                     'cache' => $msg['cache'] ?? false,
                 ];
             } else {
-                $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
+                $messages[] = MessageParam::with(
+                    content: $msg['content'],
+                    role: $msg['role'],
+                );
             }
         }
 
