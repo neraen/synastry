@@ -24,7 +24,7 @@ class ChatController extends AbstractController
 {
     private const DAILY_FREE_LIMIT = 5;
     // Key planets to include in the context (most astrologically significant)
-    private const CONTEXT_PLANETS = ['Sun', 'Moon', 'Ascendant', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'];
+    private const CONTEXT_PLANETS = ['Sun', 'Moon', 'Ascendant', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
 
     /** Cache TTL for upcoming transit summary: 7 days */
     private const TRANSIT_CACHE_TTL = 604800;
