@@ -65,11 +65,6 @@ PERSONA;
         $this->localeService = new PromptLocaleService();
     }
 
-    public function getModel(): string
-    {
-        return $this->model;
-    }
-
     /**
      * Set the locale for prompts
      */

@@ -752,25 +752,7 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: colors.onSurfaceMuted,
     },
-    devModelPicker: {
-        flexDirection: 'row',
-        gap: spacing.sm,
-    },
-    devModelOption: {
-        flex: 1,
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.sm,
-        borderRadius: 12,
-        backgroundColor: `${colors.primary}15`,
-        alignItems: 'center',
-    },
-    devModelOptionActive: {
-        backgroundColor: `${colors.primary}40`,
-    },
-    devModelLabelActive: {
-        color: colors.primary,
-    },
-    devPremiumBtn: {
+devPremiumBtn: {
         paddingVertical: spacing.sm,
         borderRadius: 12,
         backgroundColor: `${colors.secondary}25`,
