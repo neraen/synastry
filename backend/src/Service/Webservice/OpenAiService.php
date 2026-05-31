@@ -9,7 +9,7 @@ class OpenAiService
     private OpenAiProvider $openAiProvider;
     private AnthropicProvider $anthropicProvider;
     private PromptLocaleService $localeService;
-    private const MODEL_DEFAULT  = 'claude-haiku-4-5-20251001';
+    private const MODEL_DEFAULT  = 'gpt-4.1-mini';
     private const MODEL_TRANSITS = 'gpt-4.1-mini';
 
     private string $model = self::MODEL_DEFAULT;
