@@ -1,0 +1,6 @@
+vendor/
+var/
+.env.local
+.env.prod
+.env.dev
+docker-compose.override.yml
