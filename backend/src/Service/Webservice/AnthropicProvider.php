@@ -2,25 +2,19 @@
 
 namespace App\Service\Webservice;
 
-use Anthropic\Client as AnthropicClient;
-use Anthropic\Messages\CacheControlEphemeral;
-use Anthropic\Messages\MessageParam;
-use Anthropic\Messages\RawContentBlockDeltaEvent;
-use Anthropic\Messages\TextBlock;
-use Anthropic\Messages\TextBlockParam;
-use Anthropic\Messages\TextDelta;
-
 /**
- * Anthropic Messages API provider using the official SDK.
+ * Anthropic Messages API provider using raw HTTP (cURL).
  * Handles one-shot, multi-turn, and streaming for Claude models.
+ * Supports prompt caching via cache_control breakpoints.
  */
 class AnthropicProvider implements AiProviderInterface
 {
-    private AnthropicClient $client;
+    private string $apiKey;
+    private const API_URL = 'https://api.anthropic.com/v1/messages';
 
     public function __construct(string $apiKey)
     {
-        $this->client = new AnthropicClient(apiKey: $apiKey);
+        $this->apiKey = $apiKey;
     }
 
     public function call(string $model, string $input, ?string $instructions = null, ?int $maxTokens = null): array
@@ -30,20 +24,25 @@ class AnthropicProvider implements AiProviderInterface
             || stripos($instructions, 'json') !== false
         );
 
-        $messages = [MessageParam::with(content: $input, role: 'user')];
+        $messages = [['role' => 'user', 'content' => $input]];
 
         // Prefill technique: force Claude to start outputting JSON
         if ($jsonExpected) {
-            $messages[] = MessageParam::with(content: '{', role: 'assistant');
+            $messages[] = ['role' => 'assistant', 'content' => '{'];
+        }
+
+        $body = [
+            'model' => $model,
+            'max_tokens' => $maxTokens ?? 8192,
+            'messages' => $messages,
+        ];
+
+        if ($instructions) {
+            $body['system'] = $instructions;
         }
 
         try {
-            $response = $this->client->messages->create(
-                maxTokens: $maxTokens ?? 8192,
-                messages: $messages,
-                model: $model,
-                system: $instructions,
-            );
+            $response = $this->request($body);
 
             $outputText = $this->extractText($response);
 
@@ -58,12 +57,12 @@ class AnthropicProvider implements AiProviderInterface
             return [
                 'success' => true,
                 'content' => $outputText,
-                'model'   => $response->model,
+                'model'   => $response['model'] ?? $model,
                 'usage'   => [
-                    'input_tokens'  => $response->usage->inputTokens,
-                    'output_tokens' => $response->usage->outputTokens,
-                    'cache_creation_input_tokens' => $response->usage->cacheCreationInputTokens ?? 0,
-                    'cache_read_input_tokens'     => $response->usage->cacheReadInputTokens ?? 0,
+                    'input_tokens'  => $response['usage']['input_tokens'] ?? 0,
+                    'output_tokens' => $response['usage']['output_tokens'] ?? 0,
+                    'cache_creation_input_tokens' => $response['usage']['cache_creation_input_tokens'] ?? 0,
+                    'cache_read_input_tokens'     => $response['usage']['cache_read_input_tokens'] ?? 0,
                 ],
             ];
         } catch (\Throwable $e) {
@@ -75,13 +74,18 @@ class AnthropicProvider implements AiProviderInterface
     {
         [$systemBlocks, $messages] = $this->splitMessages($chatMessages);
 
+        $body = [
+            'model' => $model,
+            'max_tokens' => 4096,
+            'messages' => $messages,
+        ];
+
+        if (!empty($systemBlocks)) {
+            $body['system'] = $this->buildCacheableSystem($systemBlocks);
+        }
+
         try {
-            $response = $this->client->messages->create(
-                maxTokens: 4096,
-                messages: $messages,
-                model: $model,
-                system: !empty($systemBlocks) ? $this->buildCacheableSystem($systemBlocks) : null,
-            );
+            $response = $this->request($body);
 
             $outputText = $this->extractText($response);
 
@@ -99,22 +103,19 @@ class AnthropicProvider implements AiProviderInterface
     {
         [$systemBlocks, $messages] = $this->splitMessages($chatMessages);
 
-        try {
-            $stream = $this->client->messages->createStream(
-                maxTokens: 4096,
-                messages: $messages,
-                model: $model,
-                system: !empty($systemBlocks) ? $this->buildCacheableSystem($systemBlocks) : null,
-            );
+        $body = [
+            'model' => $model,
+            'max_tokens' => 4096,
+            'messages' => $messages,
+            'stream' => true,
+        ];
 
-            foreach ($stream as $event) {
-                if ($event instanceof RawContentBlockDeltaEvent && $event->delta instanceof TextDelta) {
-                    $text = $event->delta->text;
-                    if ($text !== '') {
-                        $onDelta($text);
-                    }
-                }
-            }
+        if (!empty($systemBlocks)) {
+            $body['system'] = $this->buildCacheableSystem($systemBlocks);
+        }
+
+        try {
+            $this->requestStream($body, $onDelta);
 
             return ['success' => true, 'response_id' => null];
         } catch (\Throwable $e) {
@@ -122,43 +123,38 @@ class AnthropicProvider implements AiProviderInterface
         }
     }
 
-    // ── Private helpers ─────────────────────────────────────────────────
+    // -- Private helpers -----------------------------------------------------
 
     /**
-     * Build system blocks with selective prompt caching using SDK types.
-     *
-     * Blocks with 'cache' => true get a CacheControlEphemeral breakpoint.
-     * Anthropic caches from the start up to each breakpoint for ~5 min.
-     *
-     * @return list<TextBlockParam>
+     * Build system blocks with prompt caching.
+     * Blocks with 'cache' => true get a cache_control breakpoint.
      */
     private function buildCacheableSystem(array $systemBlocks): array
     {
         return array_map(function (array $block) {
-            return TextBlockParam::with(
-                text: $block['text'],
-                cacheControl: ($block['cache'] ?? false) ? CacheControlEphemeral::with() : null,
-            );
+            $item = ['type' => 'text', 'text' => $block['text']];
+            if ($block['cache'] ?? false) {
+                $item['cache_control'] = ['type' => 'ephemeral'];
+            }
+            return $item;
         }, $systemBlocks);
     }
 
     /**
-     * Extract text from a Message response.
+     * Extract text from a Messages API response.
      */
-    private function extractText(object $message): ?string
+    private function extractText(array $response): ?string
     {
-        foreach ($message->content as $block) {
-            if ($block instanceof TextBlock) {
-                return $block->text;
+        foreach ($response['content'] ?? [] as $block) {
+            if (($block['type'] ?? '') === 'text') {
+                return $block['text'] ?? null;
             }
         }
         return null;
     }
 
     /**
-     * Split developer/system messages into structured system blocks + conversation messages.
-     *
-     * @return array{0: array<array{text: string, cache: bool}>, 1: list<MessageParam>}
+     * Split developer/system messages into system blocks + conversation messages.
      */
     private function splitMessages(array $chatMessages): array
     {
@@ -172,13 +168,115 @@ class AnthropicProvider implements AiProviderInterface
                     'cache' => $msg['cache'] ?? false,
                 ];
             } else {
-                $messages[] = MessageParam::with(
-                    content: $msg['content'],
-                    role: $msg['role'],
-                );
+                $messages[] = [
+                    'role'    => $msg['role'],
+                    'content' => $msg['content'],
+                ];
             }
         }
 
         return [$systemBlocks, $messages];
+    }
+
+    /**
+     * Make a synchronous request to the Anthropic Messages API.
+     */
+    private function request(array $body): array
+    {
+        $ch = curl_init(self::API_URL);
+
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => $this->headers(),
+            CURLOPT_POSTFIELDS     => json_encode($body),
+            CURLOPT_TIMEOUT        => 120,
+        ]);
+
+        $result = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($result === false) {
+            throw new \RuntimeException('cURL error: ' . $error);
+        }
+
+        $decoded = json_decode($result, true);
+        if ($httpCode >= 400) {
+            $msg = $decoded['error']['message'] ?? "HTTP $httpCode";
+            throw new \RuntimeException("Anthropic API error: $msg");
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Make a streaming request to the Anthropic Messages API.
+     */
+    private function requestStream(array $body, callable $onDelta): void
+    {
+        $ch = curl_init(self::API_URL);
+
+        $buffer = '';
+
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_HTTPHEADER     => $this->headers(),
+            CURLOPT_POSTFIELDS     => json_encode($body),
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_WRITEFUNCTION  => function ($ch, $data) use (&$buffer, $onDelta) {
+                $buffer .= $data;
+
+                while (($pos = strpos($buffer, "\n")) !== false) {
+                    $line = substr($buffer, 0, $pos);
+                    $buffer = substr($buffer, $pos + 1);
+                    $line = trim($line);
+
+                    if (str_starts_with($line, 'data: ')) {
+                        $json = substr($line, 6);
+                        if ($json === '[DONE]') {
+                            continue;
+                        }
+                        $event = json_decode($json, true);
+                        if ($event && ($event['type'] ?? '') === 'content_block_delta') {
+                            $text = $event['delta']['text'] ?? '';
+                            if ($text !== '') {
+                                $onDelta($text);
+                            }
+                        }
+                    }
+                }
+
+                return strlen($data);
+            },
+        ]);
+
+        $result = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($result === false && $error) {
+            throw new \RuntimeException('cURL stream error: ' . $error);
+        }
+
+        if ($httpCode >= 400) {
+            throw new \RuntimeException("Anthropic API stream error: HTTP $httpCode");
+        }
+    }
+
+    /**
+     * Common headers for Anthropic API requests.
+     */
+    private function headers(): array
+    {
+        return [
+            'Content-Type: application/json',
+            'x-api-key: ' . $this->apiKey,
+            'anthropic-version: 2023-06-01',
+            'anthropic-beta: prompt-caching-2024-07-31',
+        ];
     }
 }
