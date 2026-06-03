@@ -1,0 +1,22 @@
+{
+  "_doc": "Lexique des termes bannis pour le linter post-generation du chat Lyra (ajout 3 de LYRA-ENGINE.md). 'termes' et 'aspects' sont compares par mot entier sur la reponse normalisee (minuscules + sans accents, voir PlanetaryCalculator::normaliser). 'expressions' par sous-chaine sur la reponse normalisee (les apostrophes y deviennent des espaces : ecrire 'invite a', pas \"invite a\" accentue). 'regex' s'applique sur le texte BRUT (pour attraper le tiret long et les numeros de maison). Garder ces listes SERREES : un faux positif abime un bon texte.",
+
+  "termes": [
+    "energie", "energies", "energetique", "ascendant", "univers", "vibration",
+    "vibrations", "alignement", "potentiel", "aquarius", "taurus", "gemini",
+    "scorpio", "aries", "libra", "virgo", "capricorn", "sagittarius", "pisces", "leo"
+  ],
+  "expressions": [
+    "invite a", "invitation a", "chemin de l ame", "fais confiance",
+    "accueille ce qui", "reste ouvert", "reste ouverte", "prends soin de toi",
+    "ecoute ton intuition", "lache prise"
+  ],
+  "aspects": [
+    "trigone", "carre", "conjonction", "opposition", "sextile", "quinconce"
+  ],
+  "regex": [
+    "maison\\s+\\d+",
+    "\\bhouse\\s+\\d+\\b",
+    "\\x{2014}"
+  ]
+}

@@ -853,6 +853,32 @@ PROMPT;
         return $d > 180.0 ? 360.0 - $d : $d;
     }
 
+    /**
+     * Normalise a string for lexicon matching: lowercase, accents stripped,
+     * any punctuation/separator folded to a single space.
+     * Shared by the Lyra domain classifier and the banned-term linter so both
+     * compare against the same already-normalised lexicons.
+     *
+     * "J'ai des soucis d'argent !" -> "j ai des soucis d argent"
+     */
+    public static function normaliser(string $texte): string
+    {
+        if (class_exists(\Transliterator::class)
+            && ($tr = \Transliterator::create('Any-Latin; Latin-ASCII')) !== null) {
+            $texte = $tr->transliterate($texte) ?? $texte;
+        } else {
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texte);
+            if ($converted !== false) {
+                $texte = $converted;
+            }
+        }
+
+        $texte = strtolower($texte);
+        $texte = preg_replace('/[^a-z0-9]+/', ' ', $texte);
+
+        return trim($texte);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // NŒUD NORD (vrai)
     // ─────────────────────────────────────────────────────────────────────────

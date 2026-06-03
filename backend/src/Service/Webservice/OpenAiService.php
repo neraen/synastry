@@ -2,6 +2,7 @@
 
 namespace App\Service\Webservice;
 
+use App\Service\PlanetaryCalculator;
 use App\Service\PromptLocaleService;
 
 class OpenAiService
@@ -13,6 +14,7 @@ class OpenAiService
     private const MODEL_TRANSITS = 'gpt-4.1-mini';
 
     private string $model = self::MODEL_DEFAULT;
+    private ?array $bannisConfig = null;
 
     /**
      * Shared astrologer persona injected into every interpretation prompt.
@@ -802,9 +804,112 @@ PROMPT;
 
         return [
             'success'     => true,
-            'message'     => $result['content'],
+            'message'     => $this->corrigerViolations((string) $result['content']),
             'response_id' => $result['response_id'] ?? null,
         ];
+    }
+
+    // =========================================================================
+    // Lyra linter — deterministic banned-term enforcement (ajout 3)
+    // =========================================================================
+
+    private function loadBannis(): array
+    {
+        if ($this->bannisConfig === null) {
+            $path = __DIR__ . '/../../../data/lyra_bannis.json';
+            $this->bannisConfig = file_exists($path)
+                ? (json_decode(file_get_contents($path), true) ?: [])
+                : [];
+        }
+        return $this->bannisConfig;
+    }
+
+    /**
+     * Detect banned terms/expressions/aspects/regex in a generated reply.
+     * Terms & aspects: whole-word on the normalised text. Expressions: substring
+     * on the normalised text. Regex: applied to the RAW text (em dash, "maison N").
+     *
+     * @return string[] list of distinct violations (empty = clean)
+     */
+    public function linterLyra(string $texte): array
+    {
+        $bannis = $this->loadBannis();
+        $norm   = PlanetaryCalculator::normaliser($texte);
+        $violations = [];
+
+        foreach (array_merge($bannis['termes'] ?? [], $bannis['aspects'] ?? []) as $mot) {
+            if ($mot === '') continue;
+            if (preg_match('/\b' . preg_quote($mot, '/') . '\b/u', $norm)) {
+                $violations[] = $mot;
+            }
+        }
+        foreach ($bannis['expressions'] ?? [] as $exp) {
+            if ($exp !== '' && str_contains($norm, $exp)) {
+                $violations[] = $exp;
+            }
+        }
+        foreach ($bannis['regex'] ?? [] as $re) {
+            if (@preg_match('/' . $re . '/iu', $texte)) {
+                $violations[] = $re;
+            }
+        }
+
+        return array_values(array_unique($violations));
+    }
+
+    /**
+     * Auto-correction loop (max 2 LLM passes). If violations remain, apply a
+     * minimal mechanical scrub and log the case so the lexicon can be tuned.
+     */
+    private function corrigerViolations(string $texte): string
+    {
+        for ($pass = 0; $pass < 2; $pass++) {
+            $violations = $this->linterLyra($texte);
+            if (empty($violations)) {
+                return $texte;
+            }
+
+            $liste = implode(', ', $violations);
+            $instructions = $this->localeService->getLocale() === 'en'
+                ? "Rewrite the text below without using any of these words or expressions: {$liste}. Keep the same meaning, tone and length. Reply with the rewritten text only, nothing else."
+                : "Réécris le texte ci-dessous sans employer aucun de ces mots ou expressions : {$liste}. Garde le même sens, le même ton, la même longueur. Réponds uniquement avec le texte réécrit, rien d'autre.";
+
+            $res = $this->callResponsesApi($texte, $instructions);
+            if (empty($res['success']) || empty($res['content'])) {
+                break;
+            }
+            $texte = trim((string) $res['content']);
+        }
+
+        $violations = $this->linterLyra($texte);
+        if (!empty($violations)) {
+            $texte = $this->scrubMecanique($texte);
+            error_log('[Lyra linter] résidu après 2 passes : ' . implode(', ', $violations));
+        }
+
+        return $texte;
+    }
+
+    /**
+     * Last-resort deterministic scrub: em dash -> comma, banned single words
+     * removed (accent-insensitive). Multi-word expressions are left to the log.
+     */
+    private function scrubMecanique(string $texte): string
+    {
+        $bannis = $this->loadBannis();
+        $texte  = str_replace('—', ',', $texte);
+
+        $banSet = array_flip(array_merge($bannis['termes'] ?? [], $bannis['aspects'] ?? []));
+
+        $texte = preg_replace_callback('/\p{L}+/u', function (array $m) use ($banSet) {
+            $norm = PlanetaryCalculator::normaliser($m[0]);
+            return isset($banSet[$norm]) ? '' : $m[0];
+        }, $texte);
+
+        $texte = preg_replace('/\s+([,.;:!?])/u', '$1', $texte); // tidy " ," -> ","
+        $texte = preg_replace('/\s{2,}/u', ' ', $texte);
+
+        return trim($texte);
     }
 
     /**
@@ -874,6 +979,13 @@ Longueur : 3 a 5 phrases. Paragraphes courts.
 ## TRADUIRE LES TRANSITS
 Tu dis ce que ca FAIT, pas ce que c'est. Le contexte te donne nature + domaine.
 Ex : {Saturne, MC, tension, carriere, se_renforce} -> "il y a une vraie exigence sur le terrain pro en ce moment, comme si on te demandait de consolider avant d'avancer, et ca monte plutot que ca redescend." JAMAIS "Saturne sur ton Milieu du Ciel".
+
+## QUAND LA CARTE EST MUETTE SUR LE SUJET
+Si sujet_couvert = false, ne force aucun lien artificiel avec les transits_actifs.
+Dis simplement, avec naturel, que rien de marquant ne ressort sur ce point en ce moment
+(ex : "cote argent, ta carte ne montre rien de particulierement actif la maintenant"),
+puis reste sur du soutien concret et le profil natal. Une astrologue honnete dit "rien
+de special la-dessus" plutot que d'inventer.
 
 ## QUESTIONS SENSIBLES (rupture, argent serre, peur, solitude)
 Soutiens d'abord. Ne predis pas l'issue. Ne dramatise pas la suite. Nomme ce qui pese maintenant et une ouverture realiste, sans promettre ni condamner. Reste du cote de la personne.

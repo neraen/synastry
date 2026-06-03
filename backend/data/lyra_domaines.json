@@ -1,0 +1,115 @@
+{
+  "_doc": "Lexique de classification de domaine pour le chat Lyra (ajout 1 de LYRA-ENGINE.md). Tous les termes sont DEJA normalises : minuscules, sans accents. Le classifieur normalise la question de la meme facon avant de comparer. Trois tiers par domaine : 'racines' (match par PREFIXE de token, couvre conjugaisons/declinaisons/fautes de fin), 'mots_exacts' (match EXACT de token, pour mots courts ou ambigus ou un prefixe serait dangereux), 'expressions' (locutions, match par sous-chaine sur la question normalisee). Poids suggere : expression = 2, mot_exact = 1, racine = 1. La taille de ces listes n'impacte pas la latence (operations string en memoire) tant que le JSON est charge une seule fois et la question tokenisee une seule fois.",
+
+  "domaines": {
+    "argent": {
+      "racines": [
+        "argent", "depens", "salair", "factur", "rembours", "econom", "financ",
+        "budget", "endett", "emprunt", "epargn", "prelevement", "virement",
+        "encaiss", "decaiss", "investiss", "rentabil", "benefic", "deficit",
+        "tresorer", "fortun", "richess", "pauvret", "ruine", "faillit",
+        "surendett", "creancier", "fiscal", "impos", "taxe", "cotisation",
+        "decouvert", "agios", "mensualit", "echeance", "solvabil", "liquidit"
+      ],
+      "mots_exacts": [
+        "sous", "fric", "thune", "thunes", "ble", "oseille", "pognon", "money",
+        "cash", "prix", "tarif", "paie", "paye", "dette", "dettes", "credit",
+        "credits", "pret", "prets", "loyer", "loyers", "impot", "impots",
+        "banque", "compte", "rsa", "smic", "chomage", "aide", "aides",
+        "allocation", "allocations", "caf", "minima", "decouvert", "facture",
+        "factures", "cout", "couts", "coute", "couter", "depense", "depenses"
+      ],
+      "expressions": [
+        "joindre les deux bouts", "fin de mois", "fins de mois", "mettre de cote",
+        "boucler le mois", "dans le rouge", "a sec", "plus un sou", "plus un rond",
+        "compte en banque", "tete de l eau", "tete hors de l eau", "sortir la tete",
+        "pouvoir d achat", "galere financiere", "probleme d argent",
+        "soucis d argent", "manque d argent", "perdre de l argent", "gagner plus",
+        "mettre de l argent de cote", "boucler les fins de mois"
+      ]
+    },
+
+    "amour": {
+      "racines": [
+        "amoureu", "amour", "couple", "relation", "rupture", "separ", "divorc",
+        "mariag", "marie", "fianc", "celibat", "seduc", "sentiment", "tromp",
+        "infidel", "jalou", "drague", "dragu", "flirt", "rencontr", "passion",
+        "tendress", "affecti", "conjug", "fidel", "reconcili", "attiranc",
+        "amant", "coupl", "romant", "embrass", "couch", "intim"
+      ],
+      "mots_exacts": [
+        "ex", "crush", "copain", "copine", "mec", "meuf", "conjoint", "conjointe",
+        "compagnon", "compagne", "epoux", "epouse", "mari", "femme", "cheri",
+        "cherie", "date", "love", "duo", "couple", "amoureux", "amoureuse",
+        "rdv", "tinder", "rencard"
+      ],
+      "expressions": [
+        "ame soeur", "coup de foudre", "histoire d amour", "vie amoureuse",
+        "il me plait", "elle me plait", "tomber amoureux", "tomber amoureuse",
+        "me trompe", "il me trompe", "elle me trompe", "me quitte", "va me quitter",
+        "me repond plus", "repond plus depuis", "on se separe", "on va se separer",
+        "mon copain", "ma copine", "mon mec", "ma meuf", "mon ex", "mon couple",
+        "ca va marcher entre", "faits l un pour l autre", "rester ensemble"
+      ]
+    },
+
+    "travail": {
+      "racines": [
+        "travail", "boulot", "carrier", "collegu", "patron", "entrepris",
+        "licenci", "promot", "embauch", "demission", "salari", "employ",
+        "manager", "manageu", "metier", "profession", "recrut", "stagiair",
+        "freelanc", "independ", "burnout", "harcele", "mutation", "reconvers",
+        "negoci", "augment", "responsabilit", "hierarch", "entrepreneu", "candidat"
+      ],
+      "mots_exacts": [
+        "job", "taf", "taff", "boite", "boss", "chef", "bureau", "poste",
+        "cdi", "cdd", "freelance", "rh", "interim", "mission", "client", "clients",
+        "deal", "carriere", "demission", "demissionner", "embauche", "entretien"
+      ],
+      "expressions": [
+        "au boulot", "mon travail", "mon boulot", "perdre mon job", "perdre mon travail",
+        "trouver un emploi", "trouver du travail", "changer de travail", "changer de job",
+        "mon patron", "mon chef", "ma boite", "vie professionnelle", "vie pro",
+        "monter ma boite", "creer mon entreprise", "lancer mon activite",
+        "entretien d embauche", "recherche d emploi", "perte d emploi"
+      ]
+    },
+
+    "sante": {
+      "racines": [
+        "malad", "fatigu", "epuis", "douleur", "anxiet", "angoiss", "depress",
+        "deprim", "insomni", "sommeil", "hospit", "medec", "medic", "soign",
+        "therap", "migrain", "vertige", "nause", "gueris", "gueri", "stress",
+        "burnout", "essoufl", "epuisement", "convalescenc", "psycholog", "psychiat"
+      ],
+      "mots_exacts": [
+        "sante", "malade", "fievre", "moral", "covid", "grippe", "corps",
+        "dormir", "douleur", "regime", "poids", "ventre", "dos", "fatigue",
+        "fatiguee", "epuise", "epuisee", "mal", "tete", "anxiete", "deprime"
+      ],
+      "expressions": [
+        "ma sante", "je suis fatigue", "je suis fatiguee", "je dors mal",
+        "j arrive pas a dormir", "ma forme", "le moral", "pas le moral",
+        "envie de rien", "je tiens plus", "je suis a bout", "burn out",
+        "je n en peux plus", "plus d energie", "epuise en ce moment", "ma forme physique"
+      ]
+    },
+
+    "sens": {
+      "racines": [
+        "spiritu", "existen", "destin", "vocation", "accompli", "epanoui",
+        "meditat", "philosoph", "croyanc", "introspec", "quete"
+      ],
+      "mots_exacts": [
+        "sens", "direction", "but", "perdu", "perdue", "vide", "pourquoi",
+        "avenir", "futur", "chemin", "ame", "mission", "raison", "destinee"
+      ],
+      "expressions": [
+        "sens de ma vie", "sens a ma vie", "ou je vais", "perdu dans ma vie",
+        "a quoi bon", "ma place", "trouver ma voie", "ce que je veux vraiment",
+        "que faire de ma vie", "je tourne en rond", "le sens de tout ca",
+        "ou j en suis", "ce qui compte vraiment"
+      ]
+    }
+  }
+}

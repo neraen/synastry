@@ -35,8 +35,22 @@ class HoroscopeGeneratorService
     private const LUMINAIRES_ET_ANGLES = ['Soleil', 'Lune', 'ASC', 'MC'];
     private const FACTEUR_CIBLE_FORTE = 1.30;
 
+    // ── Lyra relevance (ajout 1 + 2) ─────────────────────────────────────────
+    // Cibles/maisons par domaine — touche au scoring, donc reste une constante PHP
+    // (le vocabulaire de classification, lui, vit dans data/lyra_domaines.json).
+    private const DOMAINE_AFFINITE = [
+        'argent'  => ['cibles' => ['Venus', 'Jupiter', 'Saturne'],     'maisons' => [2, 8]],
+        'amour'   => ['cibles' => ['Venus', 'Mars', 'Lune'],           'maisons' => [5, 7, 8]],
+        'travail' => ['cibles' => ['Saturne', 'Mars', 'Soleil', 'MC'], 'maisons' => [6, 10]],
+        'sante'   => ['cibles' => ['Lune', 'Mars', 'Soleil'],          'maisons' => [1, 6]],
+        'sens'    => ['cibles' => ['Soleil', 'Jupiter', 'Neptune'],    'maisons' => [9, 12]],
+        'general' => ['cibles' => [],                                  'maisons' => []],
+    ];
+    private const SEUIL_PERTINENCE = 1.5;
+
     private PromptLocaleService $localeService;
     private ?array $transitsTable = null;
+    private ?array $domainesLexique = null;
 
     public function __construct(
         private AstrologyAnalysisService $astrologyAnalysisService,
@@ -529,6 +543,61 @@ PROMPT;
         return $this->transitsTable;
     }
 
+    private function loadDomainesLexique(): array
+    {
+        if ($this->domainesLexique === null) {
+            $path = __DIR__ . '/../../data/lyra_domaines.json';
+            $this->domainesLexique = file_exists($path)
+                ? (json_decode(file_get_contents($path), true) ?: ['domaines' => []])
+                : ['domaines' => []];
+        }
+        return $this->domainesLexique;
+    }
+
+    /**
+     * Classify a free-text question into a life domain (ajout 1).
+     * No LLM call — pure lexicon match against data/lyra_domaines.json.
+     * Graceful degradation: no match -> 'general' (pure hierarchy ranking).
+     */
+    private function classifierDomaine(string $question): string
+    {
+        $q = PlanetaryCalculator::normaliser($question);
+        if ($q === '') {
+            return 'general';
+        }
+
+        $lex      = $this->loadDomainesLexique();
+        $tokens   = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY);
+        $tokenSet = array_flip($tokens); // O(1) lookup for exact words
+
+        $scores = [];
+        foreach ($lex['domaines'] ?? [] as $domaine => $listes) {
+            $s = 0;
+
+            foreach ($listes['mots_exacts'] ?? [] as $mot) {
+                if (isset($tokenSet[$mot])) $s += 1;
+            }
+            foreach ($listes['racines'] ?? [] as $racine) {
+                foreach ($tokens as $t) {
+                    if (str_starts_with($t, $racine)) { $s += 1; break; }
+                }
+            }
+            foreach ($listes['expressions'] ?? [] as $exp) {
+                if ($exp !== '' && str_contains($q, $exp)) $s += 2; // locution = signal fort
+            }
+
+            $scores[$domaine] = $s;
+        }
+
+        if (empty($scores)) {
+            return 'general';
+        }
+
+        arsort($scores);
+        $top = array_key_first($scores);
+        return $scores[$top] > 0 ? $top : 'general';
+    }
+
     private function buildNatalArray(PlanetaryCalculator $calc): array
     {
         $payload = $calc->getFullChartPayload();
@@ -780,11 +849,19 @@ PROMPT;
     /**
      * Build structured Lyra chat context: grounded transits + 3 natal ancrages.
      */
-    public function buildLyraContext(User $user): array
+    public function buildLyraContext(User $user, ?string $question = null): array
     {
+        $domaine  = $this->classifierDomaine((string) $question);
+        $affinite = self::DOMAINE_AFFINITE[$domaine] ?? self::DOMAINE_AFFINITE['general'];
+
         $birthProfile = $user->getBirthProfile();
         if (!$birthProfile) {
-            return ['profil_natal' => [], 'transits_actifs' => []];
+            return [
+                'question_domaine' => $domaine,
+                'sujet_couvert'    => false,
+                'profil_natal'     => [],
+                'transits_actifs'  => [],
+            ];
         }
 
         $natalCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
@@ -814,6 +891,11 @@ PROMPT;
 
                     $force = $this->poidsHierarchie($tPlanete, $cible) * (1.0 - $orbe / $orbeMax);
 
+                    // Boost the transits whose target/house matches the question's domain (ajout 1)
+                    $pertinent = in_array($cible, $affinite['cibles'], true)
+                        || in_array($nData['maison'], $affinite['maisons'], true);
+                    if ($pertinent) $force *= 2.0;
+
                     $sep30 = PlanetaryCalculator::separation(
                         $transitsDans30j[$tPlanete]['longitude'],
                         $nData['longitude']
@@ -827,6 +909,7 @@ PROMPT;
                         'domaine' => $table['maisons'][(string) $nData['maison']] ?? null,
                         'sens'    => self::sensTransit($orbe, $orbe30),
                         'force'   => round($force, 2),
+                        'pertinent_domaine' => $pertinent,
                     ];
                     break;
                 }
@@ -835,7 +918,19 @@ PROMPT;
 
         usort($actifs, fn($a, $b) => $b['force'] <=> $a['force']);
 
+        // Carte muette (ajout 2) : after boost+sort, is the top domain-relevant transit strong enough?
+        // For an open/general question there is no specific subject to be mute about -> stay on normal ranking.
+        if ($domaine === 'general') {
+            $sujetCouvert = true;
+        } else {
+            $transitsDuDomaine = array_filter($actifs, fn($c) => $c['pertinent_domaine']);
+            $sujetCouvert = !empty($transitsDuDomaine)
+                && reset($transitsDuDomaine)['force'] >= self::SEUIL_PERTINENCE;
+        }
+
         return [
+            'question_domaine' => $domaine,
+            'sujet_couvert'    => $sujetCouvert,
             'profil_natal' => [
                 'lune'   => ($natal['Lune']['signe'] ?? '') . ' (maison ' . ($natal['Lune']['maison'] ?? '?') . ')',
                 'asc'    => $natal['ASC']['signe'] ?? '',

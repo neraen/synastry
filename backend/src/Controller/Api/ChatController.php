@@ -114,6 +114,12 @@ class ChatController extends AbstractController
             $messages = array_slice($messages, -20);
         }
 
+        // Last user message — drives Lyra's domain classification and the exchange log
+        $lastUserMessage = '';
+        foreach (array_reverse($messages) as $msg) {
+            if ($msg['role'] === 'user') { $lastUserMessage = $msg['content']; break; }
+        }
+
         // ── Daily message limit (free users) ────────────────────────────────────
         $remainingMessages = -1; // -1 = unlimited (premium)
         if (!$user->isPremium()) {
@@ -173,8 +179,8 @@ class ChatController extends AbstractController
                 $userContext['upcoming_transits'] = $upcomingTransits;
             }
 
-            // Lyra structured context (grounded transits)
-            $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user);
+            // Lyra structured context (grounded transits, domain-ranked)
+            $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user, $lastUserMessage);
         }
 
         // ── Partner context (optional) ──────────────────────────────────────────
@@ -259,10 +265,6 @@ class ChatController extends AbstractController
 
         // Log exchange
         try {
-            $lastUserMessage = '';
-            foreach (array_reverse($messages) as $msg) {
-                if ($msg['role'] === 'user') { $lastUserMessage = $msg['content']; break; }
-            }
             $log = new LyraConversationLog($user, $lastUserMessage, count($messages));
             $log->setAssistantResponse($result['message'] ?? null);
             $this->em->persist($log);
@@ -312,6 +314,12 @@ class ChatController extends AbstractController
             $last     = array_slice($messages, -6);
             $marker   = ['role' => 'assistant', 'content' => '[Début de conversation omis — derniers échanges ci-dessous]'];
             $messages = array_merge($first, [$marker], $last);
+        }
+
+        // Last user message — drives Lyra's domain classification and the exchange log
+        $lastUserMessage = '';
+        foreach (array_reverse($messages) as $msg) {
+            if ($msg['role'] === 'user') { $lastUserMessage = $msg['content']; break; }
         }
 
         // Daily limit
@@ -365,8 +373,8 @@ class ChatController extends AbstractController
                     $userContext['upcoming_transits'] = $upcomingTransits;
                 }
 
-                // Lyra structured context (grounded transits)
-                $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user);
+                // Lyra structured context (grounded transits, domain-ranked)
+                $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user, $lastUserMessage);
             }
             $partnerHistoryId = isset($data['partnerHistoryId']) ? (int) $data['partnerHistoryId'] : null;
             if ($partnerHistoryId) {
@@ -397,11 +405,6 @@ class ChatController extends AbstractController
         $openAiService      = $this->openAiService;
         $remainingSnap      = $remainingMessages;
         $em                 = $this->em;
-
-        $lastUserMessage = '';
-        foreach (array_reverse($messages) as $msg) {
-            if ($msg['role'] === 'user') { $lastUserMessage = $msg['content']; break; }
-        }
 
         return new StreamedResponse(function () use (
             $messages, $userContext, $toolHandler, $tools, $previousResponseId,
