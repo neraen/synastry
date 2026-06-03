@@ -18,7 +18,17 @@ class HoroscopeGeneratorService
     private const PLANET_TO_JSON_KEY = [
         'Sun' => 'Soleil', 'Moon' => 'Lune', 'Mercury' => 'Mercure',
         'Venus' => 'Venus', 'Mars' => 'Mars', 'Saturn' => 'Saturne',
+        'Jupiter' => 'Jupiter', 'Uranus' => 'Uranus', 'Neptune' => 'Neptune', 'Pluto' => 'Pluton',
         'Ascendant' => 'ASC', 'Midheaven' => 'MC',
+    ];
+    private const LYRA_TRANSIT_PLANETS = [
+        'Sun', 'Mercury', 'Venus', 'Mars',
+        'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto',
+    ];
+    private const ORBE_TRANSIT = [
+        'rapide' => 2.0,
+        'social' => 2.5,
+        'lente'  => 2.5,
     ];
     private const TRANSIT_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'];
     private const NATAL_TARGETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Saturn', 'Ascendant', 'Midheaven'];
@@ -713,6 +723,125 @@ PROMPT;
             'couleur_du_jour'   => $briefCouleur,
             'baseline'          => $angles['baseline'],
             'date'              => $dateFr,
+        ];
+    }
+
+    // =========================================================================
+    // Lyra Engine — structured context for chat
+    // =========================================================================
+
+    private function buildLyraTransitsArray(string $dateStr): array
+    {
+        $calc = new PlanetaryCalculator($dateStr, '12:00', 0.0, 0.0, 'Transits');
+        $transits = [];
+        foreach (self::LYRA_TRANSIT_PLANETS as $en) {
+            $key = self::PLANET_TO_JSON_KEY[$en];
+            $transits[$key] = ['longitude' => $calc->getPlanetLongitude($en)];
+        }
+        return $transits;
+    }
+
+    private function vitesse(string $planeteFr): string
+    {
+        return match ($planeteFr) {
+            'Soleil', 'Mercure', 'Venus', 'Mars' => 'rapide',
+            'Jupiter', 'Saturne' => 'social',
+            default => 'lente',
+        };
+    }
+
+    private function poidsHierarchie(string $transit, string $cible): float
+    {
+        $estLuminaireOuAngle = in_array($cible, self::LUMINAIRES_ET_ANGLES, true);
+        $estPersonnelle      = in_array($cible, ['Mercure', 'Venus', 'Mars'], true);
+
+        return match (true) {
+            in_array($transit, ['Pluton', 'Neptune', 'Uranus'], true) && $estLuminaireOuAngle => 5.0,
+            $transit === 'Saturne' && $estLuminaireOuAngle => 4.0,
+            $transit === 'Jupiter' && $estLuminaireOuAngle => 3.0,
+            in_array($transit, ['Pluton', 'Neptune', 'Uranus', 'Saturne', 'Jupiter'], true) && $estPersonnelle => 2.0,
+            default => 1.0,
+        };
+    }
+
+    private static function sensTransit(float $orbeNow, float $orbeDans30j): string
+    {
+        return $orbeDans30j < $orbeNow ? 'se_renforce' : 'se_desserre';
+    }
+
+    private function natureAspect(string $aspectNom, string $cible): string
+    {
+        if ($aspectNom === 'conjonction') {
+            return in_array($cible, ['Saturne', 'Mars'], true) ? 'tension' : 'soutien';
+        }
+        return in_array($aspectNom, ['carre', 'opposition'], true) ? 'tension' : 'soutien';
+    }
+
+    /**
+     * Build structured Lyra chat context: grounded transits + 3 natal ancrages.
+     */
+    public function buildLyraContext(User $user): array
+    {
+        $birthProfile = $user->getBirthProfile();
+        if (!$birthProfile) {
+            return ['profil_natal' => [], 'transits_actifs' => []];
+        }
+
+        $natalCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
+        $natal = $this->buildNatalArray($natalCalc);
+
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $in30 = (clone $now)->modify('+30 days');
+
+        $transitsNow     = $this->buildLyraTransitsArray($now->format('Y-m-d'));
+        $transitsDans30j = $this->buildLyraTransitsArray($in30->format('Y-m-d'));
+
+        $table = $this->loadTransitsTable();
+        $actifs = [];
+
+        foreach (self::LYRA_TRANSIT_PLANETS as $en) {
+            $tPlanete = self::PLANET_TO_JSON_KEY[$en];
+            if (!isset($transitsNow[$tPlanete])) continue;
+            $tLon = $transitsNow[$tPlanete]['longitude'];
+            $orbeMax = self::ORBE_TRANSIT[$this->vitesse($tPlanete)];
+
+            foreach ($natal as $cible => $nData) {
+                $sep = PlanetaryCalculator::separation($tLon, $nData['longitude']);
+
+                foreach (PlanetaryCalculator::TRANSIT_ASPECTS as $asp) {
+                    $orbe = abs($sep - $asp['angle']);
+                    if ($orbe > $orbeMax) continue;
+
+                    $force = $this->poidsHierarchie($tPlanete, $cible) * (1.0 - $orbe / $orbeMax);
+
+                    $sep30 = PlanetaryCalculator::separation(
+                        $transitsDans30j[$tPlanete]['longitude'],
+                        $nData['longitude']
+                    );
+                    $orbe30 = abs($sep30 - $asp['angle']);
+
+                    $actifs[] = [
+                        'transit' => $tPlanete,
+                        'cible'   => $cible,
+                        'nature'  => $this->natureAspect($asp['nom'], $cible),
+                        'domaine' => $table['maisons'][(string) $nData['maison']] ?? null,
+                        'sens'    => self::sensTransit($orbe, $orbe30),
+                        'force'   => round($force, 2),
+                    ];
+                    break;
+                }
+            }
+        }
+
+        usort($actifs, fn($a, $b) => $b['force'] <=> $a['force']);
+
+        return [
+            'profil_natal' => [
+                'lune'   => ($natal['Lune']['signe'] ?? '') . ' (maison ' . ($natal['Lune']['maison'] ?? '?') . ')',
+                'asc'    => $natal['ASC']['signe'] ?? '',
+                'soleil' => ($natal['Soleil']['signe'] ?? '') . ' (maison ' . ($natal['Soleil']['maison'] ?? '?') . ')',
+            ],
+            'transits_actifs' => array_slice($actifs, 0, 5),
         ];
     }
 }

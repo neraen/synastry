@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Repository\NatalChartRepository;
 use App\Repository\SynastryHistoryRepository;
 use App\Service\AstrologyAnalysisService;
+use App\Service\HoroscopeGeneratorService;
 use App\Service\PromptLocaleService;
 use App\Service\Webservice\OpenAiService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -34,6 +35,7 @@ class ChatController extends AbstractController
         private NatalChartRepository $natalChartRepository,
         private SynastryHistoryRepository $synastryHistoryRepository,
         private AstrologyAnalysisService $astrologyAnalysisService,
+        private HoroscopeGeneratorService $horoscopeGeneratorService,
         private CacheInterface $cache,
         private EntityManagerInterface $em,
     ) {}
@@ -170,6 +172,9 @@ class ChatController extends AbstractController
             if (!empty($upcomingTransits)) {
                 $userContext['upcoming_transits'] = $upcomingTransits;
             }
+
+            // Lyra structured context (grounded transits)
+            $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user);
         }
 
         // ── Partner context (optional) ──────────────────────────────────────────
@@ -359,6 +364,9 @@ class ChatController extends AbstractController
                 if (!empty($upcomingTransits)) {
                     $userContext['upcoming_transits'] = $upcomingTransits;
                 }
+
+                // Lyra structured context (grounded transits)
+                $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user);
             }
             $partnerHistoryId = isset($data['partnerHistoryId']) ? (int) $data['partnerHistoryId'] : null;
             if ($partnerHistoryId) {
