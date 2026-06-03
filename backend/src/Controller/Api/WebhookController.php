@@ -30,16 +30,12 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/api/webhooks')]
 class WebhookController extends AbstractController
 {
-    // RevenueCat events that activate premium (first purchase / reactivation)
+    // RevenueCat events that activate or renew premium
     private const ACTIVATE_EVENTS = [
         'INITIAL_PURCHASE',
+        'RENEWAL',
         'UNCANCELLATION',
         'SUBSCRIBER_ALIAS',
-    ];
-
-    // RevenueCat events that renew premium (update expiry date)
-    private const RENEWAL_EVENTS = [
-        'RENEWAL',
     ];
 
     // RevenueCat events that deactivate premium
@@ -94,7 +90,7 @@ class WebhookController extends AbstractController
         // ── 4. Apply business logic ────────────────────────────────────────────
         if (in_array($eventType, self::ACTIVATE_EVENTS, true)) {
             $this->premiumService->activate($appUserId, $expiresAt);
-        } elseif (in_array($eventType, self::RENEWAL_EVENTS, true)) {
+        } elseif ($eventType === 'RENEWAL') {
             $this->premiumService->renew($appUserId, $expiresAt ?? new \DateTime('+1 month'));
         } elseif (in_array($eventType, self::DEACTIVATE_EVENTS, true)) {
             $this->premiumService->deactivate($appUserId);

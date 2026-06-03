@@ -48,11 +48,6 @@ security:
             pattern: ^/api/auth
             stateless: true
 
-        # Webhook endpoints - no JWT, authenticated via Bearer secret
-        webhooks:
-            pattern: ^/api/webhooks
-            stateless: true
-
         # API endpoints - JWT protected
         api:
             pattern: ^/api
@@ -75,7 +70,6 @@ security:
         - { path: ^/api/token/refresh, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/google, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/apple, roles: PUBLIC_ACCESS }
-        - { path: ^/api/webhooks, roles: PUBLIC_ACCESS }
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }
 
         # Protected API routes - require authentication

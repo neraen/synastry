@@ -1070,7 +1070,7 @@ export default function OnboardingScreen() {
     );
 
     const skipToApp = useCallback(() => {
-        router.replace('/(tabs)/horoscope');
+        router.replace('/(tabs)');
     }, [router]);
 
     // Memoised so React doesn't reconcile the entire screen tree on every

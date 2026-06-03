@@ -250,9 +250,7 @@ export default function PremiumScreen() {
         try {
             const result = await purchasePackage(pkg);
             if (result.cancelled) return;
-            if (result.success) {
-                // Always verify with backend — on Google Play the local
-                // entitlement may not be active yet due to propagation delay
+            if (result.success && result.isPremium) {
                 await verifyPremiumWithBackend();
                 await refreshUser();
                 router.back();

@@ -77,7 +77,7 @@ export default function Login() {
                 throw new Error(t('auth.errors.loginFailed'));
             }
             const loggedInUser = await authLoginWithGoogle(idToken);
-            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)/horoscope' : '/onboarding');
+            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)' : '/onboarding');
         } catch (err) {
             if (isErrorWithCode(err)) {
                 if (err.code === statusCodes.SIGN_IN_CANCELLED) {
@@ -116,7 +116,7 @@ export default function Login() {
         setError(undefined);
         try {
             await authLogin({ email: devEmail, password: devPassword });
-            router.replace('/(tabs)/horoscope');
+            router.replace('/(tabs)');
         } catch (err) {
             setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
         } finally {
@@ -139,7 +139,7 @@ export default function Login() {
                 email: credential.email ?? undefined,
                 fullName: credential.fullName ?? undefined,
             });
-            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)/horoscope' : '/onboarding');
+            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)' : '/onboarding');
         } catch (err: any) {
             if (err?.code !== 'ERR_REQUEST_CANCELED') {
                 setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));

@@ -38,7 +38,7 @@ export function TabHeader({ onBack }: TabHeaderProps = {}) {
                     <Feather name="arrow-left" size={18} color={colors.onSurfaceMuted} />
                 </Pressable>
             ) : (
-                <Pressable style={styles.logoRow} onPress={() => router.push('/(tabs)/horoscope')} hitSlop={8}>
+                <Pressable style={styles.logoRow} onPress={() => router.push('/(tabs)')} hitSlop={8}>
                     <Text style={styles.logoIcon}>✦</Text>
                     <Text style={styles.logoText}>Lunestia</Text>
                 </Pressable>
