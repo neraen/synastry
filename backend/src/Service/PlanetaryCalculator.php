@@ -80,6 +80,15 @@ class PlanetaryCalculator
         'quincunx'    => [150, 3, 'Quinconce',   '⚻'],
     ];
 
+    // Tight-orb aspects for daily horoscope / lyra transit engines
+    const TRANSIT_ASPECTS = [
+        ['nom' => 'conjonction', 'angle' => 0,   'orbe' => 3.0, 'poids' => 1.00],
+        ['nom' => 'opposition',  'angle' => 180, 'orbe' => 3.0, 'poids' => 0.90],
+        ['nom' => 'carre',       'angle' => 90,  'orbe' => 3.0, 'poids' => 0.85],
+        ['nom' => 'trigone',     'angle' => 120, 'orbe' => 3.0, 'poids' => 0.70],
+        ['nom' => 'sextile',     'angle' => 60,  'orbe' => 2.0, 'poids' => 0.55],
+    ];
+
     // ── Deterministic compatibility scoring ──────────────────────────────────
 
     const SIGN_ELEMENTS = [
@@ -834,6 +843,16 @@ PROMPT;
         };
     }
 
+    /**
+     * Angular separation between two ecliptic longitudes (handles 360° wraparound).
+     * Shared by horoscope and lyra engines.
+     */
+    public static function separation(float $a, float $b): float
+    {
+        $d = fmod(abs($a - $b), 360.0);
+        return $d > 180.0 ? 360.0 - $d : $d;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // NŒUD NORD (vrai)
     // ─────────────────────────────────────────────────────────────────────────
@@ -970,8 +989,7 @@ PROMPT;
 
     private function detectAspect(float $lonA, float $lonB, string $nameA, string $nameB): ?array
     {
-        $diff = abs($lonA - $lonB);
-        if ($diff > 180) $diff = 360 - $diff;
+        $diff = self::separation($lonA, $lonB);
 
         foreach (self::ASPECTS as $key => $def) {
             list($target, $maxOrb, $name, $symbol) = $def;

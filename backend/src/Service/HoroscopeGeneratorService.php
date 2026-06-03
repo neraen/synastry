@@ -15,7 +15,18 @@ class HoroscopeGeneratorService
 {
     private const REFRESH_COOLDOWN_HOURS = 24;
 
+    private const PLANET_TO_JSON_KEY = [
+        'Sun' => 'Soleil', 'Moon' => 'Lune', 'Mercury' => 'Mercure',
+        'Venus' => 'Venus', 'Mars' => 'Mars', 'Saturn' => 'Saturne',
+        'Ascendant' => 'ASC', 'Midheaven' => 'MC',
+    ];
+    private const TRANSIT_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'];
+    private const NATAL_TARGETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Saturn', 'Ascendant', 'Midheaven'];
+    private const LUMINAIRES_ET_ANGLES = ['Soleil', 'Lune', 'ASC', 'MC'];
+    private const FACTEUR_CIBLE_FORTE = 1.30;
+
     private PromptLocaleService $localeService;
+    private ?array $transitsTable = null;
 
     public function __construct(
         private AstrologyAnalysisService $astrologyAnalysisService,
@@ -316,25 +327,27 @@ PROMPT;
      */
     private function generateHoroscope(User $user, ?DailyHoroscope $existing): DailyHoroscope
     {
-        // Prepare astrological data
+        $birthProfile = $user->getBirthProfile();
         $horoscopeData = $this->astrologyAnalysisService->prepareHoroscopeData($user);
 
-        // Build the prompt
-        $prompt = $this->buildPrompt($horoscopeData);
+        // Build deterministic brief (horoscope engine)
+        $natalCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
+        $natal = $this->buildNatalArray($natalCalc);
+        $transits = $this->buildTransitsArray();
+        $brief = $this->genererBriefHoroscope($natal, $transits, $this->formatDateFr());
 
-        // Call OpenAI
-        $response = $this->openAiService->generateDailyHoroscope($prompt);
+        // Call LLM with brief as user prompt
+        $userPrompt = json_encode($brief, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $response = $this->openAiService->generateDailyHoroscope($userPrompt);
 
         if (!$response['success']) {
             throw new \RuntimeException($response['error'] ?? 'AI service error');
         }
 
-        // Parse the response
         $horoscopeContent = $response['content'];
         $isEnglish = $this->localeService->getLocale() === 'en';
         $defaultTitle = $isEnglish ? 'Your daily horoscope' : 'Votre horoscope du jour';
 
-        // Create or update entity
         $horoscope = $existing ?? new DailyHoroscope();
         $horoscope->setUser($user);
         $horoscope->setDate(new \DateTime('today'));
@@ -491,5 +504,215 @@ PROMPT;
             $horoscope->getDate()->format('Y-m-d'),
             $cached
         );
+    }
+
+    // =========================================================================
+    // Horoscope Engine — deterministic brief generation
+    // =========================================================================
+
+    private function loadTransitsTable(): array
+    {
+        if ($this->transitsTable === null) {
+            $path = __DIR__ . '/../../data/lunestia_transits_natal.json';
+            $this->transitsTable = json_decode(file_get_contents($path), true);
+        }
+        return $this->transitsTable;
+    }
+
+    private function buildNatalArray(PlanetaryCalculator $calc): array
+    {
+        $payload = $calc->getFullChartPayload();
+        $points = $calc->getAllPoints();
+        $natal = [];
+
+        foreach (self::NATAL_TARGETS as $en) {
+            $key = self::PLANET_TO_JSON_KEY[$en];
+            $lon = $points[$en] ?? 0.0;
+
+            if ($en === 'Ascendant') {
+                $sign = $payload['angles']['ascendant']['sign'];
+                $house = 1;
+            } elseif ($en === 'Midheaven') {
+                $sign = $payload['angles']['midheaven']['sign'];
+                $house = 10;
+            } else {
+                $p = $payload['planets'][$en] ?? [];
+                $sign = $p['sign'] ?? 'Aries';
+                $house = $p['house'] ?? 1;
+            }
+
+            $idx = array_search($sign, PlanetaryCalculator::SIGNS);
+            $signFr = $idx !== false ? PlanetaryCalculator::SIGNS_FR[$idx] : $sign;
+
+            $natal[$key] = ['longitude' => $lon, 'signe' => $signFr, 'maison' => $house];
+        }
+
+        return $natal;
+    }
+
+    private function buildTransitsArray(): array
+    {
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $calc = new PlanetaryCalculator($now->format('Y-m-d'), '12:00', 0.0, 0.0, 'Transits');
+
+        $transits = [];
+        foreach (self::TRANSIT_PLANETS as $en) {
+            $key = self::PLANET_TO_JSON_KEY[$en];
+            $transits[$key] = ['longitude' => $calc->getPlanetLongitude($en)];
+        }
+        return $transits;
+    }
+
+    private function formatDateFr(): string
+    {
+        $now = new \DateTime();
+        $jours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+        $mois = ['', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        return sprintf('%s %d %s', $jours[(int) $now->format('w')], (int) $now->format('j'), $mois[(int) $now->format('n')]);
+    }
+
+    /**
+     * Detect all transit→natal contacts within orb, scored.
+     */
+    private function contactsScores(array $natal, array $transits): array
+    {
+        $contacts = [];
+
+        foreach (self::TRANSIT_PLANETS as $en) {
+            $tPlanete = self::PLANET_TO_JSON_KEY[$en];
+            if (!isset($transits[$tPlanete])) continue;
+            $tLon = $transits[$tPlanete]['longitude'];
+
+            foreach ($natal as $cible => $nData) {
+                $nLon = $nData['longitude'];
+                $sep = PlanetaryCalculator::separation($tLon, $nLon);
+
+                foreach (PlanetaryCalculator::TRANSIT_ASPECTS as $asp) {
+                    $orbeReel = abs($sep - $asp['angle']);
+                    if ($orbeReel > $asp['orbe']) continue;
+
+                    $orbFactor = 1.0 - ($orbeReel / $asp['orbe']);
+                    $cibleFactor = in_array($cible, self::LUMINAIRES_ET_ANGLES, true)
+                        ? self::FACTEUR_CIBLE_FORTE : 1.0;
+                    $score = $asp['poids'] * $orbFactor * $cibleFactor;
+
+                    $contacts[] = [
+                        'transit' => $tPlanete,
+                        'cible'   => $cible,
+                        'aspect'  => $asp['nom'],
+                        'orbe'    => $orbeReel,
+                        'score'   => $score,
+                        'maison'  => $nData['maison'],
+                    ];
+                    break; // one aspect per transit-cible pair
+                }
+            }
+        }
+
+        usort($contacts, fn($a, $b) => $b['score'] <=> $a['score']);
+        return $contacts;
+    }
+
+    /**
+     * Pick 3 distinct angles + baseline from scored contacts.
+     */
+    private function selectionnerAngles(array $contacts, array $natal): array
+    {
+        // angle_principal: best non-Moon transit (lasts 2-4 days)
+        $principal = null;
+        foreach ($contacts as $c) {
+            if ($c['transit'] !== 'Lune') { $principal = $c; break; }
+        }
+
+        // angle_relationnel: best affective contact, distinct from principal
+        $relationnel = null;
+        foreach ($contacts as $c) {
+            $estAffectif = in_array($c['transit'], ['Venus', 'Mars'], true)
+                || in_array($c['cible'], ['Venus', 'Mars'], true)
+                || in_array($c['maison'], [5, 7, 8], true);
+            $isSameAsPrincipal = $principal !== null
+                && $c['transit'] === $principal['transit']
+                && $c['cible'] === $principal['cible'];
+            if ($estAffectif && !$isSameAsPrincipal) { $relationnel = $c; break; }
+        }
+
+        // couleur_du_jour: best Moon transit (changes daily)
+        $couleur = null;
+        foreach ($contacts as $c) {
+            if ($c['transit'] === 'Lune') { $couleur = $c; break; }
+        }
+
+        return [
+            'principal'   => $principal,
+            'relationnel' => $relationnel,
+            'couleur'     => $couleur,
+            'baseline'    => [
+                'lune_signe' => $natal['Lune']['signe'] ?? null,
+                'asc_signe'  => $natal['ASC']['signe'] ?? null,
+            ],
+        ];
+    }
+
+    /**
+     * Compose a brief section from a contact + the JSON table.
+     */
+    private function composerBrief(?array $contact, array $table): ?array
+    {
+        if ($contact === null) return null;
+
+        $cell = $table['contacts'][$contact['transit']][$contact['cible']] ?? null;
+        if ($cell === null) return null;
+
+        if ($contact['aspect'] === 'conjonction') {
+            $flavorKey = in_array($contact['cible'], ['Saturne', 'Mars'], true) ? 'tension' : 'flow';
+        } else {
+            $regle = $table['regle_aspect'][$contact['aspect']] ?? 'flow';
+            $flavorKey = str_contains($regle, 'tension') ? 'tension' : 'flow';
+        }
+
+        return [
+            'theme'     => $cell['theme'],
+            'situation' => $cell[$flavorKey],
+            'domaine'   => $table['maisons'][(string) $contact['maison']] ?? null,
+        ];
+    }
+
+    /**
+     * Orchestrate: natal + transits → deterministic brief for the LLM.
+     */
+    private function genererBriefHoroscope(array $natal, array $transits, string $dateFr): array
+    {
+        $table = $this->loadTransitsTable();
+        $contacts = $this->contactsScores($natal, $transits);
+        $angles = $this->selectionnerAngles($contacts, $natal);
+
+        $briefPrincipal   = $this->composerBrief($angles['principal'], $table);
+        $briefRelationnel = $this->composerBrief($angles['relationnel'], $table);
+        $briefCouleur     = $this->composerBrief($angles['couleur'], $table);
+
+        // Fallbacks (§6): never send an empty brief
+        if ($briefPrincipal === null) {
+            $briefPrincipal = $briefCouleur;
+            if ($briefPrincipal === null) {
+                $briefPrincipal = [
+                    'theme'     => 'coloration de fond',
+                    'situation' => sprintf(
+                        'journée calme, la tonalité vient de sa sensibilité %s et de son apparence %s',
+                        $angles['baseline']['lune_signe'] ?? 'naturelle',
+                        $angles['baseline']['asc_signe'] ?? 'naturelle'
+                    ),
+                    'domaine' => null,
+                ];
+            }
+        }
+
+        return [
+            'angle_principal'   => $briefPrincipal,
+            'angle_relationnel' => $briefRelationnel,
+            'couleur_du_jour'   => $briefCouleur,
+            'baseline'          => $angles['baseline'],
+            'date'              => $dateFr,
+        ];
     }
 }
