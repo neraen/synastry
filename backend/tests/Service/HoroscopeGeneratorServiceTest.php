@@ -9,6 +9,7 @@ use App\Repository\CosmicHeadlineRepository;
 use App\Repository\DailyHoroscopeRepository;
 use App\Service\AstrologyAnalysisService;
 use App\Service\HoroscopeGeneratorService;
+use App\Service\PsyProfileService;
 use App\Service\Webservice\OpenAiService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -21,6 +22,7 @@ class HoroscopeGeneratorServiceTest extends TestCase
     private $dailyHoroscopeRepository;
     private $cosmicHeadlineRepository;
     private $entityManager;
+    private $psyProfileService;
     private HoroscopeGeneratorService $service;
 
     protected function setUp(): void
@@ -30,6 +32,7 @@ class HoroscopeGeneratorServiceTest extends TestCase
         $this->dailyHoroscopeRepository = $this->createMock(DailyHoroscopeRepository::class);
         $this->cosmicHeadlineRepository = $this->createMock(CosmicHeadlineRepository::class);
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
+        $this->psyProfileService = $this->createMock(PsyProfileService::class);
 
         $this->service = new HoroscopeGeneratorService(
             $this->astrologyAnalysisService,
@@ -37,7 +40,8 @@ class HoroscopeGeneratorServiceTest extends TestCase
             $this->dailyHoroscopeRepository,
             $this->cosmicHeadlineRepository,
             $this->entityManager,
-            new NullLogger()
+            new NullLogger(),
+            $this->psyProfileService
         );
         
         $this->service->setLocale('fr');

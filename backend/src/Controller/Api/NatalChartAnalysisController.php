@@ -5,6 +5,7 @@ namespace App\Controller\Api;
 use App\Entity\User;
 use App\Service\NatalChartAnalysisService;
 use App\Service\PromptLocaleService;
+use App\Service\PsyProfileService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,6 +17,7 @@ class NatalChartAnalysisController extends AbstractController
 {
     public function __construct(
         private NatalChartAnalysisService $analysisService,
+        private PsyProfileService $psyProfileService,
     ) {}
 
     /**
@@ -90,6 +92,14 @@ class NatalChartAnalysisController extends AbstractController
         $isPremium = $user->isPremium();
 
         $result = $this->analysisService->preGenerateAll($user, $isPremium, $locale);
+
+        // Now that the full natal analysis exists, extract the persistent psy digest
+        // once (best-effort: never block or fail the pregenerate response).
+        try {
+            $this->psyProfileService->extract($user);
+        } catch (\Throwable) {
+            // Digest extraction is best-effort; a lazy fallback retries on first chat/horoscope.
+        }
 
         return $this->json($result);
     }

@@ -94,7 +94,8 @@ class ProfileController extends AbstractController
                 $this->entityManager->remove($token);
             }
 
-            // Delete the user (cascade will handle BirthProfile, NatalChart, SynastryHistory)
+            // Delete the user (cascade handles BirthProfile, NatalChart, SynastryHistory,
+            // natal_chart_section, and user_psy_profile — sensitive derived data, RGPD)
             $this->entityManager->remove($user);
             $this->entityManager->flush();
 

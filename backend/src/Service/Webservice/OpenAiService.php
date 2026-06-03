@@ -12,6 +12,9 @@ class OpenAiService
     private PromptLocaleService $localeService;
     private const MODEL_DEFAULT  = 'gpt-4.1-mini';
     private const MODEL_TRANSITS = 'gpt-4.1-mini';
+    // One-time per user: a deeper model is justified here (quality propagates to
+    // every future chat/horoscope). Conversational prod stays on gpt-4.1-mini.
+    private const MODEL_PSY_EXTRACT = 'gpt-4.1';
 
     private string $model = self::MODEL_DEFAULT;
     private ?array $bannisConfig = null;
@@ -599,6 +602,12 @@ But : qu'en lisant, elle se dise "c'est exactement ma journée".
 - advice   : un geste concret découlant de angle_principal. Pas un conseil générique.
 - title    : évocateur, max 8 mots, tiré de l'ambiance dominante.
 
+### PROFIL DE FOND (contexte, jamais nommé)
+La baseline contient des notes sur les patterns de fond de la personne. Sers-t'en pour
+que l'angle du jour résonne personnellement (relie-le à un réflexe ou un besoin connu),
+mais SANS jamais nommer ces patterns ni faire un portrait. Au plus un fil effleure le
+texte. Le conseil peut s'appuyer dessus discrètement.
+
 ### RÈGLES D'ÉCRITURE
 - Chaque section = un angle DISTINCT. Aucune section ne répète le thème d'une autre.
 - 2 à 4 phrases par section (love/energy/advice peuvent être plus courts si le brief est léger). advice : 1-2 phrases.
@@ -914,6 +923,47 @@ PROMPT;
     }
 
     /**
+     * Extract a compact psychological digest from the full natal analysis text.
+     * One-time per user. Uses a deeper model (MODEL_PSY_EXTRACT) since the quality
+     * propagates to every future chat/horoscope. Returns the parsed digest.
+     *
+     * @return array{success: bool, data?: array, error?: string}
+     */
+    public function extractPsyProfile(string $analyse): array
+    {
+        $instructions = <<<'INST'
+Tu recois l'analyse natale complete d'une personne (deja redigee) et les positions
+de son theme. Extrais un PROFIL PSYCHOLOGIQUE COMPACT, utilisable comme contexte par
+un assistant conversationnel.
+
+Regles :
+- Traduis les positions en PATTERNS VECUS, jamais en placements. Pas "Lune Capricorne"
+  mais "se protege en gardant le controle de ses emotions, demande de l'aide difficilement".
+- Vise les fils RECURRENTS et profonds, pas les traits de surface.
+- Concis : chaque entree est une phrase courte, dense, concrete.
+- Neutre et descriptif (ce sont des notes pour un assistant), pas d'adresse "tu".
+- Aucun jargon astro dans la sortie.
+
+Reponds UNIQUEMENT en JSON conforme a ce schema (aucun texte autour) :
+{ "patterns": [string, ...], "besoins_fond": [string, ...],
+  "reflexe_sous_stress": string, "axes": {"amour": string, "argent_securite": string,
+  "travail": string, "rapport_a_soi": string}, "sensibilites": string }
+INST;
+
+        $result = $this->callResponsesApi($analyse, $instructions, null, self::MODEL_PSY_EXTRACT);
+        if (!($result['success'] ?? false) || empty($result['content'])) {
+            return ['success' => false, 'error' => $result['error'] ?? 'extraction failed'];
+        }
+
+        $data = $this->parseJsonResponse($result['content']);
+        if (!$data || !isset($data['patterns'])) {
+            return ['success' => false, 'error' => 'invalid extraction JSON'];
+        }
+
+        return ['success' => true, 'data' => $data];
+    }
+
+    /**
      * Build the assembled chat messages array (developer prompt + user messages).
      * Used by both getChatResponse and the streaming endpoint.
      *
@@ -987,6 +1037,16 @@ Dis simplement, avec naturel, que rien de marquant ne ressort sur ce point en ce
 (ex : "cote argent, ta carte ne montre rien de particulierement actif la maintenant"),
 puis reste sur du soutien concret et le profil natal. Une astrologue honnete dit "rien
 de special la-dessus" plutot que d'inventer.
+
+## PROFIL PSY (contexte pour toi, JAMAIS a reciter)
+Tu recois profil_psy : des notes sur les patterns de fond de la personne. C'est un
+CONTEXTE pour comprendre, pas un contenu a debiter.
+- Ne liste jamais le profil. Ne dis jamais "ton theme montre que tu...".
+- Tisse AU PLUS un seul fil du profil, et seulement s'il eclaire vraiment la question.
+- Effleure, ne deballe pas : "ce besoin de tout maitriser pour te sentir en securite"
+  glisse en passant, jamais un diagnostic appuye.
+- Respecte sensibilites : si la personne se ferme face a un ton directif, n'ordonne pas.
+- Le profil approfondit ta comprehension, il n'autorise PAS a etre plus dur. Chaleur d'abord, toujours.
 
 ## QUESTIONS SENSIBLES (rupture, argent serre, peur, solitude)
 Soutiens d'abord. Ne predis pas l'issue. Ne dramatise pas la suite. Nomme ce qui pese maintenant et une ouverture realiste, sans promettre ni condamner. Reste du cote de la personne.

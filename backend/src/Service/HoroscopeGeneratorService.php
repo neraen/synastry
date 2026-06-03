@@ -60,6 +60,7 @@ class HoroscopeGeneratorService
         private CosmicHeadlineRepository $cosmicHeadlineRepository,
         private EntityManagerInterface $entityManager,
         private LoggerInterface $horoscopeLogger,
+        private PsyProfileService $psyProfileService,
     ) {
         $this->localeService = new PromptLocaleService();
     }
@@ -360,7 +361,17 @@ PROMPT;
         $natalCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
         $natal = $this->buildNatalArray($natalCalc);
         $transits = $this->buildTransitsArray();
-        $brief = $this->genererBriefHoroscope($natal, $transits, $this->formatDateFr());
+        $principalMaison = null;
+        $brief = $this->genererBriefHoroscope($natal, $transits, $this->formatDateFr(), $principalMaison);
+
+        // Deepen the baseline with the persistent psy profile (noyau + the axis
+        // matching the day's main angle). The digest colors the same day personally
+        // without changing the angle (which still comes from the transits).
+        $psy = $this->psyProfileService->getData($user);
+        if ($psy !== null) {
+            $domaine = $principalMaison !== null ? $this->domainePourMaison($principalMaison) : null;
+            $brief['baseline']['profil_psy'] = $this->psyProfileService->profilPourContexte($psy, $domaine);
+        }
 
         // Diagnostic: log the exact brief sent to the LLM + which angles are null
         // (distinguishes a selection bug from a genuinely quiet day).
@@ -787,11 +798,15 @@ PROMPT;
     /**
      * Orchestrate: natal + transits → deterministic brief for the LLM.
      */
-    private function genererBriefHoroscope(array $natal, array $transits, string $dateFr): array
+    private function genererBriefHoroscope(array $natal, array $transits, string $dateFr, ?int &$principalMaison = null): array
     {
         $table = $this->loadTransitsTable();
         $contacts = $this->contactsScores($natal, $transits);
         $angles = $this->selectionnerAngles($contacts, $natal);
+
+        // House of the angle that actually drives the day (principal, else the
+        // Moon "couleur" used as fallback) — used to pick the psy axis to inject.
+        $principalMaison = $angles['principal']['maison'] ?? ($angles['couleur']['maison'] ?? null);
 
         $briefPrincipal   = $this->composerBrief($angles['principal'], $table);
         $briefRelationnel = $this->composerBrief($angles['relationnel'], $table);
@@ -820,6 +835,20 @@ PROMPT;
             'baseline'          => $angles['baseline'],
             'date'              => $dateFr,
         ];
+    }
+
+    /**
+     * Map a natal house to a life domain key (inverse of DOMAINE_AFFINITE),
+     * used to pick which psy axis colors the horoscope. Null if no domain owns it.
+     */
+    private function domainePourMaison(int $maison): ?string
+    {
+        foreach (self::DOMAINE_AFFINITE as $domaine => $aff) {
+            if (in_array($maison, $aff['maisons'], true)) {
+                return $domaine;
+            }
+        }
+        return null;
     }
 
     // =========================================================================
@@ -955,7 +984,7 @@ PROMPT;
                 && reset($transitsDuDomaine)['force'] >= self::SEUIL_PERTINENCE;
         }
 
-        return [
+        $contexte = [
             'question_domaine' => $domaine,
             'sujet_couvert'    => $sujetCouvert,
             'profil_natal' => [
@@ -965,5 +994,16 @@ PROMPT;
             ],
             'transits_actifs' => array_slice($actifs, 0, 5),
         ];
+
+        // Lean psy profile: noyau + the axis relevant to the classified domain.
+        $psy = $this->psyProfileService->getData($user);
+        if ($psy !== null) {
+            $contexte['profil_psy'] = $this->psyProfileService->profilPourContexte(
+                $psy,
+                $domaine === 'general' ? null : $domaine
+            );
+        }
+
+        return $contexte;
     }
 }

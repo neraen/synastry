@@ -22,6 +22,12 @@ class NatalChartSectionRepository extends ServiceEntityRepository
         return $this->findOneBy(['user' => $user, 'section' => $section]);
     }
 
+    /** @return NatalChartSection[] All persisted sections for a user. */
+    public function findAllForUser(User $user): array
+    {
+        return $this->findBy(['user' => $user]);
+    }
+
     /** Delete all sections for a user (e.g. after birth profile update). */
     public function deleteAllForUser(User $user): void
     {
