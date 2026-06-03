@@ -10,8 +10,10 @@ class OpenAiService
     private OpenAiProvider $openAiProvider;
     private AnthropicProvider $anthropicProvider;
     private PromptLocaleService $localeService;
-    private const MODEL_DEFAULT  = 'gpt-4.1-mini';
-    private const MODEL_TRANSITS = 'gpt-4.1-mini';
+    private const MODEL_DEFAULT     = 'gpt-4.1-mini';
+    private const MODEL_TRANSITS    = 'gpt-4.1-mini';
+    private const MODEL_CHAT        = 'claude-haiku-4-5-20251001';
+    private const MODEL_HOROSCOPE   = 'claude-haiku-4-5-20251001';
     // One-time per user: a deeper model is justified here (quality propagates to
     // every future chat/horoscope). Conversational prod stays on gpt-4.1-mini.
     private const MODEL_PSY_EXTRACT = 'gpt-4.1';
@@ -635,7 +637,7 @@ JSON valide strict, rien avant ni après :
 }{$languageNote}
 INST;
 
-        $result = $this->callResponsesApi($prompt, $instructions);
+        $result = $this->callResponsesApi($prompt, $instructions, null, self::MODEL_HOROSCOPE);
 
         if (!$result['success']) {
             return $result;
@@ -805,7 +807,7 @@ PROMPT;
     {
         $chatMessages = $this->buildChatMessages($messages, $userContext, $tools);
 
-        $result = $this->getProvider()->callMultiTurn($this->model, $chatMessages, $toolHandler, $tools, $previousResponseId);
+        $result = $this->getProviderForModel(self::MODEL_CHAT)->callMultiTurn(self::MODEL_CHAT, $chatMessages, $toolHandler, $tools, $previousResponseId);
 
         if (!$result['success']) {
             return $result;
@@ -1269,7 +1271,7 @@ TOOLS;
         ?string $previousResponseId,
         callable $onDelta
     ): array {
-        return $this->getProvider()->stream($this->model, $chatMessages, $toolHandler, $tools, $previousResponseId, $onDelta);
+        return $this->getProviderForModel(self::MODEL_CHAT)->stream(self::MODEL_CHAT, $chatMessages, $toolHandler, $tools, $previousResponseId, $onDelta);
     }
 
     /**

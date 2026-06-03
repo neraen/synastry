@@ -754,7 +754,7 @@ export default function Onboarding2Screen() {
     );
 
     const finish = useCallback(() => {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/horoscope');
     }, [router]);
 
     const screens = [
