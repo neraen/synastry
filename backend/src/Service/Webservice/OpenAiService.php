@@ -13,7 +13,7 @@ class OpenAiService
     private const MODEL_DEFAULT     = 'gpt-4.1-mini';
     private const MODEL_TRANSITS    = 'gpt-4.1-mini';
     private const MODEL_CHAT        = 'claude-haiku-4-5-20251001';
-    private const MODEL_HOROSCOPE   = 'claude-haiku-4-5-20251001';
+    private const MODEL_HOROSCOPE   = 'gpt-4.1-mini';
     // One-time per user: a deeper model is justified here (quality propagates to
     // every future chat/horoscope). Conversational prod stays on gpt-4.1-mini.
     private const MODEL_PSY_EXTRACT = 'gpt-4.1';
