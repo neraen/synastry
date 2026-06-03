@@ -860,8 +860,9 @@ PROMPT;
     /**
      * Auto-correction loop (max 2 LLM passes). If violations remain, apply a
      * minimal mechanical scrub and log the case so the lexicon can be tuned.
+     * Public: reused field-by-field by the daily horoscope generator.
      */
-    private function corrigerViolations(string $texte): string
+    public function corrigerViolations(string $texte): string
     {
         for ($pass = 0; $pass < 2; $pass++) {
             $violations = $this->linterLyra($texte);

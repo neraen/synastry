@@ -10,6 +10,7 @@ use App\Repository\CosmicHeadlineRepository;
 use App\Repository\DailyHoroscopeRepository;
 use App\Service\Webservice\OpenAiService;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 class HoroscopeGeneratorService
 {
@@ -58,6 +59,7 @@ class HoroscopeGeneratorService
         private DailyHoroscopeRepository $dailyHoroscopeRepository,
         private CosmicHeadlineRepository $cosmicHeadlineRepository,
         private EntityManagerInterface $entityManager,
+        private LoggerInterface $horoscopeLogger,
     ) {
         $this->localeService = new PromptLocaleService();
     }
@@ -360,6 +362,22 @@ PROMPT;
         $transits = $this->buildTransitsArray();
         $brief = $this->genererBriefHoroscope($natal, $transits, $this->formatDateFr());
 
+        // Diagnostic: log the exact brief sent to the LLM + which angles are null
+        // (distinguishes a selection bug from a genuinely quiet day).
+        $this->horoscopeLogger->info('horoscope.brief', [
+            'user_id'           => $user->getId(),
+            'date'              => $brief['date'] ?? null,
+            'angle_principal'   => $brief['angle_principal'],
+            'angle_relationnel' => $brief['angle_relationnel'],
+            'couleur_du_jour'   => $brief['couleur_du_jour'],
+            'baseline'          => $brief['baseline'],
+            'null_flags'        => [
+                'angle_principal'   => $brief['angle_principal'] === null,
+                'angle_relationnel' => $brief['angle_relationnel'] === null,
+                'couleur_du_jour'   => $brief['couleur_du_jour'] === null,
+            ],
+        ]);
+
         // Call LLM with brief as user prompt
         $userPrompt = json_encode($brief, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         $response = $this->openAiService->generateDailyHoroscope($userPrompt);
@@ -369,6 +387,15 @@ PROMPT;
         }
 
         $horoscopeContent = $response['content'];
+
+        // Enforce banned-term lexicon on every generated field (reuses the Lyra
+        // linter: lint -> rewrite 2 passes -> mechanical scrub). Same lyra_bannis.json.
+        foreach (['title', 'overview', 'love', 'energy', 'advice'] as $field) {
+            if (!empty($horoscopeContent[$field]) && is_string($horoscopeContent[$field])) {
+                $horoscopeContent[$field] = $this->openAiService->corrigerViolations($horoscopeContent[$field]);
+            }
+        }
+
         $isEnglish = $this->localeService->getLocale() === 'en';
         $defaultTitle = $isEnglish ? 'Your daily horoscope' : 'Votre horoscope du jour';
 

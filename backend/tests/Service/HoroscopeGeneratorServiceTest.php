@@ -12,6 +12,7 @@ use App\Service\HoroscopeGeneratorService;
 use App\Service\Webservice\OpenAiService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 class HoroscopeGeneratorServiceTest extends TestCase
 {
@@ -35,7 +36,8 @@ class HoroscopeGeneratorServiceTest extends TestCase
             $this->openAiService,
             $this->dailyHoroscopeRepository,
             $this->cosmicHeadlineRepository,
-            $this->entityManager
+            $this->entityManager,
+            new NullLogger()
         );
         
         $this->service->setLocale('fr');
@@ -115,6 +117,9 @@ class HoroscopeGeneratorServiceTest extends TestCase
                     'advice' => 'Advice test'
                 ]
             ]);
+
+        // Linter pass-through: identity (its own logic is covered elsewhere)
+        $this->openAiService->method('corrigerViolations')->willReturnArgument(0);
 
         $this->entityManager->expects($this->once())->method('persist');
         $this->entityManager->expects($this->once())->method('flush');
