@@ -108,6 +108,15 @@ export default function TabsLayout() {
             <Tabs.Screen name="mirror" options={{ href: null }} />
             <Tabs.Screen name="history" options={{ href: null }} />
             <Tabs.Screen name="profile" options={{ href: null }} />
+            <Tabs.Screen name="natal-chart-analysis" options={{ href: null }} />
+            <Tabs.Screen name="natal-chart-section" options={{ href: null }} />
+            <Tabs.Screen name="natal-chart-wheel" options={{ href: null }} />
+            <Tabs.Screen name="compatibility-result" options={{ href: null }} />
+            <Tabs.Screen name="compatibility-result-v2" options={{ href: null }} />
+            <Tabs.Screen name="partner-chart" options={{ href: null }} />
+            <Tabs.Screen name="chat-history" options={{ href: null }} />
+            <Tabs.Screen name="notification-preferences" options={{ href: null }} />
+            <Tabs.Screen name="help" options={{ href: null }} />
         </Tabs>
     );
 }

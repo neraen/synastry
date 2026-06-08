@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import i18n from 'i18next';
-import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip, HelpModal, FeedbackThumbs } from '@/components/ui';
+import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip, HelpModal, FeedbackThumbs, TabHeader } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
@@ -205,13 +205,8 @@ export default function NatalChartAnalysisScreen() {
     }, [router]);
 
     return (
-        <Screen variant="scroll" backgroundColor={colors.surfaceLowest}>
-            {/* Back button */}
-            <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-                    <Feather name="arrow-left" size={20} color={colors.onSurface} />
-                </Pressable>
-            </View>
+        <Screen variant="scroll" backgroundColor={colors.surfaceLowest} edges={['top']}>
+            <TabHeader onBack={() => router.back()} />
 
             {/* ── Hero zone ──────────────────────────────────────────────── */}
             <View style={styles.hero}>

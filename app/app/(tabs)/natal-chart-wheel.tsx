@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { AstralHero } from '@/components/astral/AstralHero';
-import { GlassCard, GoldButton } from '@/components/ui';
+import { GlassCard, GoldButton, TabHeader } from '@/components/ui';
 import { getNatalChart } from '@/services/astrology';
 import { colors, fonts, spacing } from '@/theme';
 
@@ -58,12 +58,7 @@ export default function NatalChartWheelScreen() {
                 contentContainerStyle={[s.scrollContent, { paddingBottom: 48 + insets.bottom }]}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── Topbar ──────────────────────────────────────────────── */}
-                <View style={s.topbar}>
-                    <Pressable onPress={() => router.back()} hitSlop={12} style={s.backBtn}>
-                        <Feather name="arrow-left" size={20} color={T.text} />
-                    </Pressable>
-                </View>
+                <TabHeader onBack={() => router.back()} />
 
                 {/* ── Chip ────────────────────────────────────────────────── */}
                 <View style={s.chipRow}>

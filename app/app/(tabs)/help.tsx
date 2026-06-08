@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fonts } from '@/theme';
+import { TabHeader } from '@/components/ui';
 
 // ─── Content ──────────────────────────────────────────────────────────────────
 
@@ -167,19 +168,13 @@ export default function HelpScreen() {
     return (
         <View style={styles.root}>
             <SafeAreaView style={styles.safe} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
-                        <Feather name="arrow-left" size={18} color={colors.onSurfaceMuted} />
-                    </Pressable>
-                    <Text style={styles.headerTitle}>{fr ? 'Centre d\'aide' : 'Help Center'}</Text>
-                    <View style={styles.backBtn} />
-                </View>
+                <TabHeader onBack={() => router.back()} />
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                 >
+                    <Text style={styles.pageTitle}>{fr ? 'Centre d\'aide' : 'Help Center'}</Text>
                     <Text style={styles.intro}>
                         {fr
                             ? "Tout ce que vous devez savoir sur Lunestia et l'astrologie."
@@ -454,5 +449,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: radius.full,
+    },
+    pageTitle: {
+        fontFamily: fonts.display.bold,
+        fontSize: 32,
+        color: colors.onSurface,
+        marginBottom: spacing.md,
     },
 });

@@ -79,6 +79,9 @@ export interface CitySearchResult {
     longitude: number;
     timezone: number;
     timezoneName: string; // Store the timezone name for accurate historical calculations
+    admin1?: string;
+    admin2?: string;
+    postcode?: string;
 }
 
 /**
@@ -110,6 +113,9 @@ export async function searchCities(query: string): Promise<CitySearchResult[]> {
             latitude: number;
             longitude: number;
             timezone: string;
+            admin1?: string;
+            admin2?: string;
+            postcodes?: string[];
         }) => ({
             name: r.name,
             country: r.country,
@@ -117,6 +123,9 @@ export async function searchCities(query: string): Promise<CitySearchResult[]> {
             longitude: r.longitude,
             timezone: getTimezoneOffset(r.timezone), // Default to current offset
             timezoneName: r.timezone, // Store name for later recalculation
+            admin1: r.admin1,
+            admin2: r.admin2,
+            postcode: r.postcodes && r.postcodes.length > 0 ? r.postcodes[0] : undefined,
         }));
     } catch {
         return [];

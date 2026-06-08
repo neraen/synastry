@@ -229,16 +229,12 @@ export async function checkPremiumStatus(): Promise<boolean> {
 
 // ─── Backend sync ─────────────────────────────────────────────────────────────
 
-/**
- * Call the backend verify endpoint after a successful purchase.
- * The backend confirms the entitlement with the RC REST API and updates isPremium.
- * Must be called before refreshUser() so the profile fetch returns the updated status.
- */
-export async function verifyPremiumWithBackend(): Promise<void> {
+export async function verifyPremiumWithBackend(): Promise<any> {
     try {
-        await api.post('/api/purchases/verify', {});
+        return await api.post('/api/purchases/verify', {});
     } catch (e) {
         console.warn('[Purchases] verifyPremiumWithBackend failed:', e);
+        return null;
     }
 }
 

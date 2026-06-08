@@ -23,6 +23,15 @@ import { Feather } from '@expo/vector-icons';
 import { searchCities, CitySearchResult } from '@/services/birthProfile';
 import { colors, spacing, radius, fonts } from '@/theme';
 
+const getCityContext = (item: CitySearchResult) => {
+    const parts = [];
+    if (item.postcode) parts.push(item.postcode);
+    if (item.admin2) parts.push(item.admin2);
+    if (item.admin1 && item.admin1 !== item.admin2) parts.push(item.admin1);
+    if (item.country) parts.push(item.country);
+    return parts.length > 0 ? parts.join(', ') : item.country;
+};
+
 const ROW_HEIGHT = 68;
 
 interface CityAutocompleteProps {
@@ -195,7 +204,7 @@ export function CityAutocomplete({
                         >
                             <View style={styles.resultTexts}>
                                 <Text style={styles.cityName}>{item.name}</Text>
-                                <Text style={styles.cityCountry}>{item.country}</Text>
+                                <Text style={styles.cityCountry}>{getCityContext(item)}</Text>
                             </View>
                             <Text style={styles.arrow}>→</Text>
                         </TouchableOpacity>

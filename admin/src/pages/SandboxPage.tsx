@@ -189,6 +189,9 @@ interface CityResult {
   latitude: number;
   longitude: number;
   timezoneName: string;
+  admin1?: string;
+  admin2?: string;
+  postcode?: string;
 }
 
 async function searchCities(query: string): Promise<CityResult[]> {
@@ -199,12 +202,24 @@ async function searchCities(query: string): Promise<CityResult[]> {
     );
     const data = await res.json();
     if (!data.results) return [];
-    return data.results.map((r: { name: string; country: string; latitude: number; longitude: number; timezone: string }) => ({
+    return data.results.map((r: {
+      name: string;
+      country: string;
+      latitude: number;
+      longitude: number;
+      timezone: string;
+      admin1?: string;
+      admin2?: string;
+      postcodes?: string[];
+    }) => ({
       name: r.name,
       country: r.country,
       latitude: r.latitude,
       longitude: r.longitude,
       timezoneName: r.timezone,
+      admin1: r.admin1,
+      admin2: r.admin2,
+      postcode: r.postcodes && r.postcodes.length > 0 ? r.postcodes[0] : undefined,
     }));
   } catch {
     return [];
@@ -220,6 +235,15 @@ function getTimezoneOffset(timezoneName: string, dateString?: string): number {
   } catch {
     return 0;
   }
+}
+
+function getCityContext(city: CityResult) {
+  const parts = [];
+  if (city.postcode) parts.push(city.postcode);
+  if (city.admin2) parts.push(city.admin2);
+  if (city.admin1 && city.admin1 !== city.admin2) parts.push(city.admin1);
+  if (city.country) parts.push(city.country);
+  return parts.length > 0 ? parts.join(', ') : city.country;
 }
 
 function CityPicker({
@@ -296,7 +320,7 @@ function CityPicker({
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               <span style={{ fontSize: 13, color: 'var(--text-col)', fontWeight: 600 }}>{city.name}</span>
-              <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>{city.country}</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>{getCityContext(city)}</span>
             </div>
           ))}
         </div>

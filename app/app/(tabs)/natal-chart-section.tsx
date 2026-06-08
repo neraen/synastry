@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip } from '@/components/ui';
+import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip, TabHeader } from '@/components/ui';
 import { LoaderZodiac } from '@/components/loaders';
 import { usePremium } from '@/hooks/usePremium';
 import {
@@ -205,17 +205,12 @@ export default function NatalChartSectionScreen() {
     };
 
     return (
-        <Screen variant="scroll" backgroundColor={colors.surfaceLowest}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-                    <Feather name="arrow-left" size={20} color={colors.onSurface} />
-                </Pressable>
-                <View style={styles.headerTitleWrap}>
-                    <Text style={styles.headerEmoji}>{sectionEmoji}</Text>
-                    <Text style={styles.headerTitle}>{sectionLabel}</Text>
-                </View>
-                <View style={{ width: 36 }} />
+        <Screen variant="scroll" backgroundColor={colors.surfaceLowest} edges={['top']}>
+            <TabHeader onBack={() => router.back()} />
+
+            <View style={styles.titleRow}>
+                <Text style={styles.titleEmoji}>{sectionEmoji}</Text>
+                <Text style={styles.titleText}>{sectionLabel}</Text>
             </View>
 
             {/* Chips */}
@@ -273,7 +268,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
     },
     headerTitle: {
-        fontFamily: fonts.display.semiBold,
+        fontFamily: fonts.display.medium,
         fontSize: 18,
         color: colors.onSurface,
     },
@@ -390,7 +385,7 @@ const styles = StyleSheet.create({
         fontSize: 36,
     },
     premiumTitle: {
-        fontFamily: fonts.display.semiBold,
+        fontFamily: fonts.display.medium,
         fontSize: 22,
         color: colors.onSurface,
         marginBottom: spacing.md,
@@ -401,5 +396,20 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         color: colors.onSurfaceMuted,
         textAlign: 'center',
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        marginTop: spacing.md,
+        marginBottom: spacing.lg,
+    },
+    titleEmoji: {
+        fontSize: 24,
+    },
+    titleText: {
+        fontFamily: fonts.display.bold,
+        fontSize: 24,
+        color: colors.onSurface,
     },
 });

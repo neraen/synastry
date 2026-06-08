@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { colors, fonts, spacing } from '@/theme';
-import { Starfield } from '@/components/ui';
+import { Starfield, TabHeader } from '@/components/ui';
 import { FullPageLoader } from '@/components/loaders';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -45,7 +45,7 @@ export default function CompatibilityResultV2Screen() {
         }
 
         const historyId = parseInt(id, 10);
-        const userName = user?.firstName || user?.email?.split('@')[0] || 'Moi';
+        const userName = user?.birthProfile?.firstName || user?.email?.split('@')[0] || 'Moi';
 
         getSynastryHistoryDetail(historyId)
             .then((res) => {
@@ -102,13 +102,7 @@ export default function CompatibilityResultV2Screen() {
         <View style={styles.screen}>
             <Starfield />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
-                <View style={styles.header}>
-                    <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-                        <Feather name="arrow-left" size={20} color={colors.onSurface} />
-                    </Pressable>
-                    <Text style={styles.headerTitle}>Compatibilité</Text>
-                    <View style={styles.iconBtn} />
-                </View>
+                <TabHeader onBack={() => router.back()} />
 
                 {data && (
                 <ScrollView

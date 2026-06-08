@@ -28,7 +28,7 @@ interface AuthContextType {
     register: (data: RegisterData) => Promise<void>;
     logout: () => Promise<void>;
     deleteAccount: () => Promise<void>;
-    refreshUser: () => Promise<void>;
+    refreshUser: () => Promise<User | null>;
     loginWithGoogle: (idToken: string) => Promise<User>;
     loginWithApple: (idToken: string, userInfo?: { email?: string; fullName?: { givenName?: string; familyName?: string } }) => Promise<User>;
 }
@@ -125,7 +125,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }, [user?.id]);
 
-    const refreshUser = useCallback(async () => {
+    const refreshUser = useCallback(async (): Promise<User | null> => {
         try {
             // Fetch fresh user data from the API
             const freshUser = await fetchProfile();
@@ -133,6 +133,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             await SecureStore.setItemAsync('astromatch_user', JSON.stringify(freshUser));
             // Update state
             setUser(freshUser);
+            return freshUser;
         } catch (error: unknown) {
             console.error('Error refreshing user:', error);
             // Check if it's an auth error
@@ -144,10 +145,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 // Session expired - logout
                 await authLogout();
                 setUser(null);
+                return null;
             } else {
                 // Other error - fallback to stored user
                 const storedUser = await getStoredUser();
                 setUser(storedUser);
+                return storedUser;
             }
         }
     }, []);

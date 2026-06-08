@@ -97,7 +97,15 @@ class WebhookController extends AbstractController
         } elseif (in_array($eventType, self::RENEWAL_EVENTS, true)) {
             $this->premiumService->renew($appUserId, $expiresAt ?? new \DateTime('+1 month'));
         } elseif (in_array($eventType, self::DEACTIVATE_EVENTS, true)) {
-            $this->premiumService->deactivate($appUserId);
+            // CANCELLATION events are sent when the subscription is cancelled (either auto-renew off
+            // or immediate refund). If it's a simple UNSUBSCRIBE, the entitlement remains active until expiresAt.
+            if ($eventType === 'CANCELLATION' && ($event['cancellation_reason'] ?? '') === 'UNSUBSCRIBE') {
+                if ($expiresAt) {
+                    $this->premiumService->renew($appUserId, $expiresAt);
+                }
+            } else {
+                $this->premiumService->deactivate($appUserId);
+            }
         }
         // Unknown events are silently accepted (RC expects a 2xx)
 

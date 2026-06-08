@@ -12,7 +12,7 @@ import { colors } from '@/theme';
 export default function Explore() {
     const { t } = useTranslation();
     return (
-        <Screen variant="static" backgroundColor={colors.surfaceLowest}>
+        <Screen variant="static" backgroundColor={colors.surfaceLowest} edges={['top']}>
             <EmptyState
                 title={t('explore.comingSoon')}
                 description={t('explore.description')}

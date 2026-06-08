@@ -16,7 +16,7 @@ import {
     updateNotificationPreferences,
     NotificationPreferences,
 } from '@/services/pushNotifications';
-import { GlassCard } from '@/components/ui';
+import { GlassCard, TabHeader } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 
 export default function NotificationPreferencesScreen() {
@@ -53,11 +53,7 @@ export default function NotificationPreferencesScreen() {
         return (
             <View style={styles.screen}>
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
-                    <View style={styles.headerRow}>
-                        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-                            <Feather name="arrow-left" size={22} color={colors.onSurface} />
-                        </Pressable>
-                    </View>
+                    <TabHeader onBack={() => router.back()} />
                     <View style={styles.centered}>
                         <ActivityIndicator color={colors.primary} size="large" />
                     </View>
@@ -71,12 +67,12 @@ export default function NotificationPreferencesScreen() {
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-                    <View style={styles.headerRow}>
-                        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-                            <Feather name="arrow-left" size={22} color={colors.onSurface} />
-                        </Pressable>
+                    <View>
+                        <TabHeader onBack={() => router.back()} />
                         {isSaving && (
-                            <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 'auto', marginRight: 4 }} />
+                            <View style={styles.savingIndicator} pointerEvents="none">
+                                <ActivityIndicator size="small" color={colors.primary} />
+                            </View>
                         )}
                     </View>
 
@@ -322,5 +318,14 @@ const styles = StyleSheet.create({
     },
     hourChipTextActive: {
         color: colors.primary,
+    },
+    savingIndicator: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

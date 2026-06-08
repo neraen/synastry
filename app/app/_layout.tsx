@@ -171,19 +171,10 @@ export default function RootLayout() {
                         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
                         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
                         <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
-                        <Stack.Screen name="chat-history" options={{ headerShown: false }} />
-                        <Stack.Screen name="partner-chart" options={{ headerShown: false }} />
-                        <Stack.Screen name="notification-preferences" options={{ headerShown: false }} />
-                        <Stack.Screen name="compatibility-result" options={{ headerShown: false }} />
-                        <Stack.Screen name="compatibility-result-v2" options={{ headerShown: false }} />
                         <Stack.Screen name="share-card-v2" options={{ headerShown: false, presentation: 'modal' }} />
-                        <Stack.Screen name="natal-chart-analysis" options={{ headerShown: false }} />
-                        <Stack.Screen name="natal-chart-section" options={{ headerShown: false }} />
                         <Stack.Screen name="astral-hero" options={{ headerShown: false }} />
-                        <Stack.Screen name="natal-chart-wheel" options={{ headerShown: false }} />
                         <Stack.Screen name="theme-natal-design" options={{ headerShown: false }} />
                         <Stack.Screen name="test-theme-natal-4" options={{ headerShown: false }} />
-                        <Stack.Screen name="help" options={{ headerShown: false }} />
                         <Stack.Screen name="loaders-showcase" options={{ headerShown: false }} />
                         <Stack.Screen name="loader-zodiac" options={{ headerShown: false }} />
                         <Stack.Screen name="loader-saturn" options={{ headerShown: false }} />

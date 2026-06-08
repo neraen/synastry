@@ -19,6 +19,7 @@ import {
     CopyableText,
     FormattedText,
     ScoreRow,
+    TabHeader,
 } from '@/components/ui';
 import {
     getSynastryHistoryDetail,
@@ -98,11 +99,7 @@ export default function CompatibilityResultScreen() {
         return (
             <View style={styles.screen}>
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
-                    <View style={styles.headerRow}>
-                        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-                            <Feather name="arrow-left" size={22} color={colors.onSurface} />
-                        </Pressable>
-                    </View>
+                    <TabHeader onBack={() => router.back()} />
                     <View style={styles.centered}>
                         <ActivityIndicator color={colors.primary} size="large" />
                     </View>
@@ -115,11 +112,7 @@ export default function CompatibilityResultScreen() {
         return (
             <View style={styles.screen}>
                 <SafeAreaView style={styles.safeArea} edges={['top']}>
-                    <View style={styles.headerRow}>
-                        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-                            <Feather name="arrow-left" size={22} color={colors.onSurface} />
-                        </Pressable>
-                    </View>
+                    <TabHeader onBack={() => router.back()} />
                     <View style={styles.centered}>
                         <Text style={styles.errorText}>Résultat introuvable.</Text>
                         <GhostButton label="Retour" onPress={() => router.back()} />
@@ -139,12 +132,7 @@ export default function CompatibilityResultScreen() {
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-                    {/* Back button */}
-                    <View style={styles.headerRow}>
-                        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-                            <Feather name="arrow-left" size={22} color={colors.onSurface} />
-                        </Pressable>
-                    </View>
+                    <TabHeader onBack={() => router.back()} />
 
                     {/* Hero */}
                     <View style={styles.hero}>

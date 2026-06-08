@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { GlassCard, FormattedText, Starfield, CelestialChip } from '@/components/ui';
+import { GlassCard, FormattedText, Starfield, CelestialChip, TabHeader } from '@/components/ui';
 import { FullPageLoader } from '@/components/loaders';
 import { AstralHero } from '@/components/astral/AstralHero';
 import { getPartnerSummary, PlanetPosition, SynthesisData, SynthesisAxis } from '@/services/astrology';
@@ -72,12 +72,7 @@ export default function PartnerChartScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Back button */}
-                    <View style={styles.headerRow}>
-                        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-                            <Feather name="arrow-left" size={20} color={colors.onSurface} />
-                        </Pressable>
-                    </View>
+                    <TabHeader onBack={() => router.back()} />
 
                     {/* Chip */}
                     <View style={styles.chipRow}>

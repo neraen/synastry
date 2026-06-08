@@ -498,11 +498,9 @@ export default function ChatScreen() {
                             <Feather name="bookmark" size={20} color={colors.onSurface} />
                         </Pressable>
                     )}
-                    {isPremium && (
-                        <Pressable onPress={() => router.push('/chat-history')} hitSlop={10}>
-                            <Feather name="clock" size={20} color={colors.onSurface} />
-                        </Pressable>
-                    )}
+                    <Pressable onPress={() => router.push('/chat-history')} hitSlop={10}>
+                        <Feather name="clock" size={20} color={colors.onSurface} />
+                    </Pressable>
                 </View>
             </View>
 

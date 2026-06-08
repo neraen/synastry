@@ -134,6 +134,10 @@ class NatalChartAnalysisService
             return null;
         }
 
+        // Re-fetch record to avoid race conditions with concurrent requests
+        // (e.g. background pre-generation and user manual click)
+        $record = $this->sectionRepository->findByUserAndSection($user, $section);
+
         // Persist (insert or update)
         if ($record === null) {
             $record = new NatalChartSection();
@@ -145,7 +149,15 @@ class NatalChartAnalysisService
         $record->setChartHash($chartHash);
         $record->setContent($content);
         $record->setGeneratedAt(new \DateTime());
-        $this->em->flush();
+
+        try {
+            $this->em->flush();
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+            // If another request inserted the row in the tiny gap between our check and flush,
+            // the database unique constraint user_section_unique will throw this exception.
+            // Since the record is now successfully persisted by the other thread,
+            // we can safely ignore the exception and return our generated content.
+        }
 
         return $content;
     }

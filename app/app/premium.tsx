@@ -254,8 +254,27 @@ export default function PremiumScreen() {
                 // Always verify with backend — on Google Play the local
                 // entitlement may not be active yet due to propagation delay
                 await verifyPremiumWithBackend();
-                await refreshUser();
-                router.back();
+                const freshUser = await refreshUser();
+
+                const premiumUntil = freshUser?.premiumUntil;
+                const formattedDate = premiumUntil
+                    ? new Date(premiumUntil).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : null;
+
+                const message = formattedDate
+                    ? t('premium.successMessageWithDate', { date: formattedDate })
+                    : t('premium.successMessageDefault');
+
+                Alert.alert(
+                    t('premium.successTitle'),
+                    message,
+                    [
+                        {
+                            text: t('common.done'),
+                            onPress: () => router.back()
+                        }
+                    ]
+                );
             } else if (result.error) {
                 Alert.alert(t('common.error'), result.error);
             }
@@ -270,9 +289,27 @@ export default function PremiumScreen() {
             const result = await restorePurchases();
             if (result.isPremium) {
                 await verifyPremiumWithBackend();
-                await refreshUser();
-                Alert.alert(t('premium.restoreSuccess'), t('premium.restoreSuccessMsg'));
-                router.back();
+                const freshUser = await refreshUser();
+
+                const premiumUntil = freshUser?.premiumUntil;
+                const formattedDate = premiumUntil
+                    ? new Date(premiumUntil).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : null;
+
+                const message = formattedDate
+                    ? t('premium.successMessageWithDate', { date: formattedDate })
+                    : t('premium.restoreSuccessMsg');
+
+                Alert.alert(
+                    t('premium.restoreSuccess'),
+                    message,
+                    [
+                        {
+                            text: t('common.done'),
+                            onPress: () => router.back()
+                        }
+                    ]
+                );
             } else {
                 Alert.alert(t('premium.restoreNone'), result.error ?? t('premium.restoreNoneDefault'));
             }
