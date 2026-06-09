@@ -28,7 +28,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, radius, fonts } from '@/theme';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { usePremium } from '@/hooks/usePremium';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -375,6 +375,26 @@ export default function ChatScreen() {
         }
     }, []);
 
+    // A new conversation needs a subject: re-open the picker whenever the chat tab
+    // regains focus without a topic chosen (e.g. after backing out and returning).
+    useFocusEffect(
+        useCallback(() => {
+            if (!paramSessionId && !topic) {
+                setTopicModalVisible(true);
+            }
+        }, [paramSessionId, topic])
+    );
+
+    // Leave the topic picker without choosing: go back if possible, else to the home tab.
+    const handleTopicBack = useCallback(() => {
+        setTopicModalVisible(false);
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/(tabs)/horoscope');
+        }
+    }, []);
+
     const handleNewChat = useCallback(() => {
         if (paramSessionId) {
             router.setParams({ sessionId: '' });
@@ -529,8 +549,9 @@ export default function ChatScreen() {
                     <Text style={styles.headerName}>{t('chat.astrologerName')}</Text>
                     {topic && topic !== 'libre' ? (
                         <View style={styles.topicBadge}>
+                            <Feather name={TOPIC_META[topic].icon} size={11} color={colors.primary} />
                             <Text style={styles.topicBadgeText}>
-                                {TOPIC_META[topic].emoji} {TOPIC_META[topic].label}
+                                {TOPIC_META[topic].label}
                             </Text>
                         </View>
                     ) : (
@@ -580,11 +601,7 @@ export default function ChatScreen() {
                     onContentSizeChange={scrollToBottom}
                     onLayout={scrollToBottom}
                     showsVerticalScrollIndicator={false}
-                    ListFooterComponent={
-                        suggestions.length > 0
-                            ? <SuggestionChips suggestions={suggestions} onSelect={handleChipSelect} />
-                            : (isTyping ? <TypingIndicator /> : null)
-                    }
+                    ListFooterComponent={isTyping ? <TypingIndicator /> : null}
                 />
 
                 {/* Active partner chip */}
@@ -618,6 +635,11 @@ export default function ChatScreen() {
                             <Text style={styles.limitCounterCta}>{t('premium.trialCta')}</Text>
                         </TouchableOpacity>
                     </View>
+                )}
+
+                {/* Suggestion chips — just above the input bar, cleared on first send/typing */}
+                {suggestions.length > 0 && (
+                    <SuggestionChips suggestions={suggestions} onSelect={handleChipSelect} />
                 )}
 
                 {/* Input bar */}
@@ -688,6 +710,7 @@ export default function ChatScreen() {
             <TopicSelectorModal
                 visible={topicModalVisible}
                 onSelect={handleSelectTopic}
+                onBack={handleTopicBack}
             />
 
             <PartnerPickerModal
@@ -763,6 +786,9 @@ const styles = StyleSheet.create({
     headerName: { fontFamily: fonts.display.regular, fontSize: 17, color: colors.onSurface },
     headerStatus: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted, marginTop: 1 },
     topicBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
         alignSelf: 'flex-start',
         marginTop: 3,
         backgroundColor: `${colors.primary}33`,

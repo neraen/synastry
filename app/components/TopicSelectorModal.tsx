@@ -8,6 +8,7 @@
 
 import React from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing, radius } from '@/theme';
 import { TOPICS, TopicLyra } from '@/constants/topics';
@@ -15,9 +16,12 @@ import { TOPICS, TopicLyra } from '@/constants/topics';
 export function TopicSelectorModal({
     visible,
     onSelect,
+    onBack,
 }: {
     visible: boolean;
     onSelect: (topic: TopicLyra) => void;
+    /** Optional: leave the picker without choosing (back arrow + hardware back). */
+    onBack?: () => void;
 }) {
     const handlePick = (topic: TopicLyra) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -29,12 +33,19 @@ export function TopicSelectorModal({
             visible={visible}
             transparent
             animationType="fade"
-            // Selection is mandatory: ignore Android back / system dismissal.
-            onRequestClose={() => {}}
+            // Hardware/system back leaves the picker if a handler is provided, else no-op.
+            onRequestClose={() => onBack?.()}
         >
             <View style={styles.overlay}>
                 <View style={styles.card}>
-                    <Text style={styles.title}>De quoi veux-tu parler ?</Text>
+                    <View style={styles.header}>
+                        {onBack ? (
+                            <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
+                                <Feather name="arrow-left" size={22} color={colors.onSurface} />
+                            </Pressable>
+                        ) : null}
+                        <Text style={styles.title}>De quoi veux-tu parler ?</Text>
+                    </View>
 
                     <View style={styles.grid}>
                         {TOPICS.map((topic) => (
@@ -45,7 +56,13 @@ export function TopicSelectorModal({
                             >
                                 {({ pressed }) => (
                                     <>
-                                        <Text style={styles.tileEmoji}>{topic.emoji}</Text>
+                                        <View style={[styles.iconHalo, pressed && styles.iconHaloPressed]}>
+                                            <Feather
+                                                name={topic.icon}
+                                                size={24}
+                                                color={pressed ? colors.surfaceLowest : colors.primary}
+                                            />
+                                        </View>
                                         <Text style={[styles.tileLabel, pressed && styles.tileLabelPressed]}>
                                             {topic.label}
                                         </Text>
@@ -76,12 +93,24 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
     },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.xl,
+    },
+    backBtn: {
+        position: 'absolute',
+        left: 0,
+        padding: spacing.xs,
+    },
     title: {
         fontFamily: fonts.display.regular,
         fontSize: 22,
         color: colors.onSurface,
         textAlign: 'center',
-        marginBottom: spacing.xl,
+        // Keep the centered title clear of the back arrow on narrow screens.
+        paddingHorizontal: spacing.xl,
     },
     grid: {
         flexDirection: 'row',
@@ -91,12 +120,13 @@ const styles = StyleSheet.create({
     },
     tile: {
         width: '47%',
-        aspectRatio: 1.25,
+        aspectRatio: 1,
         backgroundColor: colors.surfaceContainerHigh,
         borderRadius: radius.md,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: spacing.sm,
+        gap: spacing.md,
+        paddingVertical: spacing.lg,
         borderWidth: 1,
         borderColor: 'transparent',
     },
@@ -104,8 +134,16 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primary,
         borderColor: colors.primary,
     },
-    tileEmoji: {
-        fontSize: 32,
+    iconHalo: {
+        width: 52,
+        height: 52,
+        borderRadius: radius.full,
+        backgroundColor: `${colors.primary}1f`,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    iconHaloPressed: {
+        backgroundColor: `${colors.surfaceLowest}26`,
     },
     tileLabel: {
         fontFamily: fonts.body.semiBold,
