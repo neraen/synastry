@@ -6,6 +6,7 @@ use App\DTO\DailyHoroscopeDTO;
 use App\Entity\CosmicHeadline;
 use App\Entity\DailyHoroscope;
 use App\Entity\User;
+use App\Enum\TopicLyra;
 use App\Repository\CosmicHeadlineRepository;
 use App\Repository\DailyHoroscopeRepository;
 use App\Service\Webservice\OpenAiService;
@@ -48,6 +49,39 @@ class HoroscopeGeneratorService
         'general' => ['cibles' => [],                                  'maisons' => []],
     ];
     private const SEUIL_PERTINENCE = 1.5;
+
+    // ── Lyra topic affinities (explicit subject chosen by the user) ───────────
+    // Keyed by TopicLyra->value. Drives the transit-scoring boost (×3) and bypasses
+    // classifierDomaine(). 'cibles' use the JSON-key naming (Soleil/Lune/Venus/Mars/
+    // Saturne/ASC/MC — the available natal targets); 'maisons' boost contacts whose
+    // touched natal point sits in those houses. ASTROLOGIE = no filter (all transits).
+    private const TOPIC_AFFINITE = [
+        'amour'       => ['cibles' => ['Venus', 'Mars', 'Lune'],            'maisons' => [5, 7, 8]],
+        'argent'      => ['cibles' => ['Venus', 'Saturne'],                 'maisons' => [2, 8, 11]],
+        'travail'     => ['cibles' => ['Saturne', 'Mars', 'Soleil', 'MC'], 'maisons' => [6, 10]],
+        'astrologie'  => ['cibles' => [],                                   'maisons' => []],
+        'psychologie' => ['cibles' => ['Soleil', 'Lune', 'Saturne', 'ASC'], 'maisons' => []],
+    ];
+    private const BOOST_TOPIC_EXPLICITE = 3.0;
+    private const BOOST_DOMAINE_CLASSIFIE = 2.0;
+
+    // Per-topic natal anchors to inject into the prompt, beyond the 3 base ancrages.
+    // Each entry is [English planet key in the chart payload, French label].
+    // Houses to surface (cusp sign + planets) are listed separately.
+    private const TOPIC_NATAL_PLANETES = [
+        'amour'       => [['Venus', 'Vénus'], ['Mars', 'Mars'], ['Moon', 'Lune']],
+        'argent'      => [['Venus', 'Vénus'], ['Jupiter', 'Jupiter'], ['Saturn', 'Saturne']],
+        'travail'     => [['Sun', 'Soleil'], ['Saturn', 'Saturne'], ['Mars', 'Mars']],
+        'astrologie'  => [],
+        'psychologie' => [['Sun', 'Soleil'], ['Moon', 'Lune'], ['Saturn', 'Saturne'], ['Pluto', 'Pluton']],
+    ];
+    private const TOPIC_NATAL_MAISONS = [
+        'amour'       => [['7', 'relations'], ['5', 'plaisir et désir']],
+        'argent'      => [['2', 'ressources et valeurs'], ['8', 'ressources partagées']],
+        'travail'     => [['10', 'carrière'], ['6', 'travail quotidien']],
+        'astrologie'  => [],
+        'psychologie' => [['1', 'identité']],
+    ];
 
     private PromptLocaleService $localeService;
     private ?array $transitsTable = null;
@@ -905,15 +939,31 @@ PROMPT;
     /**
      * Build structured Lyra chat context: grounded transits + 3 natal ancrages.
      */
-    public function buildLyraContext(User $user, ?string $question = null): array
+    public function buildLyraContext(User $user, ?string $question = null, ?TopicLyra $topic = null): array
     {
-        $domaine  = $this->classifierDomaine((string) $question);
-        $affinite = self::DOMAINE_AFFINITE[$domaine] ?? self::DOMAINE_AFFINITE['general'];
+        // An explicit subject (everything but LIBRE) drives a deterministic selection
+        // and boost (×3). classifierDomaine() is kept ONLY for the LIBRE topic — the
+        // other topics use the deterministic per-topic affinity below.
+        $topicExplicite = $topic !== null && $topic !== TopicLyra::LIBRE;
+
+        if ($topicExplicite) {
+            $domaine  = $topic->value;
+            $affinite = self::TOPIC_AFFINITE[$topic->value] ?? self::DOMAINE_AFFINITE['general'];
+            $boost    = self::BOOST_TOPIC_EXPLICITE;
+        } else {
+            $domaine  = $this->classifierDomaine((string) $question);
+            $affinite = self::DOMAINE_AFFINITE[$domaine] ?? self::DOMAINE_AFFINITE['general'];
+            $boost    = self::BOOST_DOMAINE_CLASSIFIE;
+        }
+
+        // Astrologie = pedagogical mode: no thematic filter, jargon allowed.
+        $pedagogique = $topic === TopicLyra::ASTROLOGIE;
 
         $birthProfile = $user->getBirthProfile();
         if (!$birthProfile) {
             return [
                 'question_domaine' => $domaine,
+                'topic'            => $topic?->value,
                 'sujet_couvert'    => false,
                 'profil_natal'     => [],
                 'transits_actifs'  => [],
@@ -950,7 +1000,7 @@ PROMPT;
                     // Boost the transits whose target/house matches the question's domain (ajout 1)
                     $pertinent = in_array($cible, $affinite['cibles'], true)
                         || in_array($nData['maison'], $affinite['maisons'], true);
-                    if ($pertinent) $force *= 2.0;
+                    if ($pertinent) $force *= $boost;
 
                     $sep30 = PlanetaryCalculator::separation(
                         $transitsDans30j[$tPlanete]['longitude'],
@@ -975,8 +1025,9 @@ PROMPT;
         usort($actifs, fn($a, $b) => $b['force'] <=> $a['force']);
 
         // Carte muette (ajout 2) : after boost+sort, is the top domain-relevant transit strong enough?
-        // For an open/general question there is no specific subject to be mute about -> stay on normal ranking.
-        if ($domaine === 'general') {
+        // For an open/general question (or astrologie, which surveys the whole sky) there is no
+        // specific subject to be mute about -> stay on normal ranking.
+        if ($domaine === 'general' || $pedagogique) {
             $sujetCouvert = true;
         } else {
             $transitsDuDomaine = array_filter($actifs, fn($c) => $c['pertinent_domaine']);
@@ -984,15 +1035,27 @@ PROMPT;
                 && reset($transitsDuDomaine)['force'] >= self::SEUIL_PERTINENCE;
         }
 
+        $profilNatal = [
+            'lune'   => ($natal['Lune']['signe'] ?? '') . ' (maison ' . ($natal['Lune']['maison'] ?? '?') . ')',
+            'asc'    => $natal['ASC']['signe'] ?? '',
+            'soleil' => ($natal['Soleil']['signe'] ?? '') . ' (maison ' . ($natal['Soleil']['maison'] ?? '?') . ')',
+        ];
+
+        // Topic-specific natal anchors (richer positions + house cusps) for explicit topics.
+        if ($topicExplicite) {
+            $ancrages = $this->buildTopicNatalAncrages($natalCalc, $topic->value);
+            if (!empty($ancrages)) {
+                $profilNatal['ancrages_sujet'] = $ancrages;
+            }
+        }
+
         $contexte = [
             'question_domaine' => $domaine,
+            'topic'            => $topic?->value,
+            'mode_pedagogique' => $pedagogique,
             'sujet_couvert'    => $sujetCouvert,
-            'profil_natal' => [
-                'lune'   => ($natal['Lune']['signe'] ?? '') . ' (maison ' . ($natal['Lune']['maison'] ?? '?') . ')',
-                'asc'    => $natal['ASC']['signe'] ?? '',
-                'soleil' => ($natal['Soleil']['signe'] ?? '') . ' (maison ' . ($natal['Soleil']['maison'] ?? '?') . ')',
-            ],
-            'transits_actifs' => array_slice($actifs, 0, 5),
+            'profil_natal'     => $profilNatal,
+            'transits_actifs'  => array_slice($actifs, 0, 5),
         ];
 
         // Lean psy profile: noyau + the axis relevant to the classified domain.
@@ -1005,5 +1068,56 @@ PROMPT;
         }
 
         return $contexte;
+    }
+
+    /**
+     * Build extra natal anchors for an explicit topic: the topic-relevant planet
+     * positions plus the key house cusps (sign + occupants). Read from the full
+     * chart payload so houses and slow planets (Pluton…) are available even though
+     * they are not part of the transit-scoring NATAL_TARGETS.
+     *
+     * @return string[] Human-readable French lines, ready to drop into the prompt.
+     */
+    private function buildTopicNatalAncrages(PlanetaryCalculator $calc, string $topic): array
+    {
+        $payload = $calc->getFullChartPayload();
+        $lignes  = [];
+
+        foreach (self::TOPIC_NATAL_PLANETES[$topic] ?? [] as [$en, $labelFr]) {
+            $p = $payload['planets'][$en] ?? null;
+            if ($p === null) {
+                continue;
+            }
+            $signeFr = $this->signeEnToFr($p['sign'] ?? '');
+            $maison  = $p['house'] ?? null;
+            $lignes[] = $maison !== null
+                ? "{$labelFr} : {$signeFr} (maison {$maison})"
+                : "{$labelFr} : {$signeFr}";
+        }
+
+        foreach (self::TOPIC_NATAL_MAISONS[$topic] ?? [] as [$num, $themeFr]) {
+            $h = $payload['houses'][$num] ?? null;
+            if ($h === null) {
+                continue;
+            }
+            $signeFr   = $this->signeEnToFr($h['sign'] ?? '');
+            $occupants = array_map(
+                fn($en) => self::PLANET_TO_JSON_KEY[$en] ?? $en,
+                $h['planets'] ?? []
+            );
+            $ligne = "Maison {$num} ({$themeFr}) : {$signeFr}";
+            if (!empty($occupants)) {
+                $ligne .= ', planètes : ' . implode(', ', $occupants);
+            }
+            $lignes[] = $ligne;
+        }
+
+        return $lignes;
+    }
+
+    private function signeEnToFr(string $signEn): string
+    {
+        $idx = array_search($signEn, PlanetaryCalculator::SIGNS, true);
+        return $idx !== false ? PlanetaryCalculator::SIGNS_FR[$idx] : $signEn;
     }
 }

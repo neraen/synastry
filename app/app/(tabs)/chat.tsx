@@ -34,11 +34,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     sendChatMessageStream,
     getChatPartners,
+    getTopicIntro,
     ChatMessage,
     ChatPartner,
 } from '@/services/astrology';
 import * as FileSystem from 'expo-file-system';
 import { createChatSession, getChatSession, updateChatSession } from '@/services/chatSessions';
+import { TopicSelectorModal } from '@/components/TopicSelectorModal';
+import { SuggestionChips } from '@/components/SuggestionChips';
+import { TopicLyra, TOPIC_META } from '@/constants/topics';
 
 // ─── Typing indicator ─────────────────────────────────────────────────────────
 
@@ -245,6 +249,11 @@ export default function ChatScreen() {
     const [sessionId, setSessionId] = useState<number | null>(null);
     const [lastResponseId, setLastResponseId] = useState<string | null>(null);
     const [canReply, setCanReply] = useState(true);
+    // Conversation subject: chosen via the mandatory modal on a new chat, or restored
+    // from a saved session. null = not yet chosen (modal showing for a new conv).
+    const [topic, setTopic] = useState<TopicLyra | null>(null);
+    const [topicModalVisible, setTopicModalVisible] = useState(!paramSessionId);
+    const [suggestions, setSuggestions] = useState<string[]>([]);
     const [saveModalVisible, setSaveModalVisible] = useState(false);
     const [chatTitle, setChatTitle] = useState('');
     const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -294,6 +303,10 @@ export default function ChatScreen() {
                             if (res.session.partnerHistoryId) {
                                 setActivePartner({ id: res.session.partnerHistoryId, partnerName: 'Partenaire', compatibilityScore: null });
                             }
+                            // Restore the subject from the DB (source of truth); no modal on reload.
+                            if (res.session.topic) {
+                                setTopic(res.session.topic as TopicLyra);
+                            }
                         }
                         if (res.can_reply !== undefined) {
                             setCanReply(res.can_reply);
@@ -334,7 +347,7 @@ export default function ChatScreen() {
         if (!isPremium) return;
         const toSave = messages.filter(m => m.id !== WELCOME_ID).map(m => ({ role: m.role, content: m.content }));
         try {
-            const res = await createChatSession(chatTitle, toSave, activePartner?.id);
+            const res = await createChatSession(chatTitle, toSave, activePartner?.id, topic ?? undefined);
             if (res.success && res.id) {
                 setSessionId(res.id);
                 setSaveModalVisible(false);
@@ -343,6 +356,24 @@ export default function ChatScreen() {
             console.warn(e);
         }
     };
+
+    // Topic chosen in the mandatory selector: fetch the static welcome + chips,
+    // then start the conversation. The topic is sent with every subsequent message.
+    const handleSelectTopic = useCallback(async (selected: TopicLyra) => {
+        setTopic(selected);
+        setTopicModalVisible(false);
+        try {
+            const intro = await getTopicIntro(selected);
+            if (intro.success && intro.welcome_message) {
+                setMessages([
+                    { id: WELCOME_ID, role: 'assistant', content: intro.welcome_message, createdAt: new Date() },
+                ]);
+                setSuggestions(intro.suggestions ?? []);
+            }
+        } catch (e) {
+            console.warn('[Chat] getTopicIntro error:', e);
+        }
+    }, []);
 
     const handleNewChat = useCallback(() => {
         if (paramSessionId) {
@@ -361,15 +392,22 @@ export default function ChatScreen() {
         setActivePartner(null);
         setChatTitle('');
         setCanReply(true);
+        // Re-open the subject selector for the new conversation.
+        setTopic(null);
+        setSuggestions([]);
+        setTopicModalVisible(true);
     }, [paramSessionId, t]);
 
     const scrollToBottom = useCallback(() => {
         listRef.current?.scrollToEnd({ animated: true });
     }, []);
 
-    const handleSend = useCallback(async () => {
-        const text = inputText.trim();
+    const submitMessage = useCallback(async (rawText: string) => {
+        const text = rawText.trim();
         if (!text || isTyping || streamingMsgId) return;
+
+        // Any send dismisses the suggestion chips for good.
+        setSuggestions([]);
 
         // Non-premium: enforce 1 free use
         if (!isPremium && freeUsed && !dailyLimitReached) {
@@ -421,6 +459,7 @@ export default function ChatScreen() {
                 activePartner?.id,
                 lastResponseId ?? undefined,
                 (delta) => { twRef.current.target += delta; },
+                topic ?? undefined,
             );
 
             // Stream done — clear interval and fast-forward to full content
@@ -462,7 +501,10 @@ export default function ChatScreen() {
             setIsTyping(false);
             setStreamingMsgId(null);
         }
-    }, [inputText, isTyping, streamingMsgId, messages, activePartner, t, isPremium, freeUsed, dailyLimitReached]);
+    }, [isTyping, streamingMsgId, messages, activePartner, t, isPremium, freeUsed, dailyLimitReached, lastResponseId, sessionId, topic]);
+
+    const handleSend = useCallback(() => submitMessage(inputText), [submitMessage, inputText]);
+    const handleChipSelect = useCallback((text: string) => submitMessage(text), [submitMessage]);
 
     const renderItem = useCallback(
         ({ item }: { item: ChatMessage }) => (
@@ -485,9 +527,17 @@ export default function ChatScreen() {
                 </View>
                 <View style={styles.headerTextWrap}>
                     <Text style={styles.headerName}>{t('chat.astrologerName')}</Text>
-                    <Text style={styles.headerStatus}>
-                        {isTyping ? t('chat.statusTyping') : t('chat.statusOnline')}
-                    </Text>
+                    {topic && topic !== 'libre' ? (
+                        <View style={styles.topicBadge}>
+                            <Text style={styles.topicBadgeText}>
+                                {TOPIC_META[topic].emoji} {TOPIC_META[topic].label}
+                            </Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.headerStatus}>
+                            {isTyping ? t('chat.statusTyping') : t('chat.statusOnline')}
+                        </Text>
+                    )}
                 </View>
                 <View style={{ flexDirection: 'row', gap: spacing.md }}>
                     <Pressable onPress={handleNewChat} hitSlop={10}>
@@ -530,7 +580,11 @@ export default function ChatScreen() {
                     onContentSizeChange={scrollToBottom}
                     onLayout={scrollToBottom}
                     showsVerticalScrollIndicator={false}
-                    ListFooterComponent={isTyping ? <TypingIndicator /> : null}
+                    ListFooterComponent={
+                        suggestions.length > 0
+                            ? <SuggestionChips suggestions={suggestions} onSelect={handleChipSelect} />
+                            : (isTyping ? <TypingIndicator /> : null)
+                    }
                 />
 
                 {/* Active partner chip */}
@@ -602,7 +656,11 @@ export default function ChatScreen() {
                     <TextInput
                         style={[styles.input, (!isPremium && dailyLimitReached) && styles.inputDisabled]}
                         value={inputText}
-                        onChangeText={setInputText}
+                        onChangeText={(v) => {
+                            setInputText(v);
+                            // Typing manually dismisses the chips.
+                            if (v.length > 0 && suggestions.length > 0) setSuggestions([]);
+                        }}
                         placeholder={t('chat.inputPlaceholder')}
                         placeholderTextColor={colors.onSurfaceMuted}
                         multiline
@@ -626,6 +684,11 @@ export default function ChatScreen() {
                     </Pressable>
                 </View>
             </KeyboardAvoidingView>
+
+            <TopicSelectorModal
+                visible={topicModalVisible}
+                onSelect={handleSelectTopic}
+            />
 
             <PartnerPickerModal
                 visible={pickerVisible}
@@ -699,6 +762,22 @@ const styles = StyleSheet.create({
     headerTextWrap: { flex: 1 },
     headerName: { fontFamily: fonts.display.regular, fontSize: 17, color: colors.onSurface },
     headerStatus: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted, marginTop: 1 },
+    topicBadge: {
+        alignSelf: 'flex-start',
+        marginTop: 3,
+        backgroundColor: `${colors.primary}33`,
+        borderRadius: radius.full,
+        borderWidth: 1,
+        borderColor: `${colors.primary}55`,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 2,
+    },
+    topicBadgeText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 11,
+        color: colors.primary,
+        letterSpacing: 0.2,
+    },
 
     // List
     listContent: {

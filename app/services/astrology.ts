@@ -519,6 +519,7 @@ export function sendChatMessageStream(
     partnerHistoryId: number | undefined,
     previousResponseId: string | undefined,
     onDelta: (delta: string) => void,
+    topic?: string,
 ): Promise<ChatStreamResult> {
     return new Promise(async (resolve, reject) => {
         const token = await getToken();
@@ -592,6 +593,7 @@ export function sendChatMessageStream(
             messages,
             ...(partnerHistoryId ? { partnerHistoryId } : {}),
             ...(previousResponseId ? { previousResponseId } : {}),
+            ...(topic ? { topic } : {}),
         }));
     });
 }
@@ -601,6 +603,22 @@ export function sendChatMessageStream(
  */
 export async function getChatPartners(): Promise<ChatPartnersResponse> {
     return authApi.get<ChatPartnersResponse>('/api/chat/partners');
+}
+
+export interface TopicIntroResponse {
+    success: boolean;
+    topic?: string;
+    welcome_message?: string;
+    suggestions?: string[];
+    error?: string;
+}
+
+/**
+ * Static welcome message + suggestion chips for a chosen conversation topic.
+ * No LLM call — comes straight from the backend TopicLyra enum.
+ */
+export async function getTopicIntro(topic: string): Promise<TopicIntroResponse> {
+    return authApi.get<TopicIntroResponse>(`/api/chat/topic-intro?topic=${encodeURIComponent(topic)}`);
 }
 
 // ─── Synastry V2 ──────────────────────────────────────────────────────────────

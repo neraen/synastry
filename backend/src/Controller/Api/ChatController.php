@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Entity\LyraConversationLog;
 use App\Entity\User;
+use App\Enum\TopicLyra;
 use App\Repository\NatalChartRepository;
 use App\Repository\SynastryHistoryRepository;
 use App\Service\AstrologyAnalysisService;
@@ -59,6 +60,24 @@ class ChatController extends AbstractController
         ], $histories)));
 
         return $this->json(['success' => true, 'partners' => $partners]);
+    }
+
+    /**
+     * Static intro for a freshly opened conversation: the welcome message and the
+     * three suggestion chips for the chosen topic. No LLM call — everything comes
+     * from the TopicLyra enum (single source of truth). Unknown/empty topic -> LIBRE.
+     */
+    #[Route('/topic-intro', name: 'api_chat_topic_intro', methods: ['GET'])]
+    public function topicIntro(Request $request): JsonResponse
+    {
+        $topic = TopicLyra::tryFrom((string) $request->query->get('topic', '')) ?? TopicLyra::LIBRE;
+
+        return $this->json([
+            'success'         => true,
+            'topic'           => $topic->value,
+            'welcome_message' => $topic->welcomeMessage(),
+            'suggestions'     => $topic->suggestions(),
+        ]);
     }
 
     /**
@@ -120,6 +139,9 @@ class ChatController extends AbstractController
             if ($msg['role'] === 'user') { $lastUserMessage = $msg['content']; break; }
         }
 
+        // Conversation subject chosen at open time (defaults to LIBRE = legacy behavior).
+        $topic = TopicLyra::tryFrom((string) ($data['topic'] ?? '')) ?? TopicLyra::LIBRE;
+
         // ── Daily message limit (free users) ────────────────────────────────────
         $remainingMessages = -1; // -1 = unlimited (premium)
         if (!$user->isPremium()) {
@@ -154,6 +176,7 @@ class ChatController extends AbstractController
 
         // ── User context ────────────────────────────────────────────────────────
         $userContext = [];
+        $userContext['topic'] = $topic;
 
         if ($user->hasBirthProfile()) {
             $bp = $user->getBirthProfile();
@@ -180,7 +203,7 @@ class ChatController extends AbstractController
             }
 
             // Lyra structured context (grounded transits, domain-ranked)
-            $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user, $lastUserMessage);
+            $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user, $lastUserMessage, $topic);
         }
 
         // ── Partner context (optional) ──────────────────────────────────────────
@@ -322,6 +345,9 @@ class ChatController extends AbstractController
             if ($msg['role'] === 'user') { $lastUserMessage = $msg['content']; break; }
         }
 
+        // Conversation subject chosen at open time (defaults to LIBRE = legacy behavior).
+        $topic = TopicLyra::tryFrom((string) ($data['topic'] ?? '')) ?? TopicLyra::LIBRE;
+
         // Daily limit
         $remainingMessages = -1;
         if (!$user->isPremium()) {
@@ -352,6 +378,7 @@ class ChatController extends AbstractController
 
         // Build user context (same as chat())
         $userContext = [];
+        $userContext['topic'] = $topic;
         try {
             if ($user->hasBirthProfile()) {
                 $bp = $user->getBirthProfile();
@@ -374,7 +401,7 @@ class ChatController extends AbstractController
                 }
 
                 // Lyra structured context (grounded transits, domain-ranked)
-                $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user, $lastUserMessage);
+                $userContext['lyra_context'] = $this->horoscopeGeneratorService->buildLyraContext($user, $lastUserMessage, $topic);
             }
             $partnerHistoryId = isset($data['partnerHistoryId']) ? (int) $data['partnerHistoryId'] : null;
             if ($partnerHistoryId) {

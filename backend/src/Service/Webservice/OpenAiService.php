@@ -1115,7 +1115,12 @@ TOOLS;
         // Natal ancrages from lyra_context, or full chart as fallback
         if (!empty($userContext['lyra_context']['profil_natal'])) {
             $p = $userContext['lyra_context']['profil_natal'];
-            $userDataParts[] = "Profil natal :\nSoleil : {$p['soleil']}\nLune : {$p['lune']}\nAscendant : {$p['asc']}";
+            $natalBlock = "Profil natal :\nSoleil : {$p['soleil']}\nLune : {$p['lune']}\nAscendant : {$p['asc']}";
+            // Topic-specific anchors (richer positions + house cusps) when a subject is set.
+            if (!empty($p['ancrages_sujet']) && is_array($p['ancrages_sujet'])) {
+                $natalBlock .= "\n" . implode("\n", $p['ancrages_sujet']);
+            }
+            $userDataParts[] = $natalBlock;
         } elseif (!empty($userContext['positions'])) {
             $userDataParts[] = "Thème natal :\n" . $this->formatPositions($userContext['positions']);
         }
@@ -1139,6 +1144,23 @@ TOOLS;
         // ── Segment 3: Dynamic context (NOT cached, changes daily) ──────────
         $today = (new \DateTime())->format('d/m/Y');
         $dynamicParts = ["Date du jour : {$today}"];
+
+        // Conversation subject (set when the user picked a topic other than "Libre").
+        // Focuses every reply and, for the astrology topic, lifts the jargon ban.
+        if (($userContext['topic'] ?? null) instanceof \App\Enum\TopicLyra
+            && $userContext['topic'] !== \App\Enum\TopicLyra::LIBRE) {
+            $topic = $userContext['topic'];
+            $label = $topic->label();
+            $sujetBlock = "SUJET DE CETTE CONVERSATION : {$label}\n"
+                . "Toutes tes réponses dans cette conversation doivent rester centrées sur ce sujet. "
+                . "Si la personne dérive vers un autre domaine, réponds brièvement et ramène naturellement vers {$label}. "
+                . "Ne le signale pas explicitement.";
+            if ($topic === \App\Enum\TopicLyra::ASTROLOGIE) {
+                $sujetBlock .= "\nPour ce sujet, tu peux nommer explicitement les aspects, maisons, signes et mécanismes astrologiques : "
+                    . "la personne veut comprendre le pourquoi. Reste clair et pédagogique, mais garde ta chaleur.";
+            }
+            $dynamicParts[] = $sujetBlock;
+        }
 
         // Lyra structured context (grounded transits)
         if (!empty($userContext['lyra_context'])) {

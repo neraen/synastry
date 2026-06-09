@@ -31,6 +31,10 @@ class ChatSession
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $lastResponseId = null;
 
+    /** Conversation subject (TopicLyra value). NULL = legacy/LIBRE. */
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $topic = null;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -98,6 +102,18 @@ class ChatSession
     public function setLastResponseId(?string $lastResponseId): static
     {
         $this->lastResponseId = $lastResponseId;
+        return $this;
+    }
+
+    public function getTopic(): ?string
+    {
+        return $this->topic;
+    }
+
+    public function setTopic(?string $topic): static
+    {
+        $this->topic = $topic;
+
         return $this;
     }
 

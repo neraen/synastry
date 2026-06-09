@@ -12,6 +12,7 @@ export interface ChatSessionSummary {
 export interface ChatSessionDetail extends ChatSessionSummary {
     messages: Pick<ChatMessage, 'role' | 'content'>[];
     lastResponseId?: string | null;
+    topic?: string | null;
 }
 
 export interface ChatSessionListResponse {
@@ -54,12 +55,14 @@ export async function getChatSession(id: number): Promise<ChatSessionDetailRespo
 export async function createChatSession(
     title: string,
     messages: Pick<ChatMessage, 'role' | 'content'>[],
-    partnerHistoryId?: number | null
+    partnerHistoryId?: number | null,
+    topic?: string | null
 ): Promise<CreateChatSessionResponse> {
     return authApi.post<CreateChatSessionResponse>('/api/chat/sessions', {
         title,
         messages,
         partnerHistoryId,
+        ...(topic ? { topic } : {}),
     });
 }
 

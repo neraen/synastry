@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Entity\ChatSession;
 use App\Entity\User;
+use App\Enum\TopicLyra;
 use App\Repository\ChatSessionRepository;
 use App\Service\Webservice\OpenAiService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -64,6 +65,7 @@ class ChatSessionController extends AbstractController
                 'id' => $session->getId(),
                 'title' => $session->getTitle(),
                 'partnerHistoryId' => $session->getPartnerHistoryId(),
+                'topic' => $session->getTopic(),
                 'messages' => $session->getMessages(),
                 'lastResponseId' => $session->getLastResponseId(),
                 'createdAt' => $session->getCreatedAt()->format(\DateTimeInterface::ATOM),
@@ -94,6 +96,7 @@ class ChatSessionController extends AbstractController
         $messages = $data['messages'] ?? [];
         $title = trim((string)($data['title'] ?? ''));
         $partnerHistoryId = isset($data['partnerHistoryId']) ? (int)$data['partnerHistoryId'] : null;
+        $topic = TopicLyra::tryFrom((string)($data['topic'] ?? ''));
 
         if (empty($title) && !empty($messages)) {
             $title = $this->openAiService->generateChatTitle($messages);
@@ -106,6 +109,7 @@ class ChatSessionController extends AbstractController
         $session->setTitle($title);
         $session->setMessages($messages);
         $session->setPartnerHistoryId($partnerHistoryId);
+        $session->setTopic($topic?->value);
 
         $this->em->persist($session);
         $this->em->flush();
