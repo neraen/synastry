@@ -141,6 +141,8 @@ class HoroscopeGeneratorLyraTest extends TestCase
             $this->assertLessThanOrEqual($resultat['periode']['fin'], $t['culmine_vers']);
             $this->assertArrayNotHasKey('force', $t);
             $this->assertArrayNotHasKey('_natal_lon', $t);
+            // 'sens' contredit culmine_vers à l'échelle d'une fenêtre de plusieurs mois
+            $this->assertArrayNotHasKey('sens', $t);
         }
     }
 

@@ -1333,9 +1333,13 @@ PROMPT;
             6
         );
         foreach ($selection as &$contact) {
+            // 'sens' est calculé vs +30 j à la date d'échantillon : à l'échelle
+            // d'une fenêtre de plusieurs mois il contredit culmine_vers (un transit
+            // rapide échantillonné à son pic est toujours "se_desserre"). On le
+            // retire, culmine_vers porte seul le signal temporel.
             unset(
                 $contact['_angle'], $contact['_orbe_max'], $contact['_natal_lon'],
-                $contact['force'], $contact['pertinent_domaine']
+                $contact['force'], $contact['pertinent_domaine'], $contact['sens']
             );
         }
         unset($contact);
