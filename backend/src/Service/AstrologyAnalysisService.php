@@ -352,6 +352,7 @@ class AstrologyAnalysisService
     /**
      * Return raw planetary positions (sign + degree) for a given number of days from now.
      * Used by AI tool calls to answer questions like "where is the Moon tomorrow?".
+     * Planet and sign names are French, matching Lyra's no-English rule.
      */
     public function getPlanetPositionsForDate(int $daysFromNow): array
     {
@@ -362,9 +363,12 @@ class AstrologyAnalysisService
         $result = [];
         foreach ($positions as $planet => $data) {
             if (in_array($planet, ['Ascendant', 'MC', 'Midheaven'], true)) continue;
-            $result[$planet] = [
-                'sign'       => $data['Sign'] ?? '',
-                'degree'     => round((float) ($data['Position'] ?? 0) % 30, 1),
+            $sign = $data['Sign'] ?? '';
+            $signIdx = array_search($sign, PlanetaryCalculator::SIGNS, true);
+            $planetFr = PlanetaryCalculator::PLANETS_FR[$planet] ?? $planet;
+            $result[$planetFr] = [
+                'signe'      => $signIdx !== false ? PlanetaryCalculator::SIGNS_FR[$signIdx] : $sign,
+                'degre'      => round((float) ($data['Position'] ?? 0) % 30, 1),
                 'retrograde' => ($data['Retrograde'] ?? 'No') === 'Yes',
             ];
         }

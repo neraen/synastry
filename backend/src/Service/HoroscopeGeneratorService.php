@@ -86,6 +86,8 @@ class HoroscopeGeneratorService
     private PromptLocaleService $localeService;
     private ?array $transitsTable = null;
     private ?array $domainesLexique = null;
+    /** @var array<string, array> Snapshots éphémérides par date (Y-m-d), mémoïsés pour la requête. */
+    private array $transitsParDate = [];
 
     public function __construct(
         private AstrologyAnalysisService $astrologyAnalysisService,
@@ -891,13 +893,18 @@ PROMPT;
 
     private function buildLyraTransitsArray(string $dateStr): array
     {
+        if (isset($this->transitsParDate[$dateStr])) {
+            return $this->transitsParDate[$dateStr];
+        }
+
         $calc = new PlanetaryCalculator($dateStr, '12:00', 0.0, 0.0, 'Transits');
         $transits = [];
         foreach (self::LYRA_TRANSIT_PLANETS as $en) {
             $key = self::PLANET_TO_JSON_KEY[$en];
             $transits[$key] = ['longitude' => $calc->getPlanetLongitude($en)];
         }
-        return $transits;
+
+        return $this->transitsParDate[$dateStr] = $transits;
     }
 
     private function vitesse(string $planeteFr): string
@@ -934,6 +941,214 @@ PROMPT;
             return in_array($cible, ['Saturne', 'Mars'], true) ? 'tension' : 'soutien';
         }
         return in_array($aspectNom, ['carre', 'opposition'], true) ? 'tension' : 'soutien';
+    }
+
+    /**
+     * Scored transit→natal contacts at a given date, enriched with the data
+     * the LLM needs to be precise: aspect name, orb in degrees, the natal
+     * target's house AND the house the transiting planet is currently passing
+     * through. Entries also carry private keys (prefixed `_`) consumed by
+     * estimerFenetreTransit() and stripped before reaching the LLM.
+     *
+     * @param array $natal    buildNatalArray() output
+     * @param array $affinite ['cibles' => string[], 'maisons' => int[]]
+     */
+    private function detecterTransits(
+        array $natal,
+        PlanetaryCalculator $natalCalc,
+        \DateTimeInterface $date,
+        array $affinite,
+        float $boost
+    ): array {
+        $table = $this->loadTransitsTable();
+
+        $transitsNow = $this->buildLyraTransitsArray($date->format('Y-m-d'));
+        $dans30 = \DateTime::createFromInterface($date)->modify('+30 days');
+        $transitsDans30j = $this->buildLyraTransitsArray($dans30->format('Y-m-d'));
+
+        $actifs = [];
+
+        foreach (self::LYRA_TRANSIT_PLANETS as $en) {
+            $tPlanete = self::PLANET_TO_JSON_KEY[$en];
+            if (!isset($transitsNow[$tPlanete])) continue;
+            $tLon = $transitsNow[$tPlanete]['longitude'];
+            $orbeMax = self::ORBE_TRANSIT[$this->vitesse($tPlanete)];
+            $maisonTransit = $natalCalc->houseOfLongitude($tLon);
+
+            foreach ($natal as $cible => $nData) {
+                $sep = PlanetaryCalculator::separation($tLon, $nData['longitude']);
+
+                foreach (PlanetaryCalculator::TRANSIT_ASPECTS as $asp) {
+                    $orbe = abs($sep - $asp['angle']);
+                    if ($orbe > $orbeMax) continue;
+
+                    $force = $this->poidsHierarchie($tPlanete, $cible) * (1.0 - $orbe / $orbeMax);
+
+                    // Pertinence domaine : point natal visé, sa maison, ou la
+                    // maison que la planète en transit traverse en ce moment.
+                    $pertinent = in_array($cible, $affinite['cibles'], true)
+                        || in_array($nData['maison'], $affinite['maisons'], true)
+                        || in_array($maisonTransit, $affinite['maisons'], true);
+                    if ($pertinent) $force *= $boost;
+
+                    $sep30 = PlanetaryCalculator::separation(
+                        $transitsDans30j[$tPlanete]['longitude'],
+                        $nData['longitude']
+                    );
+                    $orbe30 = abs($sep30 - $asp['angle']);
+
+                    $actifs[] = [
+                        'transit' => $tPlanete,
+                        'cible'   => $cible,
+                        'aspect'  => $asp['nom'],
+                        'orbe'    => round($orbe, 1),
+                        'nature'  => $this->natureAspect($asp['nom'], $cible),
+                        'maison_cible'    => $nData['maison'],
+                        'domaine_cible'   => $table['maisons'][(string) $nData['maison']] ?? null,
+                        'maison_transit'  => $maisonTransit,
+                        'domaine_transit' => $table['maisons'][(string) $maisonTransit] ?? null,
+                        'sens'    => self::sensTransit($orbe, $orbe30),
+                        'force'   => round($force, 2),
+                        'pertinent_domaine' => $pertinent,
+                        '_angle'     => $asp['angle'],
+                        '_orbe_max'  => $orbeMax,
+                        '_natal_lon' => $nData['longitude'],
+                    ];
+                    break;
+                }
+            }
+        }
+
+        usort($actifs, fn($a, $b) => $b['force'] <=> $a['force']);
+
+        return $actifs;
+    }
+
+    /**
+     * Top transits to send to the LLM, with a deterministic topic guarantee:
+     * for an explicit subject the 2 strongest domain-relevant contacts are
+     * always present (the ×3 boost usually suffices, this makes it certain).
+     */
+    private function selectionnerTransitsLyra(array $actifs, bool $topicExplicite, int $limite = 5): array
+    {
+        $top = array_slice($actifs, 0, $limite);
+
+        if ($topicExplicite) {
+            $pertinents = array_values(array_filter($actifs, fn($c) => $c['pertinent_domaine']));
+            foreach (array_slice($pertinents, 0, 2) as $voulu) {
+                if (in_array($voulu, $top, true)) continue;
+                for ($i = count($top) - 1; $i >= 0; $i--) {
+                    if (!$top[$i]['pertinent_domaine']) {
+                        $top[$i] = $voulu;
+                        break;
+                    }
+                }
+            }
+            usort($top, fn($a, $b) => $b['force'] <=> $a['force']);
+        }
+
+        return $top;
+    }
+
+    /**
+     * Estimate when a transit peaks (minimum orb) and when it releases (orb
+     * leaves the allowed maximum), by sampling the orb forward and
+     * interpolating. Pure computation, snapshots memoized per date.
+     * Approximate by design (retrograde stations can shift it by a few days) —
+     * the prompt mandates "vers / autour de" phrasing.
+     *
+     * @return array{exact_vers: ?string, se_libere_vers: ?string} ISO dates or null
+     */
+    private function estimerFenetreTransit(
+        string $transitFr,
+        float $natalLon,
+        float $angleAspect,
+        float $orbeMax,
+        \DateTimeInterface $from
+    ): array {
+        $offsets = [0, 7, 14, 21, 30, 45, 60, 90];
+        $orbes = [];
+
+        foreach ($offsets as $o) {
+            $d = \DateTime::createFromInterface($from)->modify("+{$o} days");
+            $snapshot = $this->buildLyraTransitsArray($d->format('Y-m-d'));
+            if (!isset($snapshot[$transitFr])) {
+                return ['exact_vers' => null, 'se_libere_vers' => null];
+            }
+            $sep = PlanetaryCalculator::separation($snapshot[$transitFr]['longitude'], $natalLon);
+            $orbes[$o] = abs($sep - $angleAspect);
+        }
+
+        $dateAt = fn(float $jours): string => \DateTime::createFromInterface($from)
+            ->modify('+' . (int) round($jours) . ' days')
+            ->format('Y-m-d');
+
+        // ── exact_vers : offset du minimum, affiné par ajustement parabolique ──
+        $oMin = array_keys($orbes, min($orbes))[0];
+        $exactVers = null;
+        $idxMin = array_search($oMin, $offsets, true);
+        if ($idxMin > 0 && $idxMin < count($offsets) - 1) {
+            $x1 = $offsets[$idxMin - 1]; $y1 = $orbes[$x1];
+            $x2 = $oMin;                 $y2 = $orbes[$x2];
+            $x3 = $offsets[$idxMin + 1]; $y3 = $orbes[$x3];
+            $den = ($x2 - $x1) * ($y2 - $y3) - ($x2 - $x3) * ($y2 - $y1);
+            $sommet = abs($den) > 1e-9
+                ? $x2 - 0.5 * (($x2 - $x1) ** 2 * ($y2 - $y3) - ($x2 - $x3) ** 2 * ($y2 - $y1)) / $den
+                : (float) $x2;
+            $exactVers = $dateAt(max($x1, min($x3, $sommet)));
+        }
+        // minimum au premier échantillon = pic déjà passé ; au dernier = au-delà de 90 j : null.
+
+        // ── se_libere_vers : première sortie d'orbe après le pic ──
+        $seLibereVers = null;
+        for ($i = max(1, $idxMin); $i < count($offsets); $i++) {
+            $oPrev = $offsets[$i - 1];
+            $oCur  = $offsets[$i];
+            if ($orbes[$oCur] > $orbeMax && $orbes[$oPrev] <= $orbeMax && $oCur >= $oMin) {
+                $ratio = ($orbeMax - $orbes[$oPrev]) / ($orbes[$oCur] - $orbes[$oPrev]);
+                $seLibereVers = $dateAt($oPrev + $ratio * ($oCur - $oPrev));
+                break;
+            }
+        }
+
+        return ['exact_vers' => $exactVers, 'se_libere_vers' => $seLibereVers];
+    }
+
+    /**
+     * Background climate: slow/social planets currently crossing the natal
+     * houses tied to the topic, even without a tight aspect. Guarantees
+     * on-topic material when transits_actifs has nothing relevant.
+     *
+     * @param int[] $maisonsTopic
+     * @return array<array{planete: string, maison: int, domaine: ?string}>
+     */
+    private function maisonsEnTransit(
+        PlanetaryCalculator $natalCalc,
+        \DateTimeInterface $date,
+        array $maisonsTopic
+    ): array {
+        if (empty($maisonsTopic)) {
+            return [];
+        }
+
+        $table = $this->loadTransitsTable();
+        $transits = $this->buildLyraTransitsArray($date->format('Y-m-d'));
+        $resultat = [];
+
+        foreach (['Jupiter', 'Saturne', 'Uranus', 'Neptune', 'Pluton'] as $fr) {
+            if (!isset($transits[$fr])) continue;
+            $maison = $natalCalc->houseOfLongitude($transits[$fr]['longitude']);
+            if (!in_array($maison, $maisonsTopic, true)) continue;
+
+            $resultat[] = [
+                'planete' => $fr,
+                'maison'  => $maison,
+                'domaine' => $table['maisons'][(string) $maison] ?? null,
+            ];
+            if (count($resultat) >= 3) break;
+        }
+
+        return $resultat;
     }
 
     /**
@@ -974,55 +1189,8 @@ PROMPT;
         $natal = $this->buildNatalArray($natalCalc);
 
         $now = new \DateTime('now', new \DateTimeZone('UTC'));
-        $in30 = (clone $now)->modify('+30 days');
 
-        $transitsNow     = $this->buildLyraTransitsArray($now->format('Y-m-d'));
-        $transitsDans30j = $this->buildLyraTransitsArray($in30->format('Y-m-d'));
-
-        $table = $this->loadTransitsTable();
-        $actifs = [];
-
-        foreach (self::LYRA_TRANSIT_PLANETS as $en) {
-            $tPlanete = self::PLANET_TO_JSON_KEY[$en];
-            if (!isset($transitsNow[$tPlanete])) continue;
-            $tLon = $transitsNow[$tPlanete]['longitude'];
-            $orbeMax = self::ORBE_TRANSIT[$this->vitesse($tPlanete)];
-
-            foreach ($natal as $cible => $nData) {
-                $sep = PlanetaryCalculator::separation($tLon, $nData['longitude']);
-
-                foreach (PlanetaryCalculator::TRANSIT_ASPECTS as $asp) {
-                    $orbe = abs($sep - $asp['angle']);
-                    if ($orbe > $orbeMax) continue;
-
-                    $force = $this->poidsHierarchie($tPlanete, $cible) * (1.0 - $orbe / $orbeMax);
-
-                    // Boost the transits whose target/house matches the question's domain (ajout 1)
-                    $pertinent = in_array($cible, $affinite['cibles'], true)
-                        || in_array($nData['maison'], $affinite['maisons'], true);
-                    if ($pertinent) $force *= $boost;
-
-                    $sep30 = PlanetaryCalculator::separation(
-                        $transitsDans30j[$tPlanete]['longitude'],
-                        $nData['longitude']
-                    );
-                    $orbe30 = abs($sep30 - $asp['angle']);
-
-                    $actifs[] = [
-                        'transit' => $tPlanete,
-                        'cible'   => $cible,
-                        'nature'  => $this->natureAspect($asp['nom'], $cible),
-                        'domaine' => $table['maisons'][(string) $nData['maison']] ?? null,
-                        'sens'    => self::sensTransit($orbe, $orbe30),
-                        'force'   => round($force, 2),
-                        'pertinent_domaine' => $pertinent,
-                    ];
-                    break;
-                }
-            }
-        }
-
-        usort($actifs, fn($a, $b) => $b['force'] <=> $a['force']);
+        $actifs = $this->detecterTransits($natal, $natalCalc, $now, $affinite, $boost);
 
         // Carte muette (ajout 2) : after boost+sort, is the top domain-relevant transit strong enough?
         // For an open/general question (or astrologie, which surveys the whole sky) there is no
@@ -1034,6 +1202,30 @@ PROMPT;
             $sujetCouvert = !empty($transitsDuDomaine)
                 && reset($transitsDuDomaine)['force'] >= self::SEUIL_PERTINENCE;
         }
+
+        // Sélection finale (garantie : les contacts du sujet sont présents),
+        // fenêtres temporelles calculées uniquement sur les entrées retenues,
+        // champs internes retirés du JSON envoyé au LLM.
+        $selection = $this->selectionnerTransitsLyra($actifs, $topicExplicite);
+        foreach ($selection as &$contact) {
+            $fenetre = $this->estimerFenetreTransit(
+                $contact['transit'],
+                $contact['_natal_lon'],
+                $contact['_angle'],
+                $contact['_orbe_max'],
+                $now
+            );
+            $contact['exact_vers']     = $fenetre['exact_vers'];
+            $contact['se_libere_vers'] = $fenetre['se_libere_vers'];
+            unset(
+                $contact['_angle'], $contact['_orbe_max'], $contact['_natal_lon'],
+                $contact['force'], $contact['pertinent_domaine']
+            );
+        }
+        unset($contact);
+
+        // Climat de fond : planètes lentes dans les maisons du sujet (amour/argent/travail…).
+        $maisonsEnTransit = $this->maisonsEnTransit($natalCalc, $now, $affinite['maisons']);
 
         $profilNatal = [
             'lune'   => ($natal['Lune']['signe'] ?? '') . ' (maison ' . ($natal['Lune']['maison'] ?? '?') . ')',
@@ -1055,8 +1247,12 @@ PROMPT;
             'mode_pedagogique' => $pedagogique,
             'sujet_couvert'    => $sujetCouvert,
             'profil_natal'     => $profilNatal,
-            'transits_actifs'  => array_slice($actifs, 0, 5),
+            'transits_actifs'  => $selection,
         ];
+
+        if (!empty($maisonsEnTransit)) {
+            $contexte['maisons_en_transit'] = $maisonsEnTransit;
+        }
 
         // Lean psy profile: noyau + the axis relevant to the classified domain.
         $psy = $this->psyProfileService->getData($user);
@@ -1068,6 +1264,95 @@ PROMPT;
         }
 
         return $contexte;
+    }
+
+    /**
+     * Topic-aware interpreted transits for a month window, past or future.
+     * Backs the `get_transits` chat tool: same French output contract as
+     * transits_actifs (aspect, orbe, nature, maisons, domaines) so the LLM
+     * applies the same translation rules.
+     *
+     * Samples the 1st/11th/21st of each month in the window (a transit exact
+     * on the 20th is no longer missed) and merges duplicates by
+     * (transit, cible, aspect), keeping the tightest orb. `culmine_vers` is
+     * the sample date of that minimum orb — month-level precision, which the
+     * prompt's approximate phrasing ("vers", "autour de") absorbs.
+     */
+    public function getTransitsForPeriod(
+        User $user,
+        int $monthsFromNow,
+        int $durationMonths = 1,
+        ?TopicLyra $topic = null
+    ): array {
+        $birthProfile = $user->getBirthProfile();
+        if (!$birthProfile) {
+            return ['periode' => null, 'transits' => []];
+        }
+
+        $durationMonths = max(1, min(3, $durationMonths));
+
+        $topicExplicite = $topic !== null && $topic !== TopicLyra::LIBRE;
+        if ($topicExplicite) {
+            $affinite = self::TOPIC_AFFINITE[$topic->value] ?? self::DOMAINE_AFFINITE['general'];
+            $boost    = self::BOOST_TOPIC_EXPLICITE;
+        } else {
+            $affinite = self::DOMAINE_AFFINITE['general'];
+            $boost    = 1.0;
+        }
+
+        $natalCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
+        $natal = $this->buildNatalArray($natalCalc);
+
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $modifier = ($monthsFromNow >= 0 ? '+' : '') . $monthsFromNow . ' months';
+        $debut = (clone $now)->modify($modifier);
+        $debut->setDate((int) $debut->format('Y'), (int) $debut->format('n'), 1);
+        $fin = (clone $debut)->modify("+{$durationMonths} months -1 day");
+
+        // Échantillonnage 3 fois par mois, fusion par contact (orbe la plus serrée).
+        $parContact = [];
+        for ($mois = 0; $mois < $durationMonths; $mois++) {
+            foreach ([0, 10, 20] as $decalageJours) {
+                $sample = (clone $debut)->modify("+{$mois} months +{$decalageJours} days");
+                foreach ($this->detecterTransits($natal, $natalCalc, $sample, $affinite, $boost) as $c) {
+                    $cle = $c['transit'] . '|' . $c['cible'] . '|' . $c['aspect'];
+                    if (!isset($parContact[$cle]) || $c['orbe'] < $parContact[$cle]['orbe']) {
+                        $c['culmine_vers'] = $sample->format('Y-m-d');
+                        $parContact[$cle] = $c;
+                    }
+                }
+            }
+        }
+
+        $transits = array_values($parContact);
+        usort($transits, fn($a, $b) => $b['force'] <=> $a['force']);
+
+        $selection = $this->selectionnerTransitsLyra(
+            $transits,
+            $topicExplicite && $topic !== TopicLyra::ASTROLOGIE,
+            6
+        );
+        foreach ($selection as &$contact) {
+            unset(
+                $contact['_angle'], $contact['_orbe_max'], $contact['_natal_lon'],
+                $contact['force'], $contact['pertinent_domaine']
+            );
+        }
+        unset($contact);
+
+        $resultat = [
+            'periode'  => ['debut' => $debut->format('Y-m-d'), 'fin' => $fin->format('Y-m-d')],
+            'transits' => $selection,
+        ];
+
+        // Climat de fond au milieu de la fenêtre.
+        $milieu = (clone $debut)->modify('+' . (int) round($durationMonths * 15) . ' days');
+        $maisonsEnTransit = $this->maisonsEnTransit($natalCalc, $milieu, $affinite['maisons']);
+        if (!empty($maisonsEnTransit)) {
+            $resultat['maisons_en_transit'] = $maisonsEnTransit;
+        }
+
+        return $resultat;
     }
 
     /**

@@ -28,6 +28,7 @@ export function SuggestionChips({
         <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.scroll}
             contentContainerStyle={styles.row}
             keyboardShouldPersistTaps="handled"
         >
@@ -45,10 +46,17 @@ export function SuggestionChips({
 }
 
 const styles = StyleSheet.create({
+    // Hug the content height — without this a horizontal ScrollView grows to fill
+    // the leftover vertical space between the list and the input bar.
+    scroll: {
+        flexGrow: 0,
+        flexShrink: 0,
+    },
     row: {
         gap: spacing.sm,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.sm,
+        alignItems: 'center',
     },
     chip: {
         borderRadius: 20,

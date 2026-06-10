@@ -285,6 +285,7 @@ class PlanetaryCalculator
     private float $latitude;   // Latitude géographique du lieu de naissance
     private float $longitude;  // Longitude géographique du lieu de naissance
     private string $name;
+    private ?array $houseCuspsCache = null; // Cusps Placidus mémoïsés (calcul itératif coûteux)
 
     // -------------------------------------------------------------------------
     // Constructeur
@@ -1261,8 +1262,8 @@ PROMPT;
         $descendant = $this->longitudeToSign($this->normDeg($ascendant['longitude'] + 180));
         $ic         = $this->longitudeToSign($this->normDeg($midheaven['longitude'] + 180));
 
-        // Houses (Equal House system)
-        $houseCusps = $this->calculateHouseCusps();
+        // Houses (Placidus system)
+        $houseCusps = $this->houseCuspsCache ??= $this->calculateHouseCusps();
 
         // Assign each planet to a house
         $planetsWithHouses = [];
@@ -1433,6 +1434,17 @@ PROMPT;
             10 => $h11,                              // H11
             11 => $h12,                              // H12
         ];
+    }
+
+    /**
+     * House (1-12) occupied by an arbitrary ecliptic longitude in THIS chart's
+     * Placidus houses. Lets callers place a transiting planet in the natal
+     * houses without exposing the cusps themselves.
+     */
+    public function houseOfLongitude(float $longitude): int
+    {
+        $this->houseCuspsCache ??= $this->calculateHouseCusps();
+        return $this->assignToHouse($longitude, $this->houseCuspsCache);
     }
 
     /**

@@ -4,18 +4,29 @@ namespace App\Service\Webservice;
 
 use Anthropic\Client as AnthropicClient;
 use Anthropic\Messages\CacheControlEphemeral;
+use Anthropic\Messages\InputJSONDelta;
 use Anthropic\Messages\MessageParam;
 use Anthropic\Messages\RawContentBlockDeltaEvent;
+use Anthropic\Messages\RawContentBlockStartEvent;
+use Anthropic\Messages\RawMessageDeltaEvent;
 use Anthropic\Messages\TextBlock;
 use Anthropic\Messages\TextBlockParam;
 use Anthropic\Messages\TextDelta;
+use Anthropic\Messages\Tool;
+use Anthropic\Messages\ToolResultBlockParam;
+use Anthropic\Messages\ToolUseBlock;
+use Anthropic\Messages\ToolUseBlockParam;
 
 /**
  * Anthropic Messages API provider using the official SDK.
- * Handles one-shot, multi-turn, and streaming for Claude models.
+ * Handles one-shot, multi-turn, and streaming for Claude models,
+ * including client-side tool use (function calling).
  */
 class AnthropicProvider implements AiProviderInterface
 {
+    /** Max tool-use rounds per request, to avoid loops. */
+    private const MAX_TOOL_ROUNDS = 3;
+
     private AnthropicClient $client;
 
     public function __construct(string $apiKey)
@@ -74,18 +85,35 @@ class AnthropicProvider implements AiProviderInterface
     public function callMultiTurn(string $model, array $chatMessages, ?\Closure $toolHandler = null, array $tools = [], ?string $previousResponseId = null): array
     {
         [$systemBlocks, $messages] = $this->splitMessages($chatMessages);
+        $system = !empty($systemBlocks) ? $this->buildCacheableSystem($systemBlocks) : null;
+        $anthropicTools = ($toolHandler !== null && !empty($tools)) ? $this->formatTools($tools) : null;
 
         try {
-            $response = $this->client->messages->create(
-                maxTokens: 4096,
-                messages: $messages,
-                model: $model,
-                system: !empty($systemBlocks) ? $this->buildCacheableSystem($systemBlocks) : null,
-            );
+            $textParts = [];
 
-            $outputText = $this->extractText($response);
+            for ($round = 0; $round <= self::MAX_TOOL_ROUNDS; $round++) {
+                $response = $this->client->messages->create(
+                    maxTokens: 4096,
+                    messages: $messages,
+                    model: $model,
+                    system: $system,
+                    tools: $anthropicTools,
+                );
 
-            if (!$outputText) {
+                $text = $this->extractText($response);
+                if ($text !== null && trim($text) !== '') {
+                    $textParts[] = $text;
+                }
+
+                if ($response->stopReason !== 'tool_use' || $toolHandler === null) {
+                    break;
+                }
+
+                $messages = $this->appendToolRound($messages, $response->content, $toolHandler);
+            }
+
+            $outputText = trim(implode("\n\n", $textParts));
+            if ($outputText === '') {
                 return ['success' => false, 'error' => 'No response from AI'];
             }
 
@@ -98,31 +126,178 @@ class AnthropicProvider implements AiProviderInterface
     public function stream(string $model, array $chatMessages, ?\Closure $toolHandler, array $tools, ?string $previousResponseId, callable $onDelta): array
     {
         [$systemBlocks, $messages] = $this->splitMessages($chatMessages);
+        $system = !empty($systemBlocks) ? $this->buildCacheableSystem($systemBlocks) : null;
+        $anthropicTools = ($toolHandler !== null && !empty($tools)) ? $this->formatTools($tools) : null;
+
+        $anyTextStreamed = false;
 
         try {
-            $stream = $this->client->messages->createStream(
-                maxTokens: 4096,
-                messages: $messages,
-                model: $model,
-                system: !empty($systemBlocks) ? $this->buildCacheableSystem($systemBlocks) : null,
-            );
+            for ($round = 0; $round <= self::MAX_TOOL_ROUNDS; $round++) {
+                $stream = $this->client->messages->createStream(
+                    maxTokens: 4096,
+                    messages: $messages,
+                    model: $model,
+                    system: $system,
+                    tools: $anthropicTools,
+                );
 
-            foreach ($stream as $event) {
-                if ($event instanceof RawContentBlockDeltaEvent && $event->delta instanceof TextDelta) {
-                    $text = $event->delta->text;
-                    if ($text !== '') {
-                        $onDelta($text);
+                $stopReason = null;
+                $roundText  = '';
+                $toolUses   = []; // content index => ['id' => string, 'name' => string, 'json' => string]
+
+                foreach ($stream as $event) {
+                    if ($event instanceof RawContentBlockStartEvent && $event->contentBlock instanceof ToolUseBlock) {
+                        $toolUses[$event->index] = [
+                            'id'   => $event->contentBlock->id,
+                            'name' => $event->contentBlock->name,
+                            'json' => '',
+                        ];
+                    } elseif ($event instanceof RawContentBlockDeltaEvent) {
+                        if ($event->delta instanceof TextDelta) {
+                            $text = $event->delta->text;
+                            if ($text !== '') {
+                                $onDelta($text);
+                                $roundText .= $text;
+                                $anyTextStreamed = true;
+                            }
+                        } elseif ($event->delta instanceof InputJSONDelta && isset($toolUses[$event->index])) {
+                            $toolUses[$event->index]['json'] .= $event->delta->partialJSON;
+                        }
+                    } elseif ($event instanceof RawMessageDeltaEvent) {
+                        $stopReason = $event->delta->stopReason;
                     }
                 }
+
+                if ($stopReason !== 'tool_use' || empty($toolUses) || $toolHandler === null) {
+                    return ['success' => true, 'response_id' => null];
+                }
+
+                // Visual gap if the model already spoke before calling the tool.
+                if (trim($roundText) !== '') {
+                    $onDelta("\n\n");
+                }
+
+                $messages = $this->appendStreamedToolRound($messages, $roundText, $toolUses, $toolHandler);
             }
 
+            // Tool-round cap reached: end gracefully with the text streamed so far.
             return ['success' => true, 'response_id' => null];
         } catch (\Throwable $e) {
+            if ($anyTextStreamed) {
+                // Don't surface an error to the client mid-message; keep what was streamed.
+                return ['success' => true, 'response_id' => null];
+            }
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
     }
 
     // ── Private helpers ─────────────────────────────────────────────────
+
+    /**
+     * Convert Chat-Completions style tool definitions
+     * (['type' => 'function', 'function' => ['name', 'description', 'parameters']])
+     * into Anthropic SDK Tool params.
+     *
+     * @return list<Tool>
+     */
+    private function formatTools(array $tools): array
+    {
+        $formatted = [];
+        foreach ($tools as $tool) {
+            $fn = $tool['function'] ?? null;
+            if (!is_array($fn) || empty($fn['name'])) {
+                continue;
+            }
+            $formatted[] = Tool::with(
+                inputSchema: $fn['parameters'] ?? ['type' => 'object', 'properties' => new \stdClass()],
+                name: $fn['name'],
+                description: $fn['description'] ?? null,
+            );
+        }
+        return $formatted;
+    }
+
+    /**
+     * Execute the tool calls of a non-streamed response and append the
+     * assistant turn + tool results to the conversation.
+     *
+     * @param list<MessageParam> $messages
+     * @param iterable<object> $contentBlocks
+     * @return list<MessageParam>
+     */
+    private function appendToolRound(array $messages, iterable $contentBlocks, \Closure $toolHandler): array
+    {
+        $assistantBlocks = [];
+        $resultBlocks    = [];
+
+        foreach ($contentBlocks as $block) {
+            if ($block instanceof TextBlock) {
+                if (trim($block->text) !== '') {
+                    $assistantBlocks[] = TextBlockParam::with(text: $block->text);
+                }
+            } elseif ($block instanceof ToolUseBlock) {
+                $input = (array) $block->input;
+                $assistantBlocks[] = ToolUseBlockParam::with(id: $block->id, input: $input, name: $block->name);
+                $resultBlocks[]    = $this->runTool($toolHandler, $block->id, $block->name, $input);
+            }
+        }
+
+        $messages[] = MessageParam::with(content: $assistantBlocks, role: 'assistant');
+        $messages[] = MessageParam::with(content: $resultBlocks, role: 'user');
+
+        return $messages;
+    }
+
+    /**
+     * Same as appendToolRound() but from accumulated streaming state.
+     *
+     * @param list<MessageParam> $messages
+     * @param array<int, array{id: string, name: string, json: string}> $toolUses
+     * @return list<MessageParam>
+     */
+    private function appendStreamedToolRound(array $messages, string $roundText, array $toolUses, \Closure $toolHandler): array
+    {
+        $assistantBlocks = [];
+        $resultBlocks    = [];
+
+        if (trim($roundText) !== '') {
+            $assistantBlocks[] = TextBlockParam::with(text: $roundText);
+        }
+
+        ksort($toolUses);
+        foreach ($toolUses as $tu) {
+            $input = json_decode($tu['json'] !== '' ? $tu['json'] : '{}', true);
+            $input = is_array($input) ? $input : [];
+            $assistantBlocks[] = ToolUseBlockParam::with(id: $tu['id'], input: $input, name: $tu['name']);
+            $resultBlocks[]    = $this->runTool($toolHandler, $tu['id'], $tu['name'], $input);
+        }
+
+        $messages[] = MessageParam::with(content: $assistantBlocks, role: 'assistant');
+        $messages[] = MessageParam::with(content: $resultBlocks, role: 'user');
+
+        return $messages;
+    }
+
+    /**
+     * Run a single tool through the handler, never letting an exception
+     * escape (the model gets the error as a tool result instead).
+     */
+    private function runTool(\Closure $toolHandler, string $toolUseId, string $name, array $input): ToolResultBlockParam
+    {
+        try {
+            $result = $toolHandler($name, $input);
+            return ToolResultBlockParam::with(
+                toolUseID: $toolUseId,
+                content: json_encode($result, JSON_UNESCAPED_UNICODE),
+            );
+        } catch (\Throwable $e) {
+            return ToolResultBlockParam::with(
+                toolUseID: $toolUseId,
+                content: json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE),
+                isError: true,
+            );
+        }
+    }
 
     /**
      * Build system blocks with selective prompt caching using SDK types.
@@ -140,16 +315,17 @@ class AnthropicProvider implements AiProviderInterface
     }
 
     /**
-     * Extract text from a Message response.
+     * Extract the concatenated text from a Message response.
      */
     private function extractText(object $message): ?string
     {
+        $parts = [];
         foreach ($message->content as $block) {
             if ($block instanceof TextBlock) {
-                return $block->text;
+                $parts[] = $block->text;
             }
         }
-        return null;
+        return $parts !== [] ? implode('', $parts) : null;
     }
 
     /**

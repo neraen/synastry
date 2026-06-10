@@ -546,19 +546,18 @@ export default function ChatScreen() {
                     <Text style={styles.headerAvatarText}>✦</Text>
                 </View>
                 <View style={styles.headerTextWrap}>
-                    <Text style={styles.headerName}>{t('chat.astrologerName')}</Text>
-                    {topic && topic !== 'libre' ? (
-                        <View style={styles.topicBadge}>
-                            <Feather name={TOPIC_META[topic].icon} size={11} color={colors.primary} />
-                            <Text style={styles.topicBadgeText}>
-                                {TOPIC_META[topic].label}
-                            </Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.headerStatus}>
-                            {isTyping ? t('chat.statusTyping') : t('chat.statusOnline')}
-                        </Text>
-                    )}
+                    <View style={styles.headerNameRow}>
+                        <Text style={styles.headerName}>{t('chat.astrologerName')}</Text>
+                        {topic && topic !== 'libre' && (
+                            <View style={styles.topicBadge}>
+                                <Feather name={TOPIC_META[topic].icon} size={11} color={colors.primary} />
+                                <Text style={styles.topicBadgeText}>{TOPIC_META[topic].label}</Text>
+                            </View>
+                        )}
+                    </View>
+                    <Text style={styles.headerStatus}>
+                        {isTyping ? t('chat.statusTyping') : t('chat.statusOnline')}
+                    </Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: spacing.md }}>
                     <Pressable onPress={handleNewChat} hitSlop={10}>
@@ -783,14 +782,14 @@ const styles = StyleSheet.create({
     },
     headerAvatarText: { fontSize: 18, color: colors.primary },
     headerTextWrap: { flex: 1 },
+    headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     headerName: { fontFamily: fonts.display.regular, fontSize: 17, color: colors.onSurface },
     headerStatus: { fontFamily: fonts.body.regular, fontSize: 12, color: colors.onSurfaceMuted, marginTop: 1 },
     topicBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
-        alignSelf: 'flex-start',
-        marginTop: 3,
+        alignSelf: 'center',
         backgroundColor: `${colors.primary}33`,
         borderRadius: radius.full,
         borderWidth: 1,
