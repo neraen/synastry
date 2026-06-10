@@ -1344,9 +1344,19 @@ PROMPT;
         }
         unset($contact);
 
+        // Consigne embarquée dans le résultat : les tool_results arrivent en JSON
+        // brut hors du flux persona et le modèle a tendance à les "rapporter"
+        // littéralement (jargon, vocabulaire des champs). Une instruction
+        // co-localisée avec les données est nettement mieux suivie.
+        $pedagogique = $topic === TopicLyra::ASTROLOGIE;
+        $consigne = $pedagogique
+            ? 'Données calculées pour la période demandée. Si la période est à venir, parle au futur. Deux transits maximum dans ta réponse.'
+            : 'Données internes, déjà interprétées. Dans ta réponse : traduis en vécu concret, AUCUN jargon (pas de nom d\'aspect, pas de nom de planète imposé, jamais de numéro de maison), n\'emploie pas le vocabulaire de ces champs ("culmine" -> "au plus fort", "le pic"). Si la période est à venir, parle au futur. Deux transits maximum, arrête-toi quand c\'est dit.';
+
         $resultat = [
-            'periode'  => ['debut' => $debut->format('Y-m-d'), 'fin' => $fin->format('Y-m-d')],
-            'transits' => $selection,
+            '_consigne' => $consigne,
+            'periode'   => ['debut' => $debut->format('Y-m-d'), 'fin' => $fin->format('Y-m-d')],
+            'transits'  => $selection,
         ];
 
         // Climat de fond au milieu de la fenêtre.

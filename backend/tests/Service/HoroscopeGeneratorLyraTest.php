@@ -131,6 +131,10 @@ class HoroscopeGeneratorLyraTest extends TestCase
         $debutAttendu = (new \DateTime('now', new \DateTimeZone('UTC')))->modify('+6 months');
         $this->assertSame($debutAttendu->format('Y-m-01'), $resultat['periode']['debut']);
 
+        // Consigne anti-jargon co-localisée avec les données de l'outil
+        $this->assertArrayHasKey('_consigne', $resultat);
+        $this->assertStringContainsString('jargon', $resultat['_consigne']);
+
         $this->assertNotEmpty($resultat['transits']);
         $this->assertLessThanOrEqual(6, count($resultat['transits']));
 
