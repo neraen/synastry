@@ -65,6 +65,18 @@ class HoroscopeGeneratorService
     private const BOOST_TOPIC_EXPLICITE = 3.0;
     private const BOOST_DOMAINE_CLASSIFIE = 2.0;
 
+    // Angle de récit par domaine : quand un transit est pertinent via sa CIBLE
+    // (Vénus pour l'amour, MC pour le travail…), l'histoire à raconter est le
+    // domaine de la question, pas la maison où la cible se trouve par hasard.
+    private const DOMAINE_RECIT = [
+        'amour'       => 'le couple, les sentiments, la vie affective',
+        'argent'      => "l'argent, les ressources, la sécurité matérielle",
+        'travail'     => 'le travail, la carrière, la place professionnelle',
+        'sante'       => "l'énergie, le corps, l'équilibre de vie",
+        'sens'        => 'le sens, la direction de vie',
+        'psychologie' => 'le fonctionnement intérieur, les patterns émotionnels',
+    ];
+
     // Per-topic natal anchors to inject into the prompt, beyond the 3 base ancrages.
     // Each entry is [English planet key in the chart payload, French label].
     // Houses to surface (cusp sign + planets) are listed separately.
@@ -984,11 +996,14 @@ PROMPT;
 
                     $force = $this->poidsHierarchie($tPlanete, $cible) * (1.0 - $orbe / $orbeMax);
 
-                    // Pertinence domaine : point natal visé, sa maison, ou la
-                    // maison que la planète en transit traverse en ce moment.
-                    $pertinent = in_array($cible, $affinite['cibles'], true)
-                        || in_array($nData['maison'], $affinite['maisons'], true)
-                        || in_array($maisonTransit, $affinite['maisons'], true);
+                    // Pertinence domaine : point natal visé ou sa maison. La maison
+                    // que la planète traverse n'y participe PAS : un gros transit
+                    // carrière qui passe en maison 7 deviendrait "pertinent amour"
+                    // et le même dominant sortirait pour tous les sujets (le climat
+                    // maisons_en_transit couvre déjà ce cas).
+                    $viaCible  = in_array($cible, $affinite['cibles'], true);
+                    $viaMaison = in_array($nData['maison'], $affinite['maisons'], true);
+                    $pertinent = $viaCible || $viaMaison;
                     if ($pertinent) $force *= $boost;
 
                     $sep30 = PlanetaryCalculator::separation(
@@ -1010,6 +1025,7 @@ PROMPT;
                         'sens'    => self::sensTransit($orbe, $orbe30),
                         'force'   => round($force, 2),
                         'pertinent_domaine' => $pertinent,
+                        '_via'       => $viaCible ? 'cible' : ($viaMaison ? 'maison' : null),
                         '_angle'     => $asp['angle'],
                         '_orbe_max'  => $orbeMax,
                         '_natal_lon' => $nData['longitude'],
@@ -1027,7 +1043,11 @@ PROMPT;
     /**
      * Top transits to send to the LLM, with a deterministic topic guarantee:
      * for an explicit subject the 2 strongest domain-relevant contacts are
-     * always present (the ×3 boost usually suffices, this makes it certain).
+     * always present, and the DOMINANT (index 0) is the strongest transit DU
+     * SUJET. Sans ça, le même transit lent majeur (Pluton/Neptune/Uranus sur
+     * un angle, poids 5.0) écrase le boost ×3 et sort en tête de tous les
+     * sujets : l'utilisateur reçoit la même histoire et la même date en
+     * amour, argent et travail.
      */
     private function selectionnerTransitsLyra(array $actifs, bool $topicExplicite, int $limite = 5): array
     {
@@ -1044,10 +1064,30 @@ PROMPT;
                     }
                 }
             }
-            usort($top, fn($a, $b) => $b['force'] <=> $a['force']);
+            // Pertinent d'abord, force ensuite : le hors-sujet passe en contexte.
+            usort($top, fn($a, $b) =>
+                [$b['pertinent_domaine'], $b['force']] <=> [$a['pertinent_domaine'], $a['force']]);
         }
 
         return $top;
+    }
+
+    /**
+     * Set the narrative angle of a transit entry for the LLM: when a subject
+     * is set and the transit is on-topic via its TARGET, the story is the
+     * question's domain (DOMAINE_RECIT) — not the random house the target
+     * sits in, and not the house the planet crosses. Stops Lyra telling a
+     * "couple/face-à-face" story for a work question because the dominant
+     * career transit happens to cross natal house 7.
+     */
+    private function affecterDomaineARaconter(array &$contact, ?string $domaine): void
+    {
+        if ($domaine === null || $domaine === 'general' || empty($contact['_via'])) {
+            return;
+        }
+        $contact['domaine_a_raconter'] = $contact['_via'] === 'cible'
+            ? (self::DOMAINE_RECIT[$domaine] ?? null)
+            : $contact['domaine_cible'];
     }
 
     /**
@@ -1218,9 +1258,10 @@ PROMPT;
             );
             $contact['exact_vers']     = $fenetre['exact_vers'];
             $contact['se_libere_vers'] = $fenetre['se_libere_vers'];
+            $this->affecterDomaineARaconter($contact, $domaine);
             unset(
-                $contact['_angle'], $contact['_orbe_max'], $contact['_natal_lon'],
-                $contact['force'], $contact['pertinent_domaine']
+                $contact['_via'], $contact['_angle'], $contact['_orbe_max'],
+                $contact['_natal_lon'], $contact['force'], $contact['pertinent_domaine']
             );
         }
         unset($contact);
@@ -1344,9 +1385,11 @@ PROMPT;
             // d'une fenêtre de plusieurs mois il contredit culmine_vers (un transit
             // rapide échantillonné à son pic est toujours "se_desserre"). On le
             // retire, culmine_vers porte seul le signal temporel.
+            $this->affecterDomaineARaconter($contact, $topicExplicite ? $topic->value : null);
             unset(
-                $contact['_angle'], $contact['_orbe_max'], $contact['_natal_lon'],
-                $contact['force'], $contact['pertinent_domaine'], $contact['sens']
+                $contact['_via'], $contact['_angle'], $contact['_orbe_max'],
+                $contact['_natal_lon'], $contact['force'], $contact['pertinent_domaine'],
+                $contact['sens']
             );
         }
         unset($contact);
@@ -1358,7 +1401,7 @@ PROMPT;
         $pedagogique = $topic === TopicLyra::ASTROLOGIE;
         $consigne = $pedagogique
             ? 'Données calculées pour la période demandée. Si la période est à venir, parle au futur. Raconte le transit_dominant, un secondaire au plus.'
-            : 'Données internes, déjà interprétées. Ta réponse raconte le transit_dominant, traduit en vécu concret ; UN secondaire au plus, seulement s\'il éclaire directement la question, et jamais en "d\'un côté... de l\'autre". AUCUN jargon (pas de nom d\'aspect, pas de nom de planète imposé, jamais de numéro de maison), n\'emploie pas le vocabulaire de ces champs ("culmine" -> "au plus fort", "le pic"). Si la période est à venir, parle au futur. Arrête-toi quand c\'est dit.';
+            : 'Données internes, déjà interprétées. Ta réponse raconte le transit_dominant, traduit en vécu concret, ancré dans domaine_a_raconter quand il est présent ; UN secondaire au plus, seulement s\'il éclaire directement la question, et jamais en "d\'un côté... de l\'autre". AUCUN jargon (pas de nom d\'aspect, pas de nom de planète imposé, jamais de numéro de maison), n\'emploie pas le vocabulaire de ces champs ("culmine" -> "au plus fort", "le pic"). Si la période est à venir, parle au futur. Arrête-toi quand c\'est dit.';
 
         $resultat = [
             '_consigne' => $consigne,
