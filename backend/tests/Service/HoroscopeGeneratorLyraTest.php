@@ -81,12 +81,19 @@ class HoroscopeGeneratorLyraTest extends TestCase
         $contexte = $this->service->buildLyraContext($this->makeUser(), null, TopicLyra::AMOUR);
 
         $this->assertSame('amour', $contexte['question_domaine']);
-        $this->assertIsArray($contexte['transits_actifs']);
-        $this->assertLessThanOrEqual(5, count($contexte['transits_actifs']));
+        $this->assertArrayHasKey('transit_dominant', $contexte);
+        $this->assertArrayHasKey('transits_secondaires', $contexte);
+
+        // Dominant + secondaires = l'ancienne sélection top 5
+        $tous = array_merge(
+            $contexte['transit_dominant'] !== null ? [$contexte['transit_dominant']] : [],
+            $contexte['transits_secondaires']
+        );
+        $this->assertLessThanOrEqual(5, count($tous));
 
         $aujourdhui = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
 
-        foreach ($contexte['transits_actifs'] as $t) {
+        foreach ($tous as $t) {
             // Nouveaux champs de précision
             $this->assertContains($t['transit'], self::PLANETES_FR);
             $this->assertContains($t['cible'], self::PLANETES_FR);
@@ -135,10 +142,11 @@ class HoroscopeGeneratorLyraTest extends TestCase
         $this->assertArrayHasKey('_consigne', $resultat);
         $this->assertStringContainsString('jargon', $resultat['_consigne']);
 
-        $this->assertNotEmpty($resultat['transits']);
-        $this->assertLessThanOrEqual(6, count($resultat['transits']));
+        $this->assertNotNull($resultat['transit_dominant']);
+        $tous = array_merge([$resultat['transit_dominant']], $resultat['transits_secondaires']);
+        $this->assertLessThanOrEqual(6, count($tous));
 
-        foreach ($resultat['transits'] as $t) {
+        foreach ($tous as $t) {
             $this->assertContains($t['transit'], self::PLANETES_FR);
             $this->assertLessThanOrEqual(3.0, $t['orbe']);
             $this->assertGreaterThanOrEqual($resultat['periode']['debut'], $t['culmine_vers']);
@@ -155,6 +163,7 @@ class HoroscopeGeneratorLyraTest extends TestCase
         $resultat = $this->service->getTransitsForPeriod(new User(), 3);
 
         $this->assertNull($resultat['periode']);
-        $this->assertSame([], $resultat['transits']);
+        $this->assertNull($resultat['transit_dominant']);
+        $this->assertSame([], $resultat['transits_secondaires']);
     }
 }

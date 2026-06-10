@@ -1181,7 +1181,8 @@ PROMPT;
                 'topic'            => $topic?->value,
                 'sujet_couvert'    => false,
                 'profil_natal'     => [],
-                'transits_actifs'  => [],
+                'transit_dominant'     => null,
+                'transits_secondaires' => [],
             ];
         }
 
@@ -1241,13 +1242,19 @@ PROMPT;
             }
         }
 
+        // Dominant + secondaires : c'est le PHP qui choisit l'histoire à raconter.
+        // Envoyer une liste plate de 5 transits aux natures mélangées pousse le
+        // LLM à tout synthétiser, et la synthèse de signaux mixtes produit la
+        // même réponse "période contrastée / deux mouvements / navigue" pour
+        // tout le monde, tous les jours.
         $contexte = [
             'question_domaine' => $domaine,
             'topic'            => $topic?->value,
             'mode_pedagogique' => $pedagogique,
             'sujet_couvert'    => $sujetCouvert,
             'profil_natal'     => $profilNatal,
-            'transits_actifs'  => $selection,
+            'transit_dominant'     => $selection[0] ?? null,
+            'transits_secondaires' => array_slice($selection, 1),
         ];
 
         if (!empty($maisonsEnTransit)) {
@@ -1286,7 +1293,7 @@ PROMPT;
     ): array {
         $birthProfile = $user->getBirthProfile();
         if (!$birthProfile) {
-            return ['periode' => null, 'transits' => []];
+            return ['periode' => null, 'transit_dominant' => null, 'transits_secondaires' => []];
         }
 
         $durationMonths = max(1, min(3, $durationMonths));
@@ -1350,13 +1357,14 @@ PROMPT;
         // co-localisée avec les données est nettement mieux suivie.
         $pedagogique = $topic === TopicLyra::ASTROLOGIE;
         $consigne = $pedagogique
-            ? 'Données calculées pour la période demandée. Si la période est à venir, parle au futur. Deux transits maximum dans ta réponse.'
-            : 'Données internes, déjà interprétées. Dans ta réponse : traduis en vécu concret, AUCUN jargon (pas de nom d\'aspect, pas de nom de planète imposé, jamais de numéro de maison), n\'emploie pas le vocabulaire de ces champs ("culmine" -> "au plus fort", "le pic"). Si la période est à venir, parle au futur. Deux transits maximum, arrête-toi quand c\'est dit.';
+            ? 'Données calculées pour la période demandée. Si la période est à venir, parle au futur. Raconte le transit_dominant, un secondaire au plus.'
+            : 'Données internes, déjà interprétées. Ta réponse raconte le transit_dominant, traduit en vécu concret ; UN secondaire au plus, seulement s\'il éclaire directement la question, et jamais en "d\'un côté... de l\'autre". AUCUN jargon (pas de nom d\'aspect, pas de nom de planète imposé, jamais de numéro de maison), n\'emploie pas le vocabulaire de ces champs ("culmine" -> "au plus fort", "le pic"). Si la période est à venir, parle au futur. Arrête-toi quand c\'est dit.';
 
         $resultat = [
             '_consigne' => $consigne,
             'periode'   => ['debut' => $debut->format('Y-m-d'), 'fin' => $fin->format('Y-m-d')],
-            'transits'  => $selection,
+            'transit_dominant'     => $selection[0] ?? null,
+            'transits_secondaires' => array_slice($selection, 1),
         ];
 
         // Climat de fond au milieu de la fenêtre.
