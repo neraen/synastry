@@ -66,7 +66,7 @@ Les utilisateurs peuvent supprimer leur compte directement depuis l'application.
             title: '7. Contact',
             content: `Pour toute question relative à la confidentialité :
 
-contact@astromatch.app`,
+contact@lunestia.app`,
         },
     ],
 };
@@ -187,7 +187,7 @@ La suppression du compte ne résilie pas automatiquement un abonnement en cours.
         },
         {
             title: '13. Contact',
-            content: `Pour toute question relative aux présentes CGU, l'utilisateur peut contacter l'Éditeur à l'adresse suivante : contact.solstice.apps@gmail.com`,
+            content: `Pour toute question relative aux présentes CGU, l'utilisateur peut contacter l'Éditeur à l'adresse suivante : contact@lunestia.app`,
         },
     ],
 };
@@ -202,7 +202,7 @@ export const legalNoticeText = {
 
 Clément Silvestre, développeur indépendant domicilié en France
 
-Email : contact.solstice.apps@gmail.com`,
+Email : contact@lunestia.app`,
         },
         {
             title: 'Directeur de la publication',
