@@ -256,6 +256,21 @@ function AspectRow({
 
 // ─── Interpretation Modal ──────────────────────────────────────────────────────
 
+// Interpretations are cached on-device per aspect pair so the text stays
+// identical between openings. TTL effectively permanent (10 years).
+// The birth profile is part of the key: the backend personalises the text with
+// sun/moon/ascendant, so a profile change must produce fresh interpretations.
+const TRANSIT_INTERP_TTL = 10 * 365 * 24 * 3600;
+
+function transitInterpCacheKey(
+    user: { id: string | number; birthProfile?: { birthDate?: string; birthCity?: string } | null },
+    locale: string,
+    aspect: CalendarAspect,
+): string {
+    const profile = user.birthProfile ? `${user.birthProfile.birthDate}_${user.birthProfile.birthCity}` : 'none';
+    return `u${user.id}_transit_interp_${profile}_${locale}_${aspect.transit_planet}_${aspect.aspect_type}_${aspect.natal_planet}`;
+}
+
 function InterpretationModal({
     aspect,
     locale,
@@ -266,23 +281,46 @@ function InterpretationModal({
     onClose: () => void;
 }) {
     const { t } = useTranslation();
+    const { user } = useAuth();
+    const userId = user?.id;
     const [loading, setLoading] = useState(false);
     const [text, setText] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!aspect) return;
+        let cancelled = false;
         setText(null);
         setError(null);
         setLoading(true);
-        getTransitInterpretation(aspect)
-            .then(res => {
-                if (res.success && res.interpretation) setText(res.interpretation);
-                else setError(res.error ?? t('common.error'));
-            })
-            .catch(() => setError(t('common.error')))
-            .finally(() => setLoading(false));
-    }, [aspect]);
+        (async () => {
+            const cacheKey = user?.id ? transitInterpCacheKey(user, locale, aspect) : null;
+            if (cacheKey) {
+                const cached = await cacheGet<string>(cacheKey);
+                if (cached) {
+                    if (!cancelled) {
+                        setText(cached);
+                        setLoading(false);
+                    }
+                    return;
+                }
+            }
+            try {
+                const res = await getTransitInterpretation(aspect);
+                if (res.success && res.interpretation) {
+                    if (!cancelled) setText(res.interpretation);
+                    if (cacheKey) await cacheSet(cacheKey, res.interpretation, TRANSIT_INTERP_TTL);
+                } else if (!cancelled) {
+                    setError(res.error ?? t('common.error'));
+                }
+            } catch {
+                if (!cancelled) setError(t('common.error'));
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [aspect, userId, locale]);
 
     if (!aspect) return null;
 

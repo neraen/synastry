@@ -1,5 +1,5 @@
 {
-  "_doc": "Tableau de correspondance pour horoscope quotidien Lunestia. PHP sélectionne LE contact transit->natal le plus marquant du jour, lit le snippet ici, et compose le brief envoyé au LLM. Le LLM rédige la prose, il n'interprète plus. Les dimensions sont orthogonales : contacts[transit][natal] (la dynamique) + maisons[maison_natale_cible] (le domaine de vie). On compose, on ne multiplie pas.",
+  "_doc": "Tableau de correspondance pour horoscope quotidien Lunestia. PHP sélectionne LE contact transit->natal le plus marquant du jour, lit le snippet ici, et compose le brief envoyé au LLM. Le LLM rédige la prose, il n'interprète plus. Les dimensions sont orthogonales : contacts[transit][natal] (la dynamique) + maisons[maison_natale_cible] (le domaine de vie). On compose, on ne multiplie pas. flow/tension sont des tableaux de variantes équivalentes : PHP en choisit une de façon déterministe (date + contact) pour varier la matière d'un jour à l'autre.",
 
   "regle_aspect": {
     "trigone": "flow",
@@ -26,58 +26,538 @@
 
   "contacts": {
     "Lune": {
-      "Soleil":  { "theme": "accord entre humeur et identite",        "flow": "elle se sent en phase avec elle-meme, tout coule sans effort", "tension": "tiraillement entre ce qu'elle ressent et ce qu'elle veut montrer" },
-      "Lune":    { "theme": "maree emotionnelle personnelle",          "flow": "emotions fluides, elle sait exactement ce dont elle a besoin", "tension": "hypersensibilite, humeur qui deborde sans raison claire" },
-      "Mercure": { "theme": "emotions mises en mots",                  "flow": "elle met des mots justes sur ce qu'elle ressent", "tension": "rumination, elle ressasse une conversation" },
-      "Venus":   { "theme": "besoin de douceur et de lien",            "flow": "envie de tendresse, un contact simple lui fait du bien", "tension": "susceptibilite affective, un besoin de reconfort mal comble" },
-      "Mars":    { "theme": "reactivite emotionnelle",                 "flow": "elle ose dire ce qu'elle ressent, l'energie sert l'emotion", "tension": "irritabilite, agacement qui se declenche pour un rien" },
-      "Saturne": { "theme": "poids et serieux emotionnels",            "flow": "calme interieur, elle gere ses emotions avec maturite", "tension": "petit cafard, sensation de solitude ou de devoir tout contenir" },
-      "ASC":     { "theme": "humeur visible",                          "flow": "son ressenti colore agreablement la journee, elle est accessible", "tension": "humeur a fleur de peau qui transparait malgre elle" },
-      "MC":      { "theme": "l'emotionnel face au travail et au public","flow": "instinct juste sur ce qu'il faut faire pour avancer", "tension": "le perso deborde sur le pro, dur de rester concentree" }
+      "Soleil": {
+        "theme": "accord entre humeur et identite",
+        "flow": [
+          "elle se sent en phase avec elle-meme, tout coule sans effort",
+          "humeur et envies vont dans le meme sens, ca roule tout seul",
+          "pas besoin de se forcer aujourd'hui, elle est raccord avec elle-meme"
+        ],
+        "tension": [
+          "tiraillement entre ce qu'elle ressent et ce qu'elle veut montrer",
+          "elle affiche un sourire qui ne colle pas tout a fait a l'interieur",
+          "ce qu'elle ressent et ce qu'elle montre jouent deux partitions differentes"
+        ]
+      },
+      "Lune": {
+        "theme": "maree emotionnelle personnelle",
+        "flow": [
+          "emotions fluides, elle sait exactement ce dont elle a besoin",
+          "elle se comprend a demi-mot, ses besoins sont limpides",
+          "meteo interieure douce, elle sait ou est son confort"
+        ],
+        "tension": [
+          "hypersensibilite, humeur qui deborde sans raison claire",
+          "tout la touche un peu trop fort aujourd'hui",
+          "humeur en montagnes russes, sans explication evidente"
+        ]
+      },
+      "Mercure": {
+        "theme": "emotions mises en mots",
+        "flow": [
+          "elle met des mots justes sur ce qu'elle ressent",
+          "une conversation qui fait du bien, les mots viennent tout seuls",
+          "elle dit enfin clairement ce qui lui trottait dans le coeur"
+        ],
+        "tension": [
+          "rumination, elle ressasse une conversation",
+          "une phrase entendue tourne en boucle dans sa tete",
+          "elle reecrit mentalement dix fois le meme message"
+        ]
+      },
+      "Venus": {
+        "theme": "besoin de douceur et de lien",
+        "flow": [
+          "envie de tendresse, un contact simple lui fait du bien",
+          "un petit geste doux suffit a illuminer sa journee",
+          "elle a envie de calins, de jolies choses et de bonne compagnie"
+        ],
+        "tension": [
+          "susceptibilite affective, un besoin de reconfort mal comble",
+          "elle attend un geste tendre qui tarde a venir",
+          "petite faim de douceur que personne ne devine"
+        ]
+      },
+      "Mars": {
+        "theme": "reactivite emotionnelle",
+        "flow": [
+          "elle ose dire ce qu'elle ressent, l'energie sert l'emotion",
+          "ses tripes parlent et elles disent juste",
+          "elle defend ce qui lui tient a coeur, avec panache"
+        ],
+        "tension": [
+          "irritabilite, agacement qui se declenche pour un rien",
+          "le moindre detail peut faire des etincelles",
+          "fusible court aujourd'hui, mieux vaut le savoir"
+        ]
+      },
+      "Saturne": {
+        "theme": "poids et serieux emotionnels",
+        "flow": [
+          "calme interieur, elle gere ses emotions avec maturite",
+          "elle prend les choses avec un sang-froid qui l'etonne elle-meme",
+          "stabilite tranquille, rien ne la fait vaciller"
+        ],
+        "tension": [
+          "petit cafard, sensation de solitude ou de devoir tout contenir",
+          "l'impression de porter sa journee a bout de bras",
+          "un voile gris passe, envie de se replier un peu"
+        ]
+      },
+      "ASC": {
+        "theme": "humeur visible",
+        "flow": [
+          "son ressenti colore agreablement la journee, elle est accessible",
+          "sa bonne humeur se voit et attire les gens",
+          "elle degage quelque chose de doux, on vient vers elle"
+        ],
+        "tension": [
+          "humeur a fleur de peau qui transparait malgre elle",
+          "son visage la trahit avant qu'elle ait dit un mot",
+          "difficile de cacher que ca ne tourne pas rond"
+        ]
+      },
+      "MC": {
+        "theme": "l'emotionnel face au travail et au public",
+        "flow": [
+          "instinct juste sur ce qu'il faut faire pour avancer",
+          "son flair professionnel est en grande forme",
+          "elle sent d'instinct quel dossier pousser aujourd'hui"
+        ],
+        "tension": [
+          "le perso deborde sur le pro, dur de rester concentree",
+          "la tete au travail, le coeur ailleurs",
+          "ses preoccupations privees s'invitent en reunion"
+        ]
+      }
     },
 
     "Soleil": {
-      "Soleil":  { "theme": "rythme vital du jour",                    "flow": "energie alignee, elle se sent pleinement a sa place", "tension": "effort pour exister face aux attentes des autres" },
-      "Lune":    { "theme": "la journee face a ses besoins",           "flow": "ce qu'elle vit nourrit son equilibre interieur", "tension": "la journee bouscule son besoin de stabilite" },
-      "Mercure": { "theme": "clarte mentale sur soi",                  "flow": "idees claires, elle s'exprime avec justesse", "tension": "tete en surchauffe, elle se justifie trop" },
-      "Venus":   { "theme": "envie de plaisir et de reconnaissance",   "flow": "elle a envie de se faire plaisir, son charme opere", "tension": "besoin d'etre appreciee qui reste sur sa faim" },
-      "Mars":    { "theme": "elan d'action",                           "flow": "energie franche, elle avance sans se poser de questions", "tension": "elle force, se depense trop, risque de heurter" },
-      "Saturne": { "theme": "confrontation au reel",                   "flow": "elle structure, pose des bases solides", "tension": "sensation de mur, fatigue, journee exigeante" },
-      "ASC":     { "theme": "presence, comment on la voit",            "flow": "elle rayonne, on la remarque positivement", "tension": "elle se sent jugee, en representation forcee" },
-      "MC":      { "theme": "visibilite et objectifs",                 "flow": "bon moment pour se montrer, faire avancer un objectif visible", "tension": "pression sur l'image pro, attentes pesantes" }
+      "Soleil": {
+        "theme": "rythme vital du jour",
+        "flow": [
+          "energie alignee, elle se sent pleinement a sa place",
+          "journee taillee a sa mesure, elle avance avec aplomb",
+          "elle est dans son element, ca se sent"
+        ],
+        "tension": [
+          "effort pour exister face aux attentes des autres",
+          "elle rame un peu pour faire entendre sa voix",
+          "la journee lui demande de prouver ce qu'elle vaut"
+        ]
+      },
+      "Lune": {
+        "theme": "la journee face a ses besoins",
+        "flow": [
+          "ce qu'elle vit nourrit son equilibre interieur",
+          "la journee lui apporte pile ce dont elle avait besoin",
+          "exterieur et interieur sont d'accord, ca repose"
+        ],
+        "tension": [
+          "la journee bouscule son besoin de stabilite",
+          "le programme du jour marche sur ses plates-bandes interieures",
+          "ce qu'on attend d'elle frotte avec ce qu'elle veut vraiment"
+        ]
+      },
+      "Mercure": {
+        "theme": "clarte mentale sur soi",
+        "flow": [
+          "idees claires, elle s'exprime avec justesse",
+          "elle voit clair dans son jeu et le dit simplement",
+          "les bonnes formules lui viennent sans chercher"
+        ],
+        "tension": [
+          "tete en surchauffe, elle se justifie trop",
+          "elle s'explique trois fois la ou une suffisait",
+          "trop de pensees a la fois, le tri s'impose"
+        ]
+      },
+      "Venus": {
+        "theme": "envie de plaisir et de reconnaissance",
+        "flow": [
+          "elle a envie de se faire plaisir, son charme opere",
+          "journee a saupoudrer de petits plaisirs assumes",
+          "on la trouve charmante, et franchement c'est merite"
+        ],
+        "tension": [
+          "besoin d'etre appreciee qui reste sur sa faim",
+          "le compliment espere n'arrive pas, ca pique un peu",
+          "elle guette un signe d'appreciation qui se fait attendre"
+        ]
+      },
+      "Mars": {
+        "theme": "elan d'action",
+        "flow": [
+          "energie franche, elle avance sans se poser de questions",
+          "elle fonce, et pour une fois tout suit",
+          "grosse reserve d'energie a depenser sans compter"
+        ],
+        "tension": [
+          "elle force, se depense trop, risque de heurter",
+          "elle appuie sur l'accelerateur la ou il fallait doser",
+          "envie de tout faire vite, au risque de bousculer"
+        ]
+      },
+      "Saturne": {
+        "theme": "confrontation au reel",
+        "flow": [
+          "elle structure, pose des bases solides",
+          "elle construit du durable, brique par brique",
+          "journee serieuse mais payante, ce qu'elle pose tient"
+        ],
+        "tension": [
+          "sensation de mur, fatigue, journee exigeante",
+          "tout semble peser un peu plus lourd que d'habitude",
+          "le reel joue les rabat-joie, elle doit composer"
+        ]
+      },
+      "ASC": {
+        "theme": "presence, comment on la voit",
+        "flow": [
+          "elle rayonne, on la remarque positivement",
+          "elle entre quelque part et ca se voit, dans le bon sens",
+          "bonne lumiere sur elle aujourd'hui, autant en profiter"
+        ],
+        "tension": [
+          "elle se sent jugee, en representation forcee",
+          "l'impression d'etre sur scene sans l'avoir demande",
+          "les regards pesent un peu plus que d'habitude"
+        ]
+      },
+      "MC": {
+        "theme": "visibilite et objectifs",
+        "flow": [
+          "bon moment pour se montrer, faire avancer un objectif visible",
+          "ses efforts se voient, quelqu'un le remarque",
+          "le projecteur est bien place, a elle de jouer"
+        ],
+        "tension": [
+          "pression sur l'image pro, attentes pesantes",
+          "on attend beaucoup d'elle cote travail, un peu trop",
+          "sa reputation lui semble en jeu sur un detail"
+        ]
+      }
     },
 
     "Mercure": {
-      "Soleil":  { "theme": "clarte sur ses intentions",              "flow": "elle pense clair et le dit bien", "tension": "elle s'eparpille, parle plus qu'elle n'agit" },
-      "Lune":    { "theme": "dialogue interieur",                      "flow": "elle comprend ce qu'elle ressent et peut l'exprimer", "tension": "mental qui tourne, elle ressasse une emotion" },
-      "Mercure": { "theme": "vivacite d'esprit",                       "flow": "echanges fluides, l'info circule bien autour d'elle", "tension": "trop d'infos, decisions brouillees, petits malentendus" },
-      "Venus":   { "theme": "mots et echanges affectifs",             "flow": "une conversation rapproche, un compliment sincere", "tension": "un message mal compris, un mot maladroit qui blesse" },
-      "Mars":    { "theme": "parole tranchante",                       "flow": "elle argumente avec punch, un debat la stimule", "tension": "dispute verbale, elle envoie un message a chaud" },
-      "Saturne": { "theme": "pensee serieuse et decisions",           "flow": "elle reflechit posement, prend une bonne decision pratique", "tension": "pessimisme mental, elle bloque sur un detail" },
-      "ASC":     { "theme": "facon de communiquer percue",            "flow": "elle se fait bien comprendre, a l'aise a l'oral", "tension": "elle se sent mal interpretee" },
-      "MC":      { "theme": "communication professionnelle",          "flow": "une idee bien recue, un echange pro qui avance", "tension": "malentendu pro, un mail mal pris" }
+      "Soleil": {
+        "theme": "clarte sur ses intentions",
+        "flow": [
+          "elle pense clair et le dit bien",
+          "ses idees s'alignent, son cap se precise",
+          "elle sait ce qu'elle veut et l'annonce sans detour"
+        ],
+        "tension": [
+          "elle s'eparpille, parle plus qu'elle n'agit",
+          "beaucoup de mots, peu d'avancee concrete",
+          "ses pensees partent dans tous les sens, le cap se brouille"
+        ]
+      },
+      "Lune": {
+        "theme": "dialogue interieur",
+        "flow": [
+          "elle comprend ce qu'elle ressent et peut l'exprimer",
+          "tete et coeur discutent calmement, ca eclaire",
+          "elle pose des mots simples sur un ressenti complique"
+        ],
+        "tension": [
+          "mental qui tourne, elle ressasse une emotion",
+          "sa tete refait le match au lieu de tourner la page",
+          "petite radio interieure impossible a eteindre"
+        ]
+      },
+      "Mercure": {
+        "theme": "vivacite d'esprit",
+        "flow": [
+          "echanges fluides, l'info circule bien autour d'elle",
+          "esprit vif, reparties qui fusent, journee stimulante",
+          "les bonnes infos lui arrivent au bon moment"
+        ],
+        "tension": [
+          "trop d'infos, decisions brouillees, petits malentendus",
+          "messages croises et fils emmeles, elle s'y perd",
+          "un quiproquo ou deux a deminer dans la journee"
+        ]
+      },
+      "Venus": {
+        "theme": "mots et echanges affectifs",
+        "flow": [
+          "une conversation rapproche, un compliment sincere",
+          "les mots doux sortent facilement et tombent juste",
+          "un echange leger qui laisse le sourire"
+        ],
+        "tension": [
+          "un message mal compris, un mot maladroit qui blesse",
+          "le ton d'un message passe mal, mieux vaut clarifier",
+          "elle pese ses mots pour ne pas froisser, et c'est fatigant"
+        ]
+      },
+      "Mars": {
+        "theme": "parole tranchante",
+        "flow": [
+          "elle argumente avec punch, un debat la stimule",
+          "repartie affutee, elle gagne ses petites joutes du jour",
+          "elle dit les choses cash et ca fait avancer"
+        ],
+        "tension": [
+          "dispute verbale, elle envoie un message a chaud",
+          "un mot part plus vite que sa pensee",
+          "ton sec des deux cotes, l'echange chauffe vite"
+        ]
+      },
+      "Saturne": {
+        "theme": "pensee serieuse et decisions",
+        "flow": [
+          "elle reflechit posement, prend une bonne decision pratique",
+          "elle tranche un sujet qui trainait, avec methode",
+          "esprit pose, choix solides, rien n'est laisse au hasard"
+        ],
+        "tension": [
+          "pessimisme mental, elle bloque sur un detail",
+          "sa tete voit d'abord ce qui peut rater",
+          "un detail la freine plus qu'il ne le merite"
+        ]
+      },
+      "ASC": {
+        "theme": "facon de communiquer percue",
+        "flow": [
+          "elle se fait bien comprendre, a l'aise a l'oral",
+          "son naturel passe bien, on l'ecoute volontiers",
+          "elle trouve le bon ton avec chacun"
+        ],
+        "tension": [
+          "elle se sent mal interpretee",
+          "ce qu'elle dit et ce qu'on entend ne collent pas",
+          "elle doit reformuler pour etre prise comme il faut"
+        ]
+      },
+      "MC": {
+        "theme": "communication professionnelle",
+        "flow": [
+          "une idee bien recue, un echange pro qui avance",
+          "son message pro tombe juste, ca debloque un dossier",
+          "bonne journee pour envoyer le mail qui attendait"
+        ],
+        "tension": [
+          "malentendu pro, un mail mal pris",
+          "une consigne floue seme la pagaille",
+          "mieux vaut relire deux fois avant d'envoyer"
+        ]
+      }
     },
 
     "Venus": {
-      "Soleil":  { "theme": "envie de plaire et de chaleur",          "flow": "elle attire, les contacts sont doux, on l'apprecie", "tension": "quete d'approbation, trop dependante du regard de l'autre" },
-      "Lune":    { "theme": "tendresse et confort affectif",          "flow": "besoin de cocon comble, une douceur partagee", "tension": "demande de reconfort qui colle, susceptibilite" },
-      "Mercure": { "theme": "douceur dans les mots",                  "flow": "elle sait dire les choses avec tact et charme", "tension": "elle enrobe trop, n'ose pas dire le vrai" },
-      "Venus":   { "theme": "ce qui lui plait vraiment",              "flow": "elle sait ce qu'elle aime, son plaisir est aligne", "tension": "doute sur ce qu'elle veut, ses valeurs flottent" },
-      "Mars":    { "theme": "desir et jeu amoureux",                  "flow": "tension delicieuse, envie d'oser, la seduction marche", "tension": "desir contrarie, attirance qui frustre, malentendu charnel" },
-      "Saturne": { "theme": "amour a l'epreuve, engagement",          "flow": "un lien stable, un geste de loyaute qui compte", "tension": "froideur, distance, peur de ne pas etre assez aimee" },
-      "ASC":     { "theme": "charme et maniere de plaire",            "flow": "elle plait sans effort, soignee et accessible", "tension": "elle en fait trop pour plaire, malaise sur son image" },
-      "MC":      { "theme": "amour et image sociale",                 "flow": "une relation sert son chemin, harmonie cote pro", "tension": "conflit entre son coeur et son ambition" }
+      "Soleil": {
+        "theme": "envie de plaire et de chaleur",
+        "flow": [
+          "elle attire, les contacts sont doux, on l'apprecie",
+          "elle seduit sans forcer, les sourires lui repondent",
+          "sa presence rechauffe, on recherche sa compagnie"
+        ],
+        "tension": [
+          "quete d'approbation, trop dependante du regard de l'autre",
+          "elle mesure sa valeur au regard des autres, mauvais barometre",
+          "envie de plaire qui prend trop de place"
+        ]
+      },
+      "Lune": {
+        "theme": "tendresse et confort affectif",
+        "flow": [
+          "besoin de cocon comble, une douceur partagee",
+          "moment cosy, complicite simple, coeur au chaud",
+          "elle savoure un instant doux sans rien demander de plus"
+        ],
+        "tension": [
+          "demande de reconfort qui colle, susceptibilite",
+          "elle espere une attention qui ne vient pas toute seule",
+          "le besoin de douceur vire au petit reproche muet"
+        ]
+      },
+      "Mercure": {
+        "theme": "douceur dans les mots",
+        "flow": [
+          "elle sait dire les choses avec tact et charme",
+          "ses mots tombent juste et font mouche en douceur",
+          "conversation agreable, tout glisse"
+        ],
+        "tension": [
+          "elle enrobe trop, n'ose pas dire le vrai",
+          "a force d'adoucir, le message se perd",
+          "elle tourne autour du pot pour menager l'autre"
+        ]
+      },
+      "Venus": {
+        "theme": "ce qui lui plait vraiment",
+        "flow": [
+          "elle sait ce qu'elle aime, son plaisir est aligne",
+          "ses envies sont claires et elle s'ecoute, enfin",
+          "journee a son gout, au sens propre"
+        ],
+        "tension": [
+          "doute sur ce qu'elle veut, ses valeurs flottent",
+          "ce qui lui plaisait hier la laisse tiede aujourd'hui",
+          "petite hesitation entre deux envies contraires"
+        ]
+      },
+      "Mars": {
+        "theme": "desir et jeu amoureux",
+        "flow": [
+          "tension delicieuse, envie d'oser, la seduction marche",
+          "le jeu de seduction tourne a son avantage",
+          "etincelle assumee, elle ose le premier pas"
+        ],
+        "tension": [
+          "desir contrarie, attirance qui frustre, malentendu charnel",
+          "envie et timing ne sont pas d'accord",
+          "ca chauffe et ca frustre en meme temps"
+        ]
+      },
+      "Saturne": {
+        "theme": "amour a l'epreuve, engagement",
+        "flow": [
+          "un lien stable, un geste de loyaute qui compte",
+          "une preuve discrete mais solide d'attachement",
+          "l'amour tranquille marque un point"
+        ],
+        "tension": [
+          "froideur, distance, peur de ne pas etre assez aimee",
+          "un silence qu'elle interprete en mal",
+          "le coeur reclame une garantie que personne ne peut signer"
+        ]
+      },
+      "ASC": {
+        "theme": "charme et maniere de plaire",
+        "flow": [
+          "elle plait sans effort, soignee et accessible",
+          "bonne mine, bon style, ca se remarque",
+          "elle se sent belle et ca change tout"
+        ],
+        "tension": [
+          "elle en fait trop pour plaire, malaise sur son image",
+          "miroir critique, rien ne lui va ce matin",
+          "elle se compare et y perd"
+        ]
+      },
+      "MC": {
+        "theme": "amour et image sociale",
+        "flow": [
+          "une relation sert son chemin, harmonie cote pro",
+          "un soutien bienveillant fait avancer ses projets",
+          "douceur et ambition font bon menage aujourd'hui"
+        ],
+        "tension": [
+          "conflit entre son coeur et son ambition",
+          "le coeur tire d'un cote, la carriere de l'autre",
+          "choisir entre plaire et performer, dilemme du jour"
+        ]
+      }
     },
 
     "Mars": {
-      "Soleil":  { "theme": "poussee d'affirmation",                  "flow": "elle ose, elle agit, un courage net la traverse", "tension": "elle se braque, conflit d'ego, elle force le passage" },
-      "Lune":    { "theme": "emotions chauffees a blanc",             "flow": "elle agit selon son ressenti, instinct energique et juste", "tension": "reaction a vif, accrochage domestique, susceptibilite explosive" },
-      "Mercure": { "theme": "pensee et parole sous tension",          "flow": "esprit vif et combatif, elle tranche un sujet", "tension": "elle parle trop vite, ton sec, dispute qui part d'un mot" },
-      "Venus":   { "theme": "desir et friction relationnelle",        "flow": "passion, initiative amoureuse, ca crepite dans le bon sens", "tension": "accrochage de couple, desir contrarie, pointe de jalousie" },
-      "Mars":    { "theme": "moteur personnel",                       "flow": "elle est a fond, productive, combative au bon sens", "tension": "agitation, impatience, elle se disperse dans la colere" },
-      "Saturne": { "theme": "elan contre vgfvdyhgb@&  @ blocage",                    "flow": "effort discipline, elle pousse un mur avec methode", "tension": "frustration, elle freine des deux pieds, colere rentree" },
-      "ASC":     { "theme": "comment elle s'impose",                  "flow": "presence affirmee, elle prend sa place franchement", "tension": "agressivite visible, elle heurte sans le vouloir" },
-      "MC":      { "theme": "action sur ses objectifs",              "flow": "elle pousse un dossier, une initiative qui paie", "tension": "conflit avec la hierarchie, elle se met en avant maladroitement" }
+      "Soleil": {
+        "theme": "poussee d'affirmation",
+        "flow": [
+          "elle ose, elle agit, un courage net la traverse",
+          "elle prend les devants et ca paie",
+          "audace du jour : demander, lancer, trancher"
+        ],
+        "tension": [
+          "elle se braque, conflit d'ego, elle force le passage",
+          "bras de fer inutile en vue, personne ne veut ceder",
+          "elle confond s'affirmer et s'imposer"
+        ]
+      },
+      "Lune": {
+        "theme": "emotions chauffees a blanc",
+        "flow": [
+          "elle agit selon son ressenti, instinct energique et juste",
+          "coup de coeur, coup d'elan : son instinct decide bien",
+          "elle canalise une emotion forte en action utile"
+        ],
+        "tension": [
+          "reaction a vif, accrochage domestique, susceptibilite explosive",
+          "la cocotte-minute interieure siffle, attention a la soupape",
+          "un agacement prive peut partir au quart de tour"
+        ]
+      },
+      "Mercure": {
+        "theme": "pensee et parole sous tension",
+        "flow": [
+          "esprit vif et combatif, elle tranche un sujet",
+          "elle debat, argumente, conclut : efficace",
+          "ses idees ont du mordant, au bon sens du terme"
+        ],
+        "tension": [
+          "elle parle trop vite, ton sec, dispute qui part d'un mot",
+          "le message risque de partir plus vite que la reflexion",
+          "une pique de trop et l'echange s'enflamme"
+        ]
+      },
+      "Venus": {
+        "theme": "desir et friction relationnelle",
+        "flow": [
+          "passion, initiative amoureuse, ca crepite dans le bon sens",
+          "elle ose un geste qui reveille la flamme",
+          "attirance franche, jeu assume, belle energie a deux"
+        ],
+        "tension": [
+          "accrochage de couple, desir contrarie, pointe de jalousie",
+          "petite scene de menage qui couve pour un detail",
+          "l'envie est la mais l'agacement aussi"
+        ]
+      },
+      "Mars": {
+        "theme": "moteur personnel",
+        "flow": [
+          "elle est a fond, productive, combative au bon sens",
+          "machine lancee, la liste de taches n'a qu'a bien se tenir",
+          "energie de competition, elle se depasse"
+        ],
+        "tension": [
+          "agitation, impatience, elle se disperse dans la colere",
+          "elle veut tout, tout de suite, et s'use",
+          "trop de fronts ouverts en meme temps"
+        ]
+      },
+      "Saturne": {
+        "theme": "elan contre blocage",
+        "flow": [
+          "effort discipline, elle pousse un mur avec methode",
+          "endurance payante, elle avance pas a pas sans lacher",
+          "elle transforme la contrainte en plan d'attaque"
+        ],
+        "tension": [
+          "frustration, elle freine des deux pieds, colere rentree",
+          "accelerateur et frein en meme temps, ca chauffe en dedans",
+          "un obstacle teste sa patience, qui n'en a pas beaucoup"
+        ]
+      },
+      "ASC": {
+        "theme": "comment elle s'impose",
+        "flow": [
+          "presence affirmee, elle prend sa place franchement",
+          "elle avance d'un pas decide, on s'ecarte poliment",
+          "energie visible, elle mene la danse"
+        ],
+        "tension": [
+          "agressivite visible, elle heurte sans le vouloir",
+          "son energie bouscule, certains le prennent mal",
+          "elle entre un peu trop fort dans la piece"
+        ]
+      },
+      "MC": {
+        "theme": "action sur ses objectifs",
+        "flow": [
+          "elle pousse un dossier, une initiative qui paie",
+          "offensive pro bien sentie, elle marque des points",
+          "elle attaque la journee par le sommet de la pile"
+        ],
+        "tension": [
+          "conflit avec la hierarchie, elle se met en avant maladroitement",
+          "friction avec un chef ou un client, l'ego s'en mele",
+          "elle force une porte pro qui demandait une cle"
+        ]
+      }
     }
   }
 }

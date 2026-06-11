@@ -97,6 +97,18 @@ class HoroscopeGeneratorServiceTest extends TestCase
             ->method('findTodayForUser')
             ->willReturn(null);
 
+        // Yesterday's horoscope feeds the anti-repetition block of the brief
+        $hier = new DailyHoroscope();
+        $hier->setTitle('Titre hier');
+        $hier->setOverview('Overview hier');
+        $this->dailyHoroscopeRepository->expects($this->once())
+            ->method('findByUserAndDate')
+            ->willReturn($hier);
+
+        // Real calculator so the brief engine gets an actual chart payload
+        $this->astrologyAnalysisService->method('createCalculatorFromBirthProfile')
+            ->willReturn(new \App\Service\PlanetaryCalculator('1990-06-15', '08:30', 48.8566, 2.3522, 'Test'));
+
         $this->astrologyAnalysisService->expects($this->once())
             ->method('prepareHoroscopeData')
             ->willReturn([
@@ -109,18 +121,22 @@ class HoroscopeGeneratorServiceTest extends TestCase
                 'slow_aspects' => []
             ]);
 
+        $promptEnvoye = null;
         $this->openAiService->expects($this->once())
             ->method('generateDailyHoroscope')
-            ->willReturn([
-                'success' => true,
-                'content' => [
-                    'title' => 'Titre test',
-                    'overview' => 'Overview test',
-                    'love' => 'Love test',
-                    'energy' => 'Energy test',
-                    'advice' => 'Advice test'
-                ]
-            ]);
+            ->willReturnCallback(function (string $prompt) use (&$promptEnvoye) {
+                $promptEnvoye = $prompt;
+                return [
+                    'success' => true,
+                    'content' => [
+                        'title' => 'Titre test',
+                        'overview' => 'Overview test',
+                        'love' => 'Love test',
+                        'energy' => 'Energy test',
+                        'advice' => 'Advice test'
+                    ]
+                ];
+            });
 
         // Linter pass-through: identity (its own logic is covered elsewhere)
         $this->openAiService->method('corrigerViolations')->willReturnArgument(0);
@@ -133,6 +149,13 @@ class HoroscopeGeneratorServiceTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertEquals('Titre test', $result['horoscope']['title']);
         $this->assertFalse($result['horoscope']['cached']);
+
+        // The brief carries yesterday's text and the per-angle 'sens' key
+        $brief = json_decode($promptEnvoye, true);
+        $this->assertSame('Titre hier', $brief['hier']['title'] ?? null);
+        $this->assertSame('Overview hier', $brief['hier']['overview'] ?? null);
+        $this->assertArrayHasKey('sens', $brief['angle_principal']);
+        $this->assertContains($brief['angle_principal']['sens'], ['se_renforce', 'se_desserre', null]);
     }
 
     public function testGetUpcomingTransitsFailsIfNoBirthProfile()

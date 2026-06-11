@@ -409,8 +409,20 @@ PROMPT;
         $natalCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
         $natal = $this->buildNatalArray($natalCalc);
         $transits = $this->buildTransitsArray();
+        $transitsDemain = $this->buildTransitsArray(1);
         $principalMaison = null;
-        $brief = $this->genererBriefHoroscope($natal, $transits, $this->formatDateFr(), $principalMaison);
+        $brief = $this->genererBriefHoroscope($natal, $transits, $transitsDemain, $this->formatDateFr(), $principalMaison);
+
+        // Anti-répétition : un aspect rapide reste en orbe 3-4 jours, deux jours
+        // consécutifs partagent donc souvent le même brief. On envoie l'horoscope
+        // d'hier pour que le LLM change d'angle (titre, images, tournures).
+        $hier = $this->dailyHoroscopeRepository->findByUserAndDate($user, new \DateTime('yesterday'));
+        if ($hier !== null) {
+            $brief['hier'] = [
+                'title'    => $hier->getTitle(),
+                'overview' => $hier->getOverview(),
+            ];
+        }
 
         // Deepen the baseline with the persistent psy profile (noyau + the axis
         // matching the day's main angle). The digest colors the same day personally
@@ -715,9 +727,12 @@ PROMPT;
         return $natal;
     }
 
-    private function buildTransitsArray(): array
+    private function buildTransitsArray(int $joursOffset = 0): array
     {
         $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        if ($joursOffset !== 0) {
+            $now->modify(sprintf('%+d days', $joursOffset));
+        }
         $calc = new PlanetaryCalculator($now->format('Y-m-d'), '12:00', 0.0, 0.0, 'Transits');
 
         $transits = [];
@@ -739,8 +754,11 @@ PROMPT;
 
     /**
      * Detect all transit→natal contacts within orb, scored.
+     * $transitsDemain (same shape, +1 day) feeds 'sens' : whether the contact
+     * tightens (se_renforce) or releases (se_desserre) tomorrow — daily scale,
+     * unlike Lyra's sensTransit() which compares to +30 days.
      */
-    private function contactsScores(array $natal, array $transits): array
+    private function contactsScores(array $natal, array $transits, array $transitsDemain = []): array
     {
         $contacts = [];
 
@@ -762,6 +780,15 @@ PROMPT;
                         ? self::FACTEUR_CIBLE_FORTE : 1.0;
                     $score = $asp['poids'] * $orbFactor * $cibleFactor;
 
+                    $sens = null;
+                    if (isset($transitsDemain[$tPlanete])) {
+                        $sepDemain = PlanetaryCalculator::separation(
+                            $transitsDemain[$tPlanete]['longitude'],
+                            $nLon
+                        );
+                        $sens = self::sensTransit($orbeReel, abs($sepDemain - $asp['angle']));
+                    }
+
                     $contacts[] = [
                         'transit' => $tPlanete,
                         'cible'   => $cible,
@@ -769,6 +796,7 @@ PROMPT;
                         'orbe'    => $orbeReel,
                         'score'   => $score,
                         'maison'  => $nData['maison'],
+                        'sens'    => $sens,
                     ];
                     break; // one aspect per transit-cible pair
                 }
@@ -821,8 +849,10 @@ PROMPT;
 
     /**
      * Compose a brief section from a contact + the JSON table.
+     * $seed (date du jour) rend le choix de variante stable sur la journée
+     * mais différent d'un jour et d'un contact à l'autre.
      */
-    private function composerBrief(?array $contact, array $table): ?array
+    private function composerBrief(?array $contact, array $table, string $seed = ''): ?array
     {
         if ($contact === null) return null;
 
@@ -838,27 +868,41 @@ PROMPT;
 
         return [
             'theme'     => $cell['theme'],
-            'situation' => $cell[$flavorKey],
+            'situation' => $this->choisirVariante($cell[$flavorKey], $seed . $contact['transit'] . $contact['cible']),
             'domaine'   => $table['maisons'][(string) $contact['maison']] ?? null,
+            'sens'      => $contact['sens'] ?? null,
         ];
+    }
+
+    /**
+     * Deterministic pick among equivalent phrasings (the JSON table stores
+     * flow/tension as variant arrays). String accepted for backward compat.
+     */
+    private function choisirVariante(string|array $variantes, string $seed): string
+    {
+        if (is_string($variantes)) {
+            return $variantes;
+        }
+        return $variantes[crc32($seed) % count($variantes)];
     }
 
     /**
      * Orchestrate: natal + transits → deterministic brief for the LLM.
      */
-    private function genererBriefHoroscope(array $natal, array $transits, string $dateFr, ?int &$principalMaison = null): array
+    private function genererBriefHoroscope(array $natal, array $transits, array $transitsDemain, string $dateFr, ?int &$principalMaison = null): array
     {
         $table = $this->loadTransitsTable();
-        $contacts = $this->contactsScores($natal, $transits);
+        $contacts = $this->contactsScores($natal, $transits, $transitsDemain);
         $angles = $this->selectionnerAngles($contacts, $natal);
 
         // House of the angle that actually drives the day (principal, else the
         // Moon "couleur" used as fallback) — used to pick the psy axis to inject.
         $principalMaison = $angles['principal']['maison'] ?? ($angles['couleur']['maison'] ?? null);
 
-        $briefPrincipal   = $this->composerBrief($angles['principal'], $table);
-        $briefRelationnel = $this->composerBrief($angles['relationnel'], $table);
-        $briefCouleur     = $this->composerBrief($angles['couleur'], $table);
+        $seed = (new \DateTime('today'))->format('Y-m-d');
+        $briefPrincipal   = $this->composerBrief($angles['principal'], $table, $seed);
+        $briefRelationnel = $this->composerBrief($angles['relationnel'], $table, $seed);
+        $briefCouleur     = $this->composerBrief($angles['couleur'], $table, $seed);
 
         // Fallbacks (§6): never send an empty brief
         if ($briefPrincipal === null) {
@@ -872,6 +916,7 @@ PROMPT;
                         $angles['baseline']['asc_signe'] ?? 'naturelle'
                     ),
                     'domaine' => null,
+                    'sens'    => null,
                 ];
             }
         }
@@ -1073,21 +1118,19 @@ PROMPT;
     }
 
     /**
-     * Set the narrative angle of a transit entry for the LLM: when a subject
-     * is set and the transit is on-topic via its TARGET, the story is the
-     * question's domain (DOMAINE_RECIT) — not the random house the target
-     * sits in, and not the house the planet crosses. Stops Lyra telling a
-     * "couple/face-à-face" story for a work question because the dominant
-     * career transit happens to cross natal house 7.
+     * Set the narrative angle of an on-topic transit entry for the LLM: always
+     * the SUBJECT's domain (DOMAINE_RECIT), never the natal house's generic
+     * text. Un même transit majeur (Pluton conjoint au Soleil en maison 8…)
+     * est légitimement pertinent pour plusieurs sujets à la fois : si l'angle
+     * venait de la maison, les conversations amour et argent recevraient
+     * exactement la même histoire. L'angle suit le sujet, le transit non.
      */
     private function affecterDomaineARaconter(array &$contact, ?string $domaine): void
     {
         if ($domaine === null || $domaine === 'general' || empty($contact['_via'])) {
             return;
         }
-        $contact['domaine_a_raconter'] = $contact['_via'] === 'cible'
-            ? (self::DOMAINE_RECIT[$domaine] ?? null)
-            : $contact['domaine_cible'];
+        $contact['domaine_a_raconter'] = self::DOMAINE_RECIT[$domaine] ?? $contact['domaine_cible'];
     }
 
     /**
