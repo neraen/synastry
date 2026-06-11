@@ -870,8 +870,23 @@ PROMPT;
             'theme'     => $cell['theme'],
             'situation' => $this->choisirVariante($cell[$flavorKey], $seed . $contact['transit'] . $contact['cible']),
             'domaine'   => $table['maisons'][(string) $contact['maison']] ?? null,
+            'tonalite'  => $flavorKey,
+            'intensite' => $this->intensiteContact($contact),
             'sens'      => $contact['sens'] ?? null,
         ];
+    }
+
+    /**
+     * Volume indication for the LLM. Score = poids aspect × orbFactor × cible
+     * (max 1.30) : ≥0.75 only for tight major aspects, <0.40 for wide or
+     * minor contacts that should stay a nuance, not an event.
+     */
+    private function intensiteContact(array $contact): string
+    {
+        $score = $contact['score'] ?? 0.0;
+        if ($score >= 0.75) return 'forte';
+        if ($score >= 0.40) return 'moyenne';
+        return 'legere';
     }
 
     /**
@@ -915,8 +930,10 @@ PROMPT;
                         $angles['baseline']['lune_signe'] ?? 'naturelle',
                         $angles['baseline']['asc_signe'] ?? 'naturelle'
                     ),
-                    'domaine' => null,
-                    'sens'    => null,
+                    'domaine'   => null,
+                    'tonalite'  => 'flow',
+                    'intensite' => 'legere',
+                    'sens'      => null,
                 ];
             }
         }

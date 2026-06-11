@@ -227,9 +227,18 @@ private function composerBrief(?array $contact, array $table): ?array
         'theme'     => $cell['theme'],
         'situation' => $cell[$flavorKey],
         'domaine'   => $table['maisons'][(string) $contact['maison']] ?? null,
+        'tonalite'  => $flavorKey,                          // 'flow' | 'tension'
+        'intensite' => $this->intensiteContact($contact),   // 'forte' | 'moyenne' | 'legere' (seuils score 0.75 / 0.40)
+        'sens'      => $contact['sens'] ?? null,            // 'se_renforce' | 'se_desserre' | null
     ];
 }
 ```
+
+`tonalite` et `intensite` sont le contrat de justesse côté LLM : il sait si la
+journée frotte ou porte (interdiction de repeindre une tension en journée
+agréable) et avec quel volume (un sextile large reste une nuance, pas un
+événement). `sens = se_renforce` autorise en plus une mini-promesse pour demain
+en fin d'advice (levier de rétention quotidienne).
 
 Brief final assemblé pour le LLM :
 
@@ -258,7 +267,16 @@ $brief = [
 
 Remplace **intégralement** l'ancien prompt. Différence clé : il ne reçoit plus `natal` + `transits` bruts, il reçoit `$brief` (déjà interprété).
 
-### System
+> ⚠️ **Source de vérité : `OpenAiService::generateDailyHoroscope()`.** Le bloc
+> ci-dessous est la version d'origine, gardée comme référence de conception.
+> Le prompt en production a depuis gagné : `hier` (anti-répétition jour à jour),
+> `sens` (dynamique du transit + mini-promesse pour demain si `se_renforce`),
+> `profil_psy` dans la baseline, `tonalite` (contrat de justesse flow/tension),
+> `intensite` (calibrage du volume), les règles ludiques (une image marquante
+> max, micro-scènes concrètes, variation d'attaque vs hier) et des longueurs
+> resserrées (overview 2-3 phrases, advice 1 phrase).
+
+### System (version d'origine, voir code pour l'actuelle)
 
 ```
 Tu es Lyra, la voix de Lunestia. Tu écris l'horoscope du jour d'une personne.

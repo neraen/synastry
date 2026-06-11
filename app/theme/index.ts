@@ -37,6 +37,16 @@ const colors = {
         pink: '#ec4899',
     },
 
+    // Per-topic accents for the Lyra chat subject picker (same chroma/lightness, varied hue)
+    topics: {
+        amour: '#ed8e9e',
+        argent: '#d2b45a',
+        travail: '#db9b68',
+        astrologie: '#ab8ff3',
+        psychologie: '#7fa9ec',
+        libre: '#72ce9d',
+    },
+
     // ==========================================================================
     // LEGACY COMPATIBILITY (maps old nested structure to new flat tokens)
     // TODO: Migrate components to use flat tokens, then remove this section

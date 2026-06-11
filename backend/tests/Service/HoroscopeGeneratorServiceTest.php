@@ -156,6 +156,10 @@ class HoroscopeGeneratorServiceTest extends TestCase
         $this->assertSame('Overview hier', $brief['hier']['overview'] ?? null);
         $this->assertArrayHasKey('sens', $brief['angle_principal']);
         $this->assertContains($brief['angle_principal']['sens'], ['se_renforce', 'se_desserre', null]);
+
+        // tonalite/intensite let the LLM calibrate friction and volume
+        $this->assertContains($brief['angle_principal']['tonalite'] ?? null, ['flow', 'tension']);
+        $this->assertContains($brief['angle_principal']['intensite'] ?? null, ['forte', 'moyenne', 'legere']);
     }
 
     public function testGetUpcomingTransitsFailsIfNoBirthProfile()
