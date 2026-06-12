@@ -39,6 +39,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true, unique: true)]
     private ?string $appleId = null;
 
+    /**
+     * Apple refresh token, stored to revoke Sign in with Apple on account deletion
+     * (App Store guideline 5.1.1(v))
+     */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $appleRefreshToken = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $displayName = null;
 
@@ -163,6 +170,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setAppleId(?string $appleId): static
     {
         $this->appleId = $appleId;
+
+        return $this;
+    }
+
+    public function getAppleRefreshToken(): ?string
+    {
+        return $this->appleRefreshToken;
+    }
+
+    public function setAppleRefreshToken(?string $appleRefreshToken): static
+    {
+        $this->appleRefreshToken = $appleRefreshToken;
 
         return $this;
     }

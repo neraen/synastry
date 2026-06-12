@@ -30,7 +30,7 @@ interface AuthContextType {
     deleteAccount: () => Promise<void>;
     refreshUser: () => Promise<User | null>;
     loginWithGoogle: (idToken: string) => Promise<User>;
-    loginWithApple: (idToken: string, userInfo?: { email?: string; fullName?: { givenName?: string; familyName?: string } }) => Promise<User>;
+    loginWithApple: (idToken: string, userInfo?: { email?: string; fullName?: { givenName?: string; familyName?: string } }, authorizationCode?: string) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -182,11 +182,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const loginWithApple = useCallback(async (
         idToken: string,
-        userInfo?: { email?: string; fullName?: { givenName?: string; familyName?: string } }
+        userInfo?: { email?: string; fullName?: { givenName?: string; familyName?: string } },
+        authorizationCode?: string
     ): Promise<User> => {
         setIsLoading(true);
         try {
-            const loggedInUser = await oauthLoginWithApple(idToken, userInfo);
+            const loggedInUser = await oauthLoginWithApple(idToken, userInfo, authorizationCode);
             setUser(loggedInUser);
             return loggedInUser;
         } finally {

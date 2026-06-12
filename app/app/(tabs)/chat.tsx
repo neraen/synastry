@@ -20,6 +20,7 @@ import {
     ScrollView,
     ActivityIndicator,
     Dimensions,
+    Alert,
 } from 'react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -40,6 +41,7 @@ import {
 } from '@/services/astrology';
 import * as FileSystem from 'expo-file-system';
 import { createChatSession, getChatSession, updateChatSession } from '@/services/chatSessions';
+import { reportChatMessage } from '@/services/feedback';
 import { TopicSelectorModal } from '@/components/TopicSelectorModal';
 import { SuggestionChips } from '@/components/SuggestionChips';
 import { TopicLyra, TOPIC_META } from '@/constants/topics';
@@ -85,8 +87,33 @@ function TypingIndicator() {
 
 function MessageBubble({ message, isStreaming, showFeedback }: { message: ChatMessage; isStreaming?: boolean; showFeedback?: boolean }) {
     const isUser = message.role === 'user';
+    const { t } = useTranslation();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(8)).current;
+
+    // Report flow for AI responses (App Store guideline 1.2)
+    const handleLongPress = useCallback(() => {
+        if (isUser || !message.content) return;
+        Alert.alert(
+            t('chat.reportTitle'),
+            t('chat.reportMessage'),
+            [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                    text: t('chat.reportAction'),
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await reportChatMessage(message.content);
+                            Alert.alert(t('chat.reportThanksTitle'), t('chat.reportThanksMessage'));
+                        } catch {
+                            Alert.alert(t('common.error'), t('chat.reportError'));
+                        }
+                    },
+                },
+            ],
+        );
+    }, [isUser, message.content, t]);
 
     useEffect(() => {
         Animated.parallel([
@@ -114,7 +141,7 @@ function MessageBubble({ message, isStreaming, showFeedback }: { message: ChatMe
                 </LinearGradient>
             ) : (
                 <View style={styles.aiBubbleWrapper}>
-                    <View style={[styles.bubble, styles.bubbleAI, { maxWidth: '100%' }]}>
+                    <Pressable onLongPress={handleLongPress} style={[styles.bubble, styles.bubbleAI, { maxWidth: '100%' }]}>
                         {isStreaming && message.content === '' ? (
                             <View style={styles.typingRow}>
                                 <TypingDot delay={0} />
@@ -124,7 +151,7 @@ function MessageBubble({ message, isStreaming, showFeedback }: { message: ChatMe
                         ) : (
                             <Text selectable style={styles.bubbleTextAI}>{message.content}</Text>
                         )}
-                    </View>
+                    </Pressable>
                     {showFeedback && (
                         <View style={styles.feedbackRow}>
                             <FeedbackThumbs

@@ -164,22 +164,12 @@ export default function RootLayout() {
                 <ThemeProvider value={LunestiaTheme}>
                     <Stack>
                         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                        <Stack.Screen name="demo" options={{ headerShown: false }} />
                         <Stack.Screen name="login" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="signup" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="birth-profile" options={{ headerShown: false, presentation: 'modal' }} />
-                        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
                         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
                         <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="share-card-v2" options={{ headerShown: false, presentation: 'modal' }} />
-                        <Stack.Screen name="astral-hero" options={{ headerShown: false }} />
-                        <Stack.Screen name="theme-natal-design" options={{ headerShown: false }} />
-                        <Stack.Screen name="test-theme-natal-4" options={{ headerShown: false }} />
-                        <Stack.Screen name="loaders-showcase" options={{ headerShown: false }} />
-                        <Stack.Screen name="loader-zodiac" options={{ headerShown: false }} />
-                        <Stack.Screen name="loader-saturn" options={{ headerShown: false }} />
-                        <Stack.Screen name="loader-eclipse" options={{ headerShown: false }} />
-                        <Stack.Screen name="loader-lunar-phases" options={{ headerShown: false }} />
                         {/* Legal Screens */}
                         <Stack.Screen name="privacy-policy" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="terms-of-service" options={{ headerShown: false, presentation: 'modal' }} />

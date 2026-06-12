@@ -58,14 +58,18 @@ export async function loginWithGoogle(idToken: string): Promise<User> {
  * Login with Apple OAuth
  * @param idToken - The Apple ID token obtained from Sign in with Apple
  * @param user - Optional user info (only provided on first sign-in)
+ * @param authorizationCode - Apple authorization code, exchanged server-side so the
+ *   token can be revoked on account deletion (App Store guideline 5.1.1(v))
  */
 export async function loginWithApple(
     idToken: string,
-    user?: { email?: string; fullName?: { givenName?: string; familyName?: string } }
+    user?: { email?: string; fullName?: { givenName?: string; familyName?: string } },
+    authorizationCode?: string
 ): Promise<User> {
     const tokens = await api.post<AuthTokens>('/api/auth/apple', {
         id_token: idToken,
         user: user,
+        authorization_code: authorizationCode,
     });
 
     return completeOAuthLogin(tokens);

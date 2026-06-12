@@ -2,6 +2,7 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\ChatReport;
 use App\Entity\LyraConversationLog;
 use App\Entity\User;
 use App\Enum\TopicLyra;
@@ -244,6 +245,36 @@ class ChatController extends AbstractController
         $result['daily_limit_reached'] = false;
 
         return $this->json($result);
+    }
+
+    /**
+     * Report an inappropriate AI response (App Store guideline 1.2).
+     *
+     * Body: { "message": string, "reason": string|null }
+     */
+    #[Route('/report', name: 'api_chat_report', methods: ['POST'])]
+    public function report(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+        $message = isset($data['message']) ? trim((string) $data['message']) : '';
+
+        if ($message === '') {
+            return $this->json(
+                ['success' => false, 'error' => 'message is required'],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        $reason = isset($data['reason']) ? mb_substr(trim((string) $data['reason']), 0, 500) : null;
+
+        $report = new ChatReport($user, mb_substr($message, 0, 10000), $reason ?: null);
+        $this->em->persist($report);
+        $this->em->flush();
+
+        return $this->json(['success' => true]);
     }
 
     /**

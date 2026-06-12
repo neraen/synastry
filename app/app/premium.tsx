@@ -391,6 +391,15 @@ export default function PremiumScreen() {
                     <Text style={styles.legal}>
                         {t('premium.legalNotice')}
                     </Text>
+                    <View style={styles.legalLinksRow}>
+                        <Pressable onPress={() => router.push('/terms-of-service')} hitSlop={8}>
+                            <Text style={styles.legalLinkText}>{t('premium.terms')}</Text>
+                        </Pressable>
+                        <Text style={styles.legalLinkSeparator}>·</Text>
+                        <Pressable onPress={() => router.push('/privacy-policy')} hitSlop={8}>
+                            <Text style={styles.legalLinkText}>{t('premium.privacy')}</Text>
+                        </Pressable>
+                    </View>
                     <Pressable onPress={handleRestore} disabled={restoring} style={styles.restoreBtn}>
                         {restoring
                             ? <ActivityIndicator size="small" color={colors.onSurfaceMuted} />
@@ -636,6 +645,23 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         letterSpacing: 0.3,
         marginBottom: spacing.md,
+    },
+    legalLinksRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: spacing.sm,
+        marginBottom: spacing.md,
+    },
+    legalLinkText: {
+        ...typography.labelSm,
+        color: colors.onSurfaceMuted,
+        textDecorationLine: 'underline',
+        letterSpacing: 0.3,
+    },
+    legalLinkSeparator: {
+        ...typography.labelSm,
+        color: colors.onSurfaceMuted,
     },
     restoreBtn: {
         alignItems: 'center',

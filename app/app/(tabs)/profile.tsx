@@ -333,7 +333,9 @@ export default function ProfileTab() {
                         </Pressable>
                     </View>
 
-                    {/* ── Dev Tools ──────────────────────────────────────────── */}
+                    {/* ── Dev Tools (dev builds only) ────────────────────────── */}
+                    {__DEV__ && (
+                    <>
                     <View style={styles.demoSection}>
                         <Text style={styles.sectionLabel}>{t('profile.sectionDevelopment')}</Text>
                         <GlassCard opacity="low" radius="xl">
@@ -367,22 +369,8 @@ export default function ProfileTab() {
                         <Text style={styles.sectionLabel}>{t('profile.sectionDesignDemo')}</Text>
                         <View style={styles.demoGrid}>
                             {[
-                                { label: 'Home', route: '/demo/home' },
-                                { label: 'Matches', route: '/demo/matches' },
-                                { label: 'Profile', route: '/demo/profile-view' },
-                                { label: 'Login', route: '/demo/login' },
-                                { label: 'Share', route: '/demo/share' },
                                 { label: 'Onboarding', route: '/onboarding' },
                                 { label: 'Thème Astral', route: '/natal-chart-wheel' },
-                                { label: 'Thème Natal Design', route: '/theme-natal-design' },
-                                { label: 'Portrait Astral', route: '/astral-hero' },
-                                { label: 'Thème Natal 4', route: '/test-theme-natal-4' },
-                                { label: 'Onboarding 2', route: '/onboarding2' },
-                                { label: 'Loaders', route: '/loaders-showcase' },
-                                { label: 'Loader Zodiac', route: '/loader-zodiac' },
-                                { label: 'Loader Saturn', route: '/loader-saturn' },
-                                { label: 'Loader Eclipse', route: '/loader-eclipse' },
-                                { label: 'Loader Lunar', route: '/loader-lunar-phases' },
                                 { label: 'Compat V2', route: '/compatibility-result-v2' },
                                 { label: 'Share V2', route: '/share-card-v2' },
                             ].map((item) => (
@@ -396,6 +384,8 @@ export default function ProfileTab() {
                             ))}
                         </View>
                     </View>
+                    </>
+                    )}
 
                     <View style={{ height: 100 }} />
                 </ScrollView>

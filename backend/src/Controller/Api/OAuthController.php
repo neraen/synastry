@@ -3,8 +3,10 @@
 namespace App\Controller\Api;
 
 use App\Service\AppleAuthService;
+use App\Service\AppleTokenService;
 use App\Service\GoogleAuthService;
 use App\Service\OAuthUserManager;
+use Doctrine\ORM\EntityManagerInterface;
 use Gesdinet\JWTRefreshTokenBundle\Generator\RefreshTokenGeneratorInterface;
 use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
@@ -20,7 +22,9 @@ class OAuthController extends AbstractController
     public function __construct(
         private readonly GoogleAuthService $googleAuthService,
         private readonly AppleAuthService $appleAuthService,
+        private readonly AppleTokenService $appleTokenService,
         private readonly OAuthUserManager $oAuthUserManager,
+        private readonly EntityManagerInterface $entityManager,
         private readonly JWTTokenManagerInterface $jwtManager,
         private readonly RefreshTokenGeneratorInterface $refreshTokenGenerator,
         private readonly RefreshTokenManagerInterface $refreshTokenManager,
@@ -92,6 +96,16 @@ class OAuthController extends AbstractController
             $payload['sub'],
             $email
         );
+
+        // Store the Apple refresh token so it can be revoked when the user
+        // deletes their account (App Store guideline 5.1.1(v)). Best-effort.
+        if (isset($data['authorization_code']) && is_string($data['authorization_code'])) {
+            $refreshToken = $this->appleTokenService->exchangeAuthorizationCode($data['authorization_code']);
+            if ($refreshToken !== null) {
+                $user->setAppleRefreshToken($refreshToken);
+                $this->entityManager->flush();
+            }
+        }
 
         return $this->generateTokenResponse($user);
     }

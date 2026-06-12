@@ -99,6 +99,17 @@ export function configurePurchases(): void {
 
     const apiKey = Platform.OS === 'ios' ? RC_API_KEY_IOS : RC_API_KEY_ANDROID;
 
+    // Placeholder guard: a missing/placeholder key means the paywall cannot load
+    // offerings — an incomplete-app rejection (guideline 2.1) at App Store review.
+    const expectedPrefix = Platform.OS === 'ios' ? 'appl_' : 'goog_';
+    if (!apiKey.startsWith(expectedPrefix)) {
+        console.warn(
+            `[Purchases] RevenueCat ${Platform.OS} API key looks invalid ("${apiKey}"). ` +
+            `Expected a "${expectedPrefix}…" key from app.revenuecat.com — purchases will not work.`,
+        );
+        return;
+    }
+
     try {
         if (LOG_LEVEL) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
         Purchases.configure({ apiKey });

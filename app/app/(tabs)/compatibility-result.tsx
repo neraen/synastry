@@ -26,6 +26,7 @@ import {
     SynastryResponse,
 } from '@/services/astrology';
 import { colors, spacing, radius, fonts } from '@/theme';
+import { recordPositiveEventAndMaybeAskReview } from '@/services/storeReview';
 
 // ─── Dimension config ──────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ export default function CompatibilityResultScreen() {
                         compatibilityScore: h.compatibilityScore ?? undefined,
                         compatibilityDetails: h.compatibilityDetails ?? undefined,
                     });
+                    recordPositiveEventAndMaybeAskReview();
                 }
             })
             .catch(() => {})

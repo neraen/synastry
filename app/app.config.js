@@ -37,8 +37,6 @@ export default {
       bundleIdentifier: getUniqueIdentifier(),
       buildNumber: '1',
       infoPlist: {
-        NSCameraUsageDescription: 'Cette app nécessite un accès à la caméra pour prendre des photos.',
-        NSPhotoLibraryUsageDescription: 'Cette app nécessite un accès à vos photos.',
         CFBundleAllowMixedLocalizations: true,
         // Allow Linking.canOpenURL to detect installed social apps
         LSApplicationQueriesSchemes: [

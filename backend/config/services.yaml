@@ -11,6 +11,9 @@ parameters:
     anthropic.api_key: '%env(default::ANTHROPIC_API_KEY)%'
     google.client_id: '%env(GOOGLE_CLIENT_ID)%'
     apple.client_id: '%env(APPLE_CLIENT_ID)%'
+    apple.team_id: '%env(APPLE_TEAM_ID)%'
+    apple.key_id: '%env(APPLE_KEY_ID)%'
+    apple.private_key_path: '%env(APPLE_PRIVATE_KEY_PATH)%'
 
 services:
     # default configuration for services in *this* file
@@ -44,6 +47,13 @@ services:
     App\Service\AppleAuthService:
         arguments:
             $appleClientId: '%apple.client_id%'
+
+    App\Service\AppleTokenService:
+        arguments:
+            $appleClientId: '%apple.client_id%'
+            $appleTeamId: '%apple.team_id%'
+            $appleKeyId: '%apple.key_id%'
+            $applePrivateKeyPath: '%apple.private_key_path%'
 
     App\Service\ExpoPushService:
         arguments:

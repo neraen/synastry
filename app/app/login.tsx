@@ -135,10 +135,19 @@ export default function Login() {
                 ],
             });
             if (!credential.identityToken) throw new Error(t('auth.errors.loginFailed'));
-            const loggedInUser = await authLoginWithApple(credential.identityToken, {
-                email: credential.email ?? undefined,
-                fullName: credential.fullName ?? undefined,
-            });
+            const loggedInUser = await authLoginWithApple(
+                credential.identityToken,
+                {
+                    email: credential.email ?? undefined,
+                    fullName: credential.fullName
+                        ? {
+                            givenName: credential.fullName.givenName ?? undefined,
+                            familyName: credential.fullName.familyName ?? undefined,
+                        }
+                        : undefined,
+                },
+                credential.authorizationCode ?? undefined,
+            );
             router.replace(loggedInUser.hasBirthProfile ? '/(tabs)/horoscope' : '/onboarding');
         } catch (err: any) {
             if (err?.code !== 'ERR_REQUEST_CANCELED') {
