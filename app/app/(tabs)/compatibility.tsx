@@ -27,8 +27,10 @@ import {
     HelpModal,
     NoBirthProfileCard,
     Starfield,
+    AvatarGenderPicker,
 } from '@/components/ui';
 import type { HelpSection } from '@/components/ui';
+import { Gender } from '@/utils/signAvatar';
 import { FullPageLoader } from '@/components/loaders';
 import { calculateSynastryV2 } from '@/services/astrology';
 import { CitySearchResult, calculateTimezoneForBirthDate } from '@/services/birthProfile';
@@ -126,6 +128,7 @@ export default function CompatibilityTab() {
     const [freeLimitReached, setFreeLimitReached] = useState(false);
 
     const [partnerName, setPartnerName] = useState('');
+    const [partnerGender, setPartnerGender] = useState<Gender | null>(null);
     const [birthDate, setBirthDate] = useState('');
     const [birthTime, setBirthTime] = useState('');
     const [birthCity, setBirthCity] = useState('');
@@ -152,6 +155,7 @@ export default function CompatibilityTab() {
 
     const resetForm = useCallback(() => {
         setPartnerName('');
+        setPartnerGender(null);
         setBirthDate('');
         setBirthTime('');
         setBirthCity('');
@@ -166,6 +170,7 @@ export default function CompatibilityTab() {
         setError(undefined);
         if (!partnerName.trim()) { setError(t('synastry.partnerNameRequired')); return; }
         if (!birthDate) { setError(t('synastry.birthDateRequired')); return; }
+        if (!partnerGender) { setError(t('synastry.partnerAvatarRequired')); return; }
         if (!birthCity || latitude === null || longitude === null) { setError(t('synastry.birthCityRequired')); return; }
 
         setIsLoading(true);
@@ -175,6 +180,7 @@ export default function CompatibilityTab() {
 
             const response = await calculateSynastryV2({
                 partnerName: partnerName.trim(),
+                partnerGender,
                 birthDate,
                 birthTime: birthTime || undefined,
                 birthCity,
@@ -268,6 +274,18 @@ export default function CompatibilityTab() {
                                     disabled={isLoading}
                                     maximumDate={new Date()}
                                 />
+                                {!!birthDate && (
+                                    <>
+                                        <View style={{ height: spacing.lg }} />
+                                        <AvatarGenderPicker
+                                            birthDate={birthDate}
+                                            value={partnerGender}
+                                            onChange={setPartnerGender}
+                                            label={t('synastry.partnerAvatarLabel')}
+                                            disabled={isLoading}
+                                        />
+                                    </>
+                                )}
                                 <View style={{ height: spacing.lg }} />
                                 <AppTimePicker
                                     label={t('synastry.birthTimeLabel')}

@@ -38,9 +38,10 @@ import Svg, {
 } from 'react-native-svg';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { GoldButton, GhostButton, AppDatePicker, AppTimePicker, CityAutocomplete } from '@/components/ui';
+import { GoldButton, GhostButton, AppDatePicker, AppTimePicker, CityAutocomplete, AvatarGenderPicker } from '@/components/ui';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { saveBirthProfile, CitySearchResult } from '@/services/birthProfile';
+import { getSunSign, Gender } from '@/utils/signAvatar';
 
 const { width: W } = Dimensions.get('window');
 const STEPS = 4;
@@ -778,6 +779,7 @@ function StepBirthProfile({
     const { refreshUser } = useAuth();
 
     const [firstName, setFirstName] = useState('');
+    const [gender, setGender] = useState<Gender | null>(null);
     const [birthDate, setBirthDate] = useState('');
     const [birthTime, setBirthTime] = useState('');
     const [birthCity, setBirthCity] = useState('');
@@ -816,6 +818,10 @@ function StepBirthProfile({
             setError(t('birthProfile.birthDateRequired'));
             return;
         }
+        if (!gender) {
+            setError(t('birthProfile.avatarRequired'));
+            return;
+        }
         if (!birthCity || latitude === null || longitude === null) {
             setError(t('birthProfile.birthCityRequired'));
             return;
@@ -824,6 +830,7 @@ function StepBirthProfile({
         try {
             await saveBirthProfile({
                 firstName: firstName || undefined,
+                gender,
                 birthDate,
                 birthTime: birthTime || undefined,
                 birthCity,
@@ -846,6 +853,7 @@ function StepBirthProfile({
         latitude,
         longitude,
         firstName,
+        gender,
         birthTime,
         birthCountry,
         timezone,
@@ -896,6 +904,18 @@ function StepBirthProfile({
                         maximumDate={new Date()}
                         placeholder={t('birthProfile.birthDatePlaceholder')}
                     />
+                    {!!getSunSign(birthDate) && (
+                        <>
+                            <View style={{ height: 16 }} />
+                            <AvatarGenderPicker
+                                birthDate={birthDate}
+                                value={gender}
+                                onChange={setGender}
+                                label={t('birthProfile.avatarLabel')}
+                                disabled={isSaving}
+                            />
+                        </>
+                    )}
                     <View style={{ height: 16 }} />
                     <AppTimePicker
                         label={t('birthProfile.birthTime')}

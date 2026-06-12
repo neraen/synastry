@@ -14,6 +14,7 @@ const USER_KEY = 'astromatch_user';
 export interface BirthProfileData {
     id: number;
     firstName?: string;
+    gender?: 'female' | 'male' | null;
     birthDate: string;
     birthTime?: string;
     birthCity: string;

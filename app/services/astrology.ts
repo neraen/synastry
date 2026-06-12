@@ -66,6 +66,7 @@ export interface InterpretationResponse {
 
 export interface PartnerBirthData {
     partnerName: string;
+    partnerGender?: 'female' | 'male';
     birthDate: string; // YYYY-MM-DD
     birthTime?: string; // HH:MM
     birthCity: string;
@@ -107,6 +108,7 @@ export interface SynastryResponse {
 export interface SynastryHistorySummary {
     id: number;
     partnerName: string;
+    partnerGender: 'female' | 'male' | null;
     compatibilityScore: number | null;
     createdAt: string;
 }
@@ -114,6 +116,7 @@ export interface SynastryHistorySummary {
 export interface SynastryHistoryDetail {
     id: number;
     partnerName: string;
+    partnerGender: 'female' | 'male' | null;
     partnerBirthData: {
         year: number;
         month: number;
@@ -692,6 +695,7 @@ export function mapHistoryToV2Data(
 export interface PartnerSummaryResponse {
     success: boolean;
     partnerName?: string;
+    partnerGender?: 'female' | 'male' | null;
     positions?: Record<string, PlanetPosition>;
     synthesis?: SynthesisData;
     summary?: string; // legacy field, kept for backward compat

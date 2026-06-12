@@ -166,5 +166,6 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         color: TEXT_2,
         textAlign: 'justify',
+        alignSelf: 'stretch',
     },
 });

@@ -159,7 +159,7 @@ export default function ProfileTab() {
 
     const displayName = user ? (user.firstName || user.email.split('@')[0]) : '';
     const initials = displayName ? displayName.charAt(0).toUpperCase() : '';
-    const signAvatar = user ? getSignAvatar(user.birthProfile?.birthDate) : undefined;
+    const signAvatar = user ? getSignAvatar(user.birthProfile?.birthDate, user.birthProfile?.gender) : undefined;
 
     return (
         <View style={styles.screen}>

@@ -168,7 +168,9 @@
     "loadingProfile": "Loading profile...",
     "birthDateRequired": "Birth date is required",
     "birthCityRequired": "Please select a birth city",
-    "saveError": "Error while saving"
+    "saveError": "Error while saving",
+    "avatarLabel": "Choose your avatar",
+    "avatarRequired": "Pick the avatar that represents you"
   },
   "noBirthProfile": {
     "badge": "INCOMPLETE PROFILE",
@@ -216,6 +218,8 @@
     "searchCityTitle": "Search for a city",
     "partnerNameRequired": "First name is required",
     "birthDateRequired": "Birth date is required",
+    "partnerAvatarLabel": "Their avatar",
+    "partnerAvatarRequired": "Pick the avatar that represents them",
     "birthCityRequired": "Please select a city",
     "calcError": "Calculation error",
     "loginPrompt": "Log in to analyze your compatibility",

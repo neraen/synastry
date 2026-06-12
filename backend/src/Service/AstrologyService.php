@@ -301,7 +301,8 @@ class AstrologyService
         User $user,
         string $partnerName,
         array $partnerBirthData,
-        ?string $question = null
+        ?string $question = null,
+        ?string $partnerGender = null
     ): array {
         $userProfile = $user->getBirthProfile();
 
@@ -380,6 +381,7 @@ class AstrologyService
             $history = new SynastryHistory();
             $history->setUser($user);
             $history->setPartnerName($partnerName);
+            $history->setPartnerGender($partnerGender);
             $history->setPartnerBirthData($partnerBirthData);
             $history->setAnalysis($aiResult['analysis']);
             $history->setCompatibilityScore($aiResult['compatibilityScore'] ?? null);
@@ -421,7 +423,8 @@ class AstrologyService
         User $user,
         string $partnerName,
         array $partnerBirthData,
-        ?string $question = null
+        ?string $question = null,
+        ?string $partnerGender = null
     ): array {
         $userProfile = $user->getBirthProfile();
 
@@ -461,7 +464,7 @@ class AstrologyService
             );
 
             $calculatedScores = $userCalc->calculateCompatibilityScore($partnerCalc);
-            $prompt = $userCalc->buildCompatibilityPromptV2($partnerCalc, $question, $this->locale);
+            $prompt = $userCalc->buildCompatibilityPromptV2($partnerCalc, $question, $this->locale, $userProfile->getGender(), $partnerGender);
             $aiResult = $this->openAiService->getCompatibilityAnalysisV2($prompt, $calculatedScores);
 
             if (!$aiResult['success']) {
@@ -485,6 +488,7 @@ class AstrologyService
             $history = new SynastryHistory();
             $history->setUser($user);
             $history->setPartnerName($partnerName);
+            $history->setPartnerGender($partnerGender);
             $history->setPartnerBirthData($partnerBirthData);
             $history->setAnalysis(json_encode($analysisToStore));
             $history->setCompatibilityScore($aiResult['compatibilityScore']['score_global'] ?? null);
@@ -502,11 +506,13 @@ class AstrologyService
                 'user' => [
                     'name' => $userName,
                     'initial' => mb_substr($userName, 0, 1, 'UTF-8'),
+                    'gender' => $userProfile->getGender(),
                     'chart' => ['planetaryPositions' => $userPositions],
                 ],
                 'partner' => [
                     'name' => $partnerName,
                     'initial' => mb_substr($partnerName, 0, 1, 'UTF-8'),
+                    'gender' => $partnerGender,
                     'positions' => $partnerPositions,
                 ],
                 'compatibilityScore' => $aiResult['compatibilityScore'],

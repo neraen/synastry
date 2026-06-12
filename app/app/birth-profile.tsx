@@ -23,8 +23,10 @@ import {
     AppDatePicker,
     AppTimePicker,
     CityAutocomplete,
+    AvatarGenderPicker,
     Starfield,
 } from '@/components/ui';
+import { Gender } from '@/utils/signAvatar';
 import {
     getBirthProfile,
     saveBirthProfile,
@@ -85,6 +87,7 @@ export default function BirthProfileScreen() {
     const [error, setError] = useState<string | undefined>();
 
     const [firstName, setFirstName] = useState('');
+    const [gender, setGender] = useState<Gender | null>(null);
     const [birthDate, setBirthDate] = useState('');
     const [birthTime, setBirthTime] = useState('');
     const [birthCity, setBirthCity] = useState('');
@@ -107,6 +110,7 @@ export default function BirthProfileScreen() {
                 if (response.hasProfile && response.profile) {
                     const p = response.profile;
                     setFirstName(p.firstName || '');
+                    setGender(p.gender ?? null);
                     setBirthDate(p.birthDate || '');
                     setBirthTime(p.birthTime || '');
                     setBirthCity(p.birthCity || '');
@@ -146,6 +150,10 @@ export default function BirthProfileScreen() {
             setError(t('birthProfile.birthDateRequired'));
             return;
         }
+        if (!gender) {
+            setError(t('birthProfile.avatarRequired'));
+            return;
+        }
         if (!birthCity || latitude === null || longitude === null) {
             setError(t('birthProfile.birthCityRequired'));
             return;
@@ -155,6 +163,7 @@ export default function BirthProfileScreen() {
         try {
             await saveBirthProfile({
                 firstName: firstName || undefined,
+                gender,
                 birthDate,
                 birthTime: birthTime || undefined,
                 birthCity,
@@ -171,7 +180,7 @@ export default function BirthProfileScreen() {
         } finally {
             setIsSaving(false);
         }
-    }, [birthDate, birthCity, latitude, longitude, firstName, birthTime, birthCountry, timezone, timezoneName, refreshUser, router, t]);
+    }, [birthDate, birthCity, latitude, longitude, firstName, gender, birthTime, birthCountry, timezone, timezoneName, refreshUser, router, t]);
 
     if (isLoading) {
         return (
@@ -242,6 +251,19 @@ export default function BirthProfileScreen() {
                                 maximumDate={new Date()}
                                 placeholder={t('birthProfile.birthDatePlaceholder')}
                             />
+
+                            {!!birthDate && (
+                                <>
+                                    <View style={styles.fieldGap} />
+                                    <AvatarGenderPicker
+                                        birthDate={birthDate}
+                                        value={gender}
+                                        onChange={setGender}
+                                        label={t('birthProfile.avatarLabel')}
+                                        disabled={isSaving}
+                                    />
+                                </>
+                            )}
 
                             <View style={styles.fieldGap} />
 

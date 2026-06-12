@@ -25,6 +25,9 @@ class SynastryHistory
     #[Assert\NotBlank]
     private ?string $partnerName = null;
 
+    #[ORM\Column(length: 10, nullable: true)]
+    private ?string $partnerGender = null;
+
     #[ORM\Column(type: Types::JSON)]
     private array $partnerBirthData = [];
 
@@ -88,6 +91,17 @@ class SynastryHistory
     public function setPartnerName(string $partnerName): static
     {
         $this->partnerName = $partnerName;
+        return $this;
+    }
+
+    public function getPartnerGender(): ?string
+    {
+        return $this->partnerGender;
+    }
+
+    public function setPartnerGender(?string $partnerGender): static
+    {
+        $this->partnerGender = $partnerGender;
         return $this;
     }
 
@@ -198,6 +212,7 @@ class SynastryHistory
         return [
             'id' => $this->id,
             'partnerName' => $this->partnerName,
+            'partnerGender' => $this->partnerGender,
             'partnerBirthData' => $this->partnerBirthData,
             'analysis' => $this->analysis,
             'compatibilityScore' => $this->getCompatibilityScore(),
@@ -218,6 +233,7 @@ class SynastryHistory
         return [
             'id' => $this->id,
             'partnerName' => $this->partnerName,
+            'partnerGender' => $this->partnerGender,
             'compatibilityScore' => $this->getCompatibilityScore(),
             'createdAt' => $this->createdAt?->format('Y-m-d H:i:s'),
         ];

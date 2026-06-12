@@ -27,7 +27,8 @@ class ProfileControllerTest extends TestCase
         $this->container = new Container();
         $this->container->set('security.token_storage', $this->tokenStorage);
 
-        $this->controller = new ProfileController($this->entityManager);
+        $appleTokenService = $this->createMock(\App\Service\AppleTokenService::class);
+        $this->controller = new ProfileController($this->entityManager, $appleTokenService, 'test');
         $this->controller->setContainer($this->container);
     }
 

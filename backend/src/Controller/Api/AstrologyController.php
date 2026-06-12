@@ -205,10 +205,11 @@ class AstrologyController extends AbstractController
         }
 
         return $this->json([
-            'success'     => true,
-            'partnerName' => $history->getPartnerName(),
-            'positions'   => $partnerPositions,
-            'synthesis'   => $result['synthesis'],
+            'success'       => true,
+            'partnerName'   => $history->getPartnerName(),
+            'partnerGender' => $history->getPartnerGender(),
+            'positions'     => $partnerPositions,
+            'synthesis'     => $result['synthesis'],
         ]);
     }
 
@@ -268,11 +269,17 @@ class AstrologyController extends AbstractController
             'birthDate' => $birthDate,
         ];
 
+        // Optional partner gender (older app builds don't send it; invalid values ignored)
+        $partnerGender = in_array($data['partnerGender'] ?? null, ['female', 'male'], true)
+            ? $data['partnerGender']
+            : null;
+
         $result = $this->astrologyService->calculateSynastryV2WithExternal(
             $user,
             $data['partnerName'],
             $partnerBirthData,
-            $data['question'] ?? null
+            $data['question'] ?? null,
+            $partnerGender
         );
 
         if (!$result['success']) {
@@ -374,11 +381,17 @@ class AstrologyController extends AbstractController
 
         $question = $data['question'] ?? null;
 
+        // Optional partner gender (older app builds don't send it; invalid values ignored)
+        $partnerGender = in_array($data['partnerGender'] ?? null, ['female', 'male'], true)
+            ? $data['partnerGender']
+            : null;
+
         $result = $this->astrologyService->calculateSynastryWithExternal(
             $user,
             $data['partnerName'],
             $partnerBirthData,
-            $question
+            $question,
+            $partnerGender
         );
 
         if (!$result['success']) {

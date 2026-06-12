@@ -35,6 +35,7 @@ export { AppText, AppHeading, ScoreText, TagText } from './Text';
 // Inputs
 export { AppInput, SearchInput } from './Input';
 export { AppDatePicker, AppTimePicker } from './DatePicker';
+export { AvatarGenderPicker } from './AvatarGenderPicker';
 
 // Interactive
 export { CopyableText } from './CopyableText';

@@ -16,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { AstralHero } from '@/components/astral/AstralHero';
 import { GlassCard, GoldButton, TabHeader } from '@/components/ui';
 import { getNatalChart } from '@/services/astrology';
+import { useAuth } from '@/contexts/AuthContext';
 import { colors, fonts, spacing } from '@/theme';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ const T = {
 export default function NatalChartWheelScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { user } = useAuth();
     const [positions, setPositions] = useState<Record<string, any> | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export default function NatalChartWheelScreen() {
                     </View>
                 )}
 
-                {positions && <AstralHero positions={positions} outerPadding={20} />}
+                {positions && <AstralHero positions={positions} outerPadding={20} gender={user?.birthProfile?.gender} />}
 
                 {/* ── CTA portrait ─────────────────────────────────────────── */}
                 {positions && (

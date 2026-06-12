@@ -9,6 +9,7 @@ import { getStoredUser } from './auth';
 export interface BirthProfile {
     id?: number;
     firstName?: string;
+    gender?: 'female' | 'male' | null;
     birthDate: string; // YYYY-MM-DD
     birthTime?: string; // HH:MM
     birthCity: string;

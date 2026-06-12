@@ -137,11 +137,24 @@ PERSONA;
         string $partnerName,
         array $userTheme,
         array $partnerTheme,
-        string $question
+        string $question,
+        ?string $userGender = null,
+        ?string $partnerGender = null
     ): array {
         // Translate themes using locale service
         $userThemeTranslated = $this->translateTheme($userTheme);
         $partnerThemeTranslated = $this->translateTheme($partnerTheme);
+
+        // Gender hint after the names so the AI can use the right pronouns.
+        // Null gender keeps the prompt byte-identical to the genderless version.
+        $isEnglish = $this->localeService->getLocale() === 'en';
+        $genderLabel = fn(?string $gender): string => match ($gender) {
+            'female' => $isEnglish ? ' (woman)' : ' (femme)',
+            'male'   => $isEnglish ? ' (man)' : ' (homme)',
+            default  => '',
+        };
+        $userName .= $genderLabel($userGender);
+        $partnerName .= $genderLabel($partnerGender);
 
         $baseInstructions = $this->localeService->getBaseInstructions();
 
@@ -1203,9 +1216,15 @@ TOOLS;
         // Partner context (kept for relationship questions)
         if (!empty($userContext['partner_name'])) {
             $partnerName = $userContext['partner_name'];
+            // Gender hint so Lyra uses the right pronouns; null keeps the block unchanged
+            $genderStr = match ($userContext['partner_gender'] ?? null) {
+                'female' => ' (femme)',
+                'male'   => ' (homme)',
+                default  => '',
+            };
             $score       = isset($userContext['compatibility_score']) ? (int) $userContext['compatibility_score'] : null;
             $scoreStr    = $score !== null ? " (score de compatibilité : {$score}/100)" : '';
-            $partnerBlock = "— Partenaire : {$partnerName}{$scoreStr} —";
+            $partnerBlock = "— Partenaire : {$partnerName}{$genderStr}{$scoreStr} —";
             if (!empty($userContext['partner_positions'])) {
                 $partnerBlock .= "\nThème natal de {$partnerName} :\n" . $this->formatPositions($userContext['partner_positions']);
             }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, Image, StyleSheet, Animated, Easing } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts, spacing } from '@/theme';
@@ -28,9 +28,12 @@ interface Props {
     nameB: string;
     subjectA: string;
     subjectB: string;
+    /** Sign avatar image sources — fall back to initials when absent */
+    avatarA?: any | null;
+    avatarB?: any | null;
 }
 
-export function CompatibilityHeroV2({ scoreTarget, tagline, nameA, nameB, subjectA, subjectB }: Props) {
+export function CompatibilityHeroV2({ scoreTarget, tagline, nameA, nameB, subjectA, subjectB, avatarA, avatarB }: Props) {
     const [shown, setShown] = useState(0);
     const orbitAnim = useRef(new Animated.Value(0)).current;
     const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -88,7 +91,9 @@ export function CompatibilityHeroV2({ scoreTarget, tagline, nameA, nameB, subjec
             {/* Avatar pair */}
             <View style={styles.pair}>
                 <View style={styles.avatarA}>
-                    <Text style={styles.avatarInitialA}>{nameA}</Text>
+                    {avatarA
+                        ? <Image source={avatarA} style={styles.avatarImg} resizeMode="cover" />
+                        : <Text style={styles.avatarInitialA}>{nameA}</Text>}
                 </View>
 
                 {/* Gradient link line with pulsing dot */}
@@ -108,7 +113,9 @@ export function CompatibilityHeroV2({ scoreTarget, tagline, nameA, nameB, subjec
                 </View>
 
                 <View style={styles.avatarB}>
-                    <Text style={styles.avatarInitialB}>{nameB}</Text>
+                    {avatarB
+                        ? <Image source={avatarB} style={styles.avatarImg} resizeMode="cover" />
+                        : <Text style={styles.avatarInitialB}>{nameB}</Text>}
                 </View>
             </View>
 
@@ -211,6 +218,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(229,194,102,0.06)',
         borderWidth: 1.5,
         borderColor: 'rgba(229,194,102,0.4)',
+        overflow: 'hidden',
+    },
+    avatarImg: {
+        width: 49,
+        height: 49,
+        borderRadius: 24.5,
     },
     avatarInitialA: {
         fontFamily: fonts.display.bold,
@@ -227,6 +240,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(155,92,255,0.06)',
         borderWidth: 1.5,
         borderColor: 'rgba(155,92,255,0.4)',
+        overflow: 'hidden',
     },
     avatarInitialB: {
         fontFamily: fonts.display.bold,

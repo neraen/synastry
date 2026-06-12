@@ -149,7 +149,7 @@ export default function HoroscopeTab() {
 
                     {/* ── Portrait astral ──────────────────────────────────────── */}
                     {chart && (
-                        <AstralHero positions={chart.planetaryPositions} outerPadding={20} />
+                        <AstralHero positions={chart.planetaryPositions} outerPadding={20} gender={user?.birthProfile?.gender} />
                     )}
 
                     {/* ── Interpretation CTA ───────────────────────────────────── */}

@@ -23,6 +23,10 @@ class BirthProfile
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $firstName = null;
 
+    #[ORM\Column(length: 10, nullable: true)]
+    #[Assert\Choice(choices: ['female', 'male'], message: 'Invalid gender')]
+    private ?string $gender = null;
+
     #[ORM\Column(type: Types::DATE_MUTABLE)]
     #[Assert\NotBlank(message: 'Birth date is required')]
     private ?\DateTimeInterface $birthDate = null;
@@ -89,6 +93,17 @@ class BirthProfile
     public function setFirstName(?string $firstName): static
     {
         $this->firstName = $firstName;
+        return $this;
+    }
+
+    public function getGender(): ?string
+    {
+        return $this->gender;
+    }
+
+    public function setGender(?string $gender): static
+    {
+        $this->gender = $gender;
         return $this;
     }
 
@@ -216,6 +231,7 @@ class BirthProfile
         return [
             'id' => $this->id,
             'firstName' => $this->firstName,
+            'gender' => $this->gender,
             'birthDate' => $this->birthDate?->format('Y-m-d'),
             'birthTime' => $this->birthTime?->format('H:i'),
             'birthCity' => $this->birthCity,

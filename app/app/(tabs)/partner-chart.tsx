@@ -27,6 +27,7 @@ export default function PartnerChartScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [partnerName, setPartnerName] = useState('');
+    const [partnerGender, setPartnerGender] = useState<'female' | 'male' | null>(null);
     const [positions, setPositions] = useState<Record<string, PlanetPosition>>({});
     const [synthesis, setSynthesis] = useState<SynthesisData | null>(null);
 
@@ -40,6 +41,7 @@ export default function PartnerChartScreen() {
             .then((res) => {
                 if (res.success) {
                     setPartnerName(res.partnerName ?? '');
+                    setPartnerGender(res.partnerGender ?? null);
                     setPositions(res.positions ?? {});
                     // synthesis is the new format; fallback to legacy summary field
                     const synth = res.synthesis ?? (res.summary
@@ -99,7 +101,7 @@ export default function PartnerChartScreen() {
 
                     {/* AstralHero */}
                     {Object.keys(positions).length > 0 && (
-                        <AstralHero positions={positions} outerPadding={20} />
+                        <AstralHero positions={positions} outerPadding={20} gender={partnerGender} />
                     )}
 
                     {/* Portrait */}

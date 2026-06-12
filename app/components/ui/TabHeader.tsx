@@ -28,7 +28,7 @@ export function TabHeader({ onBack }: TabHeaderProps = {}) {
     const { user } = useAuth();
     const name = user?.birthProfile?.firstName || 'Stargazer';
     const initial = name.charAt(0).toUpperCase();
-    const signAvatar = getSignAvatar(user?.birthProfile?.birthDate);
+    const signAvatar = getSignAvatar(user?.birthProfile?.birthDate, user?.birthProfile?.gender);
 
     return (
         <View style={styles.header}>

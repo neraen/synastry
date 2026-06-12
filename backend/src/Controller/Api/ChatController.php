@@ -213,6 +213,7 @@ class ChatController extends AbstractController
             $history = $this->synastryHistoryRepository->findOneByUserAndId($user, $partnerHistoryId);
             if ($history && $history->getPartnerPositions()) {
                 $userContext['partner_name']      = $history->getPartnerName();
+                $userContext['partner_gender']    = $history->getPartnerGender();
                 $userContext['partner_positions'] = $this->filterPositions($history->getPartnerPositions());
                 $userContext['compatibility_score'] = $history->getCompatibilityScore();
             }
@@ -385,6 +386,7 @@ class ChatController extends AbstractController
                 $history = $this->synastryHistoryRepository->findOneByUserAndId($user, $partnerHistoryId);
                 if ($history && $history->getPartnerPositions()) {
                     $userContext['partner_name']         = $history->getPartnerName();
+                    $userContext['partner_gender']       = $history->getPartnerGender();
                     $userContext['partner_positions']    = $this->filterPositions($history->getPartnerPositions());
                     $userContext['compatibility_score']  = $history->getCompatibilityScore();
                 }

@@ -25,6 +25,7 @@ import { MOCK_COMPAT_V2 } from '@/components/compatibility-v2/mockData';
 import { setCompatibilityV2Data } from '@/components/compatibility-v2/store';
 import type { CompatibilityV2Data } from '@/components/compatibility-v2/types';
 import { getSynastryHistoryDetail, mapHistoryToV2Data, SynastryHistoryDetail } from '@/services/astrology';
+import { getSignAvatar } from '@/utils/signAvatar';
 
 export default function CompatibilityResultV2Screen() {
     const router = useRouter();
@@ -60,6 +61,13 @@ export default function CompatibilityResultV2Screen() {
             .finally(() => setLoading(false));
     }, [id, user]);
 
+    const userAvatar = getSignAvatar(user?.birthProfile?.birthDate, user?.birthProfile?.gender);
+    const bd = rawHistory?.partnerBirthData;
+    const partnerBirthDateStr = bd
+        ? `${bd.year}-${String(bd.month).padStart(2, '0')}-${String(bd.day).padStart(2, '0')}`
+        : undefined;
+    const partnerAvatar = getSignAvatar(partnerBirthDateStr, rawHistory?.partnerGender);
+
     function handleShare() {
         if (!data) return;
         setCompatibilityV2Data(data);
@@ -68,13 +76,9 @@ export default function CompatibilityResultV2Screen() {
 
     function handleTheme() {
         if (!id) return;
-        const bd = rawHistory?.partnerBirthData;
-        const partnerBirthDate = bd
-            ? `${bd.year}-${String(bd.month).padStart(2, '0')}-${String(bd.day).padStart(2, '0')}`
-            : undefined;
         router.push({
             pathname: '/partner-chart',
-            params: { historyId: id, ...(partnerBirthDate ? { partnerBirthDate } : {}) },
+            params: { historyId: id, ...(partnerBirthDateStr ? { partnerBirthDate: partnerBirthDateStr } : {}) },
         });
     }
 
@@ -117,6 +121,8 @@ export default function CompatibilityResultV2Screen() {
                         nameB={data.partnerInitial}
                         subjectA={data.userName}
                         subjectB={data.partnerName}
+                        avatarA={userAvatar}
+                        avatarB={partnerAvatar}
                     />
 
                     <DimensionBarsV2 data={data.dimensions} />

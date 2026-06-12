@@ -44,8 +44,7 @@ const SIGN_INFO: Record<string, { fr: string; element: string; ruler: string }> 
     Pisces:      { fr: 'Poissons',   element: 'Eau',   ruler: 'Neptune' },
 };
 
-import { SIGN_AVATAR_MAP } from '@/utils/signAvatar';
-const AVATAR_MAP = SIGN_AVATAR_MAP;
+import { getSignAvatarBySign, Gender } from '@/utils/signAvatar';
 
 const ELEMENT_COLOR: Record<string, string> = {
     Feu:   '#E89B4C',
@@ -220,9 +219,11 @@ export interface AstralHeroProps {
     positions: Record<string, PlanetPosition>;
     /** Padding horizontal du screen parent — permet au hero de s'étendre jusqu'aux bords */
     outerPadding?: number;
+    /** Variante d'avatar (féminin par défaut quand inconnu) */
+    gender?: Gender | null;
 }
 
-export function AstralHero({ positions, outerPadding = 0 }: AstralHeroProps) {
+export function AstralHero({ positions, outerPadding = 0, gender }: AstralHeroProps) {
     const floatAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -257,7 +258,7 @@ export function AstralHero({ positions, outerPadding = 0 }: AstralHeroProps) {
         .map(([key, info]) => ({ value: info.fr, signKey: key }))
         .slice(0, 2);
 
-    const avatarSrc = AVATAR_MAP[sunKey];
+    const avatarSrc = getSignAvatarBySign(sunKey, gender);
 
     return (
         <View style={[s.hero, { marginHorizontal: -outerPadding }]}>

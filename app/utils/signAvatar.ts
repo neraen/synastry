@@ -2,6 +2,8 @@
  * Sign avatar utilities — shared between TabHeader, profile, AstralHero, etc.
  */
 
+export type Gender = 'female' | 'male';
+
 export const SIGN_AVATAR_MAP: Record<string, any> = {
     Aries:       require('@/assets/images/sign-avatar/belier.png'),
     Taurus:      require('@/assets/images/sign-avatar/taureau.png'),
@@ -15,6 +17,21 @@ export const SIGN_AVATAR_MAP: Record<string, any> = {
     Capricorn:   require('@/assets/images/sign-avatar/capricorne.png'),
     Aquarius:    require('@/assets/images/sign-avatar/verseau.png'),
     Pisces:      require('@/assets/images/sign-avatar/poisson.png'),
+};
+
+export const SIGN_AVATAR_MAP_MALE: Record<string, any> = {
+    Aries:       require('@/assets/images/sign-avatar/belier-homme.png'),
+    Taurus:      require('@/assets/images/sign-avatar/taureau-homme.png'),
+    Gemini:      require('@/assets/images/sign-avatar/gemeau-homme.png'),
+    Cancer:      require('@/assets/images/sign-avatar/cancer-homme.png'),
+    Leo:         require('@/assets/images/sign-avatar/lion-homme.png'),
+    Virgo:       require('@/assets/images/sign-avatar/vierge-homme.png'),
+    Libra:       require('@/assets/images/sign-avatar/balance-homme.png'),
+    Scorpio:     require('@/assets/images/sign-avatar/scorpion-homme.png'),
+    Sagittarius: require('@/assets/images/sign-avatar/sagittaire-homme.png'),
+    Capricorn:   require('@/assets/images/sign-avatar/capricorne-homme.png'),
+    Aquarius:    require('@/assets/images/sign-avatar/verseau-homme.png'),
+    Pisces:      require('@/assets/images/sign-avatar/poisson-homme.png'),
 };
 
 /**
@@ -40,8 +57,14 @@ export function getSunSign(birthDate?: string | null): string | null {
     return 'Pisces';
 }
 
+/** Returns the avatar source for a sign key; unknown gender falls back to the default variant. */
+export function getSignAvatarBySign(sign?: string | null, gender?: Gender | null): any | null {
+    if (!sign) return null;
+    const map = gender === 'male' ? SIGN_AVATAR_MAP_MALE : SIGN_AVATAR_MAP;
+    return map[sign] ?? null;
+}
+
 /** Returns the avatar source for a given birth date, or null if unavailable. */
-export function getSignAvatar(birthDate?: string | null): any | null {
-    const sign = getSunSign(birthDate);
-    return sign ? SIGN_AVATAR_MAP[sign] ?? null : null;
+export function getSignAvatar(birthDate?: string | null, gender?: Gender | null): any | null {
+    return getSignAvatarBySign(getSunSign(birthDate), gender);
 }

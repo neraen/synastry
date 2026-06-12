@@ -544,7 +544,7 @@ PROMPT;
      * Build the v2 compatibility prompt using the new structured JSON format.
      * Same data sections as v1, but uses the v2 instruction template.
      */
-    public function buildCompatibilityPromptV2(PlanetaryCalculator $other, ?string $question = null, string $locale = 'fr'): string
+    public function buildCompatibilityPromptV2(PlanetaryCalculator $other, ?string $question = null, string $locale = 'fr', ?string $genderA = null, ?string $genderB = null): string
     {
         $localeService = new PromptLocaleService($locale);
         $template = $localeService->getSynastryPromptV2Template();
@@ -592,8 +592,16 @@ PROMPT;
             ? "\n═══════════ {$labels['specific_question']} ═══════════\n{$question}\n"
             : '';
 
-        $chartOfA = "{$labels['chart_of']} {$nameA}";
-        $chartOfB = "{$labels['chart_of']} {$nameB}";
+        // Gender hint after the name so the AI can use the right pronouns.
+        // Null gender keeps the prompt byte-identical to the genderless version.
+        $genderLabel = fn(?string $gender): string => match ($gender) {
+            'female' => $isEnglish ? ' (woman)' : ' (femme)',
+            'male'   => $isEnglish ? ' (man)' : ' (homme)',
+            default  => '',
+        };
+
+        $chartOfA = "{$labels['chart_of']} {$nameA}{$genderLabel($genderA)}";
+        $chartOfB = "{$labels['chart_of']} {$nameB}{$genderLabel($genderB)}";
         $aspectsBetween = $labels['aspects_between'];
         $scoringMethod = $template['scoring_method'];
 

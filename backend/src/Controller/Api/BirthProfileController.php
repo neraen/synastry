@@ -88,6 +88,17 @@ class BirthProfileController extends AbstractController
             $profile->setFirstName($data['firstName']);
         }
 
+        // Gender (optional for backward compatibility with older app builds)
+        if (array_key_exists('gender', $data)) {
+            $gender = $data['gender'] ?: null;
+            if ($gender !== null && !in_array($gender, ['female', 'male'], true)) {
+                return $this->json([
+                    'error' => "Invalid gender. Use 'female' or 'male'"
+                ], Response::HTTP_BAD_REQUEST);
+            }
+            $profile->setGender($gender);
+        }
+
         // Parse birth date
         try {
             $birthDate = new \DateTime($data['birthDate']);
