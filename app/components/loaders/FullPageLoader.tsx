@@ -23,6 +23,8 @@ export interface FullPageLoaderProps {
   label?: string;
   /** Optional hint text displayed below the loader. */
   hint?: string;
+  /** Optional short note (e.g. an expected-duration message) shown below the hint. */
+  note?: string;
   /** Loader size in dp. Default 200. */
   size?: number;
   /** Called once the exit animation completes and the overlay is gone. */
@@ -49,6 +51,7 @@ export function FullPageLoader({
   variant = 'default',
   label,
   hint,
+  note,
   size = 200,
   onTransitionEnd,
 }: FullPageLoaderProps) {
@@ -100,6 +103,9 @@ export function FullPageLoader({
         {!!hint && (
           <Text style={styles.hint}>{hint}</Text>
         )}
+        {!!note && (
+          <Text style={styles.note}>{note}</Text>
+        )}
       </View>
     </Animated.View>
   );
@@ -127,5 +133,13 @@ const styles = StyleSheet.create({
     color: 'rgba(189, 178, 212, 0.8)',
     textAlign: 'center',
     fontFamily: 'Manrope_400Regular',
+  },
+  note: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(189, 178, 212, 0.55)',
+    textAlign: 'center',
+    fontFamily: 'Manrope_500Medium',
+    marginTop: -12,
   },
 });

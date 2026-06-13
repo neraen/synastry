@@ -642,7 +642,10 @@ export interface SynastryV2Response {
 export async function calculateSynastryV2(partnerData: PartnerBirthData): Promise<SynastryV2Response> {
     return authApi.post<SynastryV2Response>(
         '/api/astrology/synastry-v2',
-        partnerData as unknown as Record<string, unknown>
+        partnerData as unknown as Record<string, unknown>,
+        // The AI analysis takes ~30s; cap the wait so a dropped connection
+        // (e.g. screen sleep) can't leave the loader spinning forever.
+        { timeoutMs: 90_000 },
     );
 }
 

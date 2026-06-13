@@ -345,6 +345,7 @@ export default function CompatibilityTab() {
                 variant="synastry"
                 label="Conjonction en cours…"
                 hint="La synastrie met en miroir les planètes de deux personnes pour éclairer ce qui les rapproche, les défie et les fait grandir ensemble."
+                note="Cela peut prendre une trentaine de secondes."
             />
         </View>
     );

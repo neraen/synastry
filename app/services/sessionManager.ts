@@ -96,7 +96,8 @@ export async function handleSessionExpired(): Promise<void> {
 export async function authenticatedRequest<T>(
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    options?: { timeoutMs?: number }
 ): Promise<T> {
     let token = await getToken();
 
@@ -106,19 +107,20 @@ export async function authenticatedRequest<T>(
     }
 
     const headers = { Authorization: `Bearer ${token}` };
+    const reqOpts = { headers, timeoutMs: options?.timeoutMs };
 
     try {
         switch (method) {
             case 'GET':
-                return await api.get<T>(path, { headers });
+                return await api.get<T>(path, reqOpts);
             case 'POST':
-                return await api.post<T>(path, body, { headers });
+                return await api.post<T>(path, body, reqOpts);
             case 'PUT':
-                return await api.put<T>(path, body, { headers });
+                return await api.put<T>(path, body, reqOpts);
             case 'PATCH':
-                return await api.patch<T>(path, body, { headers });
+                return await api.patch<T>(path, body, reqOpts);
             case 'DELETE':
-                return await api.delete<T>(path, { headers });
+                return await api.delete<T>(path, reqOpts);
         }
     } catch (error: unknown) {
         // Check if it's a 401 error
@@ -129,17 +131,18 @@ export async function authenticatedRequest<T>(
             if (newToken) {
                 // Retry the request with the new token
                 const newHeaders = { Authorization: `Bearer ${newToken}` };
+                const retryOpts = { headers: newHeaders, timeoutMs: options?.timeoutMs };
                 switch (method) {
                     case 'GET':
-                        return await api.get<T>(path, { headers: newHeaders });
+                        return await api.get<T>(path, retryOpts);
                     case 'POST':
-                        return await api.post<T>(path, body, { headers: newHeaders });
+                        return await api.post<T>(path, body, retryOpts);
                     case 'PUT':
-                        return await api.put<T>(path, body, { headers: newHeaders });
+                        return await api.put<T>(path, body, retryOpts);
                     case 'PATCH':
-                        return await api.patch<T>(path, body, { headers: newHeaders });
+                        return await api.patch<T>(path, body, retryOpts);
                     case 'DELETE':
-                        return await api.delete<T>(path, { headers: newHeaders });
+                        return await api.delete<T>(path, retryOpts);
                 }
             } else {
                 // Refresh failed - session is expired
@@ -155,9 +158,9 @@ export async function authenticatedRequest<T>(
  * Authenticated API helpers
  */
 export const authApi = {
-    get: <T>(path: string) => authenticatedRequest<T>('GET', path),
-    post: <T>(path: string, body?: Record<string, unknown>) => authenticatedRequest<T>('POST', path, body),
-    put: <T>(path: string, body?: Record<string, unknown>) => authenticatedRequest<T>('PUT', path, body),
-    patch: <T>(path: string, body?: Record<string, unknown>) => authenticatedRequest<T>('PATCH', path, body),
-    delete: <T>(path: string) => authenticatedRequest<T>('DELETE', path),
+    get: <T>(path: string, options?: { timeoutMs?: number }) => authenticatedRequest<T>('GET', path, undefined, options),
+    post: <T>(path: string, body?: Record<string, unknown>, options?: { timeoutMs?: number }) => authenticatedRequest<T>('POST', path, body, options),
+    put: <T>(path: string, body?: Record<string, unknown>, options?: { timeoutMs?: number }) => authenticatedRequest<T>('PUT', path, body, options),
+    patch: <T>(path: string, body?: Record<string, unknown>, options?: { timeoutMs?: number }) => authenticatedRequest<T>('PATCH', path, body, options),
+    delete: <T>(path: string, options?: { timeoutMs?: number }) => authenticatedRequest<T>('DELETE', path, undefined, options),
 };

@@ -3,7 +3,7 @@
  * GDPR compliant legal content for AstroMatch
  */
 
-const TODAY_DATE = '16 mars 2026';
+const TODAY_DATE = '13 juin 2026';
 
 export const privacyPolicyText = {
     title: 'Politique de Confidentialité',
@@ -21,8 +21,11 @@ export const privacyPolicyText = {
 • Date de naissance
 • Heure de naissance
 • Lieu de naissance
+• Apparence d'avatar choisie (féminine ou masculine), utilisée uniquement pour personnaliser les pronoms employés par l'assistant et l'illustration affichée
 • Préférences utilisateur
 • Données d'utilisation de l'application
+
+Le choix de l'apparence de l'avatar est une simple préférence de personnalisation. Il est facultatif, ne constitue pas une déclaration de sexe ou d'identité de genre, et n'est pas traité comme une donnée sensible au sens de l'article 9 du RGPD.
 
 Ces informations sont nécessaires pour générer les analyses astrologiques et améliorer l'expérience utilisateur.`,
         },
@@ -73,7 +76,7 @@ contact@lunestia.app`,
 
 export const termsOfServiceText = {
     title: "Conditions Générales d'Utilisation",
-    lastUpdate: `Dernière mise à jour : 16 mai 2026`,
+    lastUpdate: `Dernière mise à jour : 13 juin 2026`,
     sections: [
         {
             title: '1. Objet',
@@ -107,7 +110,7 @@ L'utilisateur reconnaît que l'astrologie est une pratique symbolique et interpr
         },
         {
             title: '4. Création de compte et données personnelles',
-            content: `L'utilisation de certaines fonctionnalités nécessite la création d'un compte. L'utilisateur peut s'inscrire via une adresse e-mail ou via un service d'authentification tiers (Google, Apple).
+            content: `L'utilisation de certaines fonctionnalités nécessite la création d'un compte. L'inscription et la connexion s'effectuent exclusivement via un service d'authentification tiers : « Se connecter avec Google » ou « Se connecter avec Apple ». Aucun mot de passe n'est créé ni stocké par l'Éditeur.
 
 L'utilisateur est responsable de l'exactitude des informations fournies (notamment la date, l'heure et le lieu de naissance, nécessaires au calcul astrologique).
 

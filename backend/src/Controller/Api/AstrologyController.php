@@ -7,6 +7,7 @@ use App\Repository\NatalChartRepository;
 use App\Repository\SynastryHistoryRepository;
 use App\Service\AstrologyService;
 use App\Service\PromptLocaleService;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,6 +21,7 @@ class AstrologyController extends AbstractController
         private AstrologyService $astrologyService,
         private NatalChartRepository $natalChartRepository,
         private SynastryHistoryRepository $synastryHistoryRepository,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -283,6 +285,13 @@ class AstrologyController extends AbstractController
         );
 
         if (!$result['success']) {
+            // Controlled 500: this never throws, so it would otherwise leave no
+            // trace in the logs. Log it explicitly so prod failures are diagnosable.
+            $this->logger->error('Synastry V2 calculation failed', [
+                'userId' => $user->getId(),
+                'partnerName' => $data['partnerName'],
+                'error' => $result['error'] ?? 'unknown',
+            ]);
             return $this->json(['error' => $result['error']], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 

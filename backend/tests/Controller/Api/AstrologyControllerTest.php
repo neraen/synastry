@@ -34,10 +34,12 @@ class AstrologyControllerTest extends TestCase
         $this->container = new Container();
         $this->container->set('security.token_storage', $this->tokenStorage);
 
+        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $this->controller = new AstrologyController(
             $this->astrologyService,
             $this->natalChartRepository,
-            $this->synastryHistoryRepository
+            $this->synastryHistoryRepository,
+            $logger
         );
         $this->controller->setContainer($this->container);
     }

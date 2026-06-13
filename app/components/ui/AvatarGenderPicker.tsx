@@ -4,11 +4,14 @@
  * Subtle gender selection through sign avatars: once a birth date is known,
  * shows the two avatar variants of that sun sign (female / male) and the
  * user taps the one that represents them. Renders nothing without a valid date.
+ *
+ * Avatars are circular crops (same treatment as TabHeader/profile); selection
+ * is a gold-tinted halo + full opacity — no borders, per the design system.
  */
 
 import React from 'react';
 import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '@/theme';
+import { colors, typography, spacing, shadows } from '@/theme';
 import { getSunSign, getSignAvatarBySign, Gender } from '@/utils/signAvatar';
 
 interface AvatarGenderPickerProps {
@@ -21,6 +24,9 @@ interface AvatarGenderPickerProps {
 }
 
 const OPTIONS: Gender[] = ['female', 'male'];
+
+const AVATAR_SIZE = 72;
+const HALO_SIZE = 88;
 
 export function AvatarGenderPicker({
     birthDate,
@@ -44,23 +50,24 @@ export function AvatarGenderPicker({
             <View style={styles.row}>
                 {OPTIONS.map((gender) => {
                     const selected = value === gender;
+                    const dimmed = value !== null && !selected;
                     return (
                         <Pressable
                             key={gender}
                             onPress={() => onChange(gender)}
                             disabled={disabled}
                             style={[
-                                styles.tile,
-                                selected && styles.tileSelected,
+                                styles.halo,
+                                selected && styles.haloSelected,
                                 disabled && styles.disabled,
                             ]}
                             accessibilityRole="button"
                             accessibilityState={{ selected }}
+                            hitSlop={8}
                         >
                             <Image
                                 source={getSignAvatarBySign(sign, gender)}
-                                style={[styles.avatar, !selected && value !== null && styles.avatarDimmed]}
-                                resizeMode="contain"
+                                style={[styles.avatar, dimmed && styles.avatarDimmed]}
                             />
                         </Pressable>
                     );
@@ -86,26 +93,29 @@ const styles = StyleSheet.create({
     },
     row: {
         flexDirection: 'row',
-        gap: spacing.md,
+        justifyContent: 'center',
+        gap: spacing.xxl,
+        paddingVertical: spacing.xs,
     },
-    tile: {
-        flex: 1,
+    halo: {
+        width: HALO_SIZE,
+        height: HALO_SIZE,
+        borderRadius: HALO_SIZE / 2,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: spacing.md,
-        borderRadius: borderRadius.md,
-        backgroundColor: colors.surface.glass,
     },
-    tileSelected: {
+    haloSelected: {
         ...shadows.ambientGlow,
         backgroundColor: colors.glow.gold,
     },
     avatar: {
-        width: 88,
-        height: 88,
+        width: AVATAR_SIZE,
+        height: AVATAR_SIZE,
+        borderRadius: AVATAR_SIZE / 2,
+        backgroundColor: colors.surfaceContainerHigh,
     },
     avatarDimmed: {
-        opacity: 0.45,
+        opacity: 0.4,
     },
     errorText: {
         ...typography.caption,
