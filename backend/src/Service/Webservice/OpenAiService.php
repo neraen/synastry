@@ -607,6 +607,7 @@ But : qu'en lisant, elle se dise "c'est exactement ma journée" — et qu'elle s
 - angle_principal   : { theme, situation, domaine, tonalite, intensite, sens } — le thème central du jour
 - angle_relationnel : idem | null — l'angle affectif
 - couleur_du_jour   : idem | null — l'humeur du jour
+- toile_de_fond     : { theme, situation, domaine, tonalite } | null — le CHAPITRE de vie en cours (semaines/mois), PAS la journée
 - baseline          : { lune_signe, asc_signe } — sa coloration émotionnelle de fond
 - hier              : { title, overview } | absent — l'horoscope d'HIER, à ne pas répéter
 - date              : la date à afficher
@@ -660,6 +661,22 @@ La baseline contient des notes sur les patterns de fond de la personne. Sers-t'e
 que l'angle du jour résonne personnellement (relie-le à un réflexe ou un besoin connu),
 mais SANS jamais nommer ces patterns ni faire un portrait. Au plus un fil effleure le
 texte. Le conseil peut s'appuyer dessus discrètement.
+
+### LA TOILE DE FOND (le chapitre, pas la scène du jour)
+C'est le mouvement LENT de cette période de sa vie — ce qui se joue en arrière-plan
+depuis des semaines. Elle donne au jour ses ENJEUX et sa profondeur, mais ce n'est
+JAMAIS la scène du jour : la scène vient toujours de angle_principal.
+- Pense-la comme l'eau ; angle_principal est la vague d'aujourd'hui. La vague se
+  produit DANS cette eau-là — relie le petit moment du jour au grand mouvement.
+- Ne la raconte pas comme un bloc à part, et PAS tous les jours : laisse-la INFLÉCHIR
+  l'overview ou l'advice. Au plus UNE phrase relie la scène du jour au chapitre
+  ("et ça s'inscrit dans ce qu'elle traverse en ce moment").
+- tonalite "tension" : ce chapitre lui demande quelque chose de difficile, dans la
+  durée. Honore-le — pas de solution express, pas de "ça va vite passer".
+- tonalite "flow" : une saison qui la porte en profondeur ; le jour s'inscrit dedans.
+- Comme elle dure, ne la formule jamais comme hier (vois "hier"). Certains jours, mieux
+  vaut ne pas la nommer du tout que la répéter.
+- Si null ou absente : ignore-la, écris comme d'habitude (journée portée par le jour).
 
 ### RÈGLES D'ÉCRITURE
 - COURT. On lit sur un téléphone, entre deux stations de métro. Chaque phrase gagne sa place.

@@ -33,6 +33,14 @@ class HoroscopeGeneratorService
         'lente'  => 2.5,
     ];
     private const TRANSIT_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'];
+    // Slow movers feeding the persistent "toile de fond" (the chapter of life the
+    // person is in). Detected SEPARATELY from the daily trigger above: if they
+    // competed for angle_principal they'd freeze the daily for weeks, since they
+    // stay in orb that long. They give depth/continuity, not today's scene.
+    private const BACKDROP_PLANETS = ['Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+    // A slow transit is felt as an active chapter only within a tight orb (~1.5°).
+    // Wider turns the backdrop into a permanent vague hum; tighter, it's too rare.
+    private const BACKDROP_ORBE = 1.5;
     private const NATAL_TARGETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Saturn', 'Ascendant', 'Midheaven'];
     private const LUMINAIRES_ET_ANGLES = ['Soleil', 'Lune', 'ASC', 'MC'];
     private const FACTEUR_CIBLE_FORTE = 1.30;
@@ -410,8 +418,9 @@ PROMPT;
         $natal = $this->buildNatalArray($natalCalc);
         $transits = $this->buildTransitsArray();
         $transitsDemain = $this->buildTransitsArray(1);
+        $transitsLents = $this->buildTransitsArray(0, self::BACKDROP_PLANETS);
         $principalMaison = null;
-        $brief = $this->genererBriefHoroscope($natal, $transits, $transitsDemain, $this->formatDateFr(), $principalMaison);
+        $brief = $this->genererBriefHoroscope($natal, $transits, $transitsDemain, $transitsLents, $this->formatDateFr(), $principalMaison);
 
         // Anti-répétition : un aspect rapide reste en orbe 3-4 jours, deux jours
         // consécutifs partagent donc souvent le même brief. On envoie l'horoscope
@@ -441,11 +450,13 @@ PROMPT;
             'angle_principal'   => $brief['angle_principal'],
             'angle_relationnel' => $brief['angle_relationnel'],
             'couleur_du_jour'   => $brief['couleur_du_jour'],
+            'toile_de_fond'     => $brief['toile_de_fond'],
             'baseline'          => $brief['baseline'],
             'null_flags'        => [
                 'angle_principal'   => $brief['angle_principal'] === null,
                 'angle_relationnel' => $brief['angle_relationnel'] === null,
                 'couleur_du_jour'   => $brief['couleur_du_jour'] === null,
+                'toile_de_fond'     => $brief['toile_de_fond'] === null,
             ],
         ]);
 
@@ -727,8 +738,9 @@ PROMPT;
         return $natal;
     }
 
-    private function buildTransitsArray(int $joursOffset = 0): array
+    private function buildTransitsArray(int $joursOffset = 0, ?array $planets = null): array
     {
+        $planets ??= self::TRANSIT_PLANETS;
         $now = new \DateTime('now', new \DateTimeZone('UTC'));
         if ($joursOffset !== 0) {
             $now->modify(sprintf('%+d days', $joursOffset));
@@ -736,7 +748,7 @@ PROMPT;
         $calc = new PlanetaryCalculator($now->format('Y-m-d'), '12:00', 0.0, 0.0, 'Transits');
 
         $transits = [];
-        foreach (self::TRANSIT_PLANETS as $en) {
+        foreach ($planets as $en) {
             $key = self::PLANET_TO_JSON_KEY[$en];
             $transits[$key] = ['longitude' => $calc->getPlanetLongitude($en)];
         }
@@ -877,6 +889,86 @@ PROMPT;
     }
 
     /**
+     * Detect the dominant slow-planet transit on a natal point: the "chapter"
+     * the person is in (lasts weeks/months). Single best contact within the tight
+     * backdrop orb, or null when no slow transit is genuinely active right now.
+     * Kept apart from contactsScores() so it never competes for angle_principal.
+     */
+    private function backdropDominant(array $natal, array $transitsLents): ?array
+    {
+        $best = null;
+
+        foreach (self::BACKDROP_PLANETS as $en) {
+            $tPlanete = self::PLANET_TO_JSON_KEY[$en];
+            if (!isset($transitsLents[$tPlanete])) continue;
+            $tLon = $transitsLents[$tPlanete]['longitude'];
+
+            foreach ($natal as $cible => $nData) {
+                $sep = PlanetaryCalculator::separation($tLon, $nData['longitude']);
+
+                foreach (PlanetaryCalculator::TRANSIT_ASPECTS as $asp) {
+                    $orbeReel = abs($sep - $asp['angle']);
+                    if ($orbeReel > self::BACKDROP_ORBE) continue;
+
+                    $orbFactor = 1.0 - ($orbeReel / self::BACKDROP_ORBE);
+                    $cibleFactor = in_array($cible, self::LUMINAIRES_ET_ANGLES, true)
+                        ? self::FACTEUR_CIBLE_FORTE : 1.0;
+                    $score = $asp['poids'] * $orbFactor * $cibleFactor;
+
+                    if ($best === null || $score > $best['score']) {
+                        $best = [
+                            'transit' => $tPlanete,
+                            'cible'   => $cible,
+                            'aspect'  => $asp['nom'],
+                            'orbe'    => $orbeReel,
+                            'score'   => $score,
+                            'maison'  => $nData['maison'],
+                        ];
+                    }
+                    break; // one aspect per transit-cible pair
+                }
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * Compose the toile_de_fond section from a slow contact + the JSON backdrop
+     * table. $seed is month-scoped (année-mois) so the phrasing stays stable
+     * across the chapter instead of flickering daily. Null if no cell exists for
+     * this pair — the day then runs purely on its fast trigger, as before.
+     */
+    private function composerBackdrop(?array $contact, array $table, string $seed): ?array
+    {
+        if ($contact === null) return null;
+
+        $cell = $table['backdrop'][$contact['transit']][$contact['cible']] ?? null;
+        if ($cell === null) return null;
+
+        if ($contact['aspect'] === 'conjonction') {
+            // Slow conjunctions lean tension when the mover or the target is heavy
+            // (Saturne/Pluton, or Saturne/Mars natal); otherwise the opening face.
+            $tension = in_array($contact['transit'], ['Saturne', 'Pluton'], true)
+                || in_array($contact['cible'], ['Saturne', 'Mars'], true);
+            $flavorKey = $tension ? 'tension' : 'flow';
+        } else {
+            $regle = $table['regle_aspect'][$contact['aspect']] ?? 'flow';
+            $flavorKey = str_contains($regle, 'tension') ? 'tension' : 'flow';
+        }
+        if (!isset($cell[$flavorKey])) {
+            $flavorKey = isset($cell['flow']) ? 'flow' : 'tension';
+        }
+
+        return [
+            'theme'     => $cell['theme'],
+            'situation' => $this->choisirVariante($cell[$flavorKey], $seed . $contact['transit'] . $contact['cible']),
+            'domaine'   => $table['maisons'][(string) $contact['maison']] ?? null,
+            'tonalite'  => $flavorKey,
+        ];
+    }
+
+    /**
      * Volume indication for the LLM. Score = poids aspect × orbFactor × cible
      * (max 1.30) : ≥0.75 only for tight major aspects, <0.40 for wide or
      * minor contacts that should stay a nuance, not an event.
@@ -904,7 +996,7 @@ PROMPT;
     /**
      * Orchestrate: natal + transits → deterministic brief for the LLM.
      */
-    private function genererBriefHoroscope(array $natal, array $transits, array $transitsDemain, string $dateFr, ?int &$principalMaison = null): array
+    private function genererBriefHoroscope(array $natal, array $transits, array $transitsDemain, array $transitsLents, string $dateFr, ?int &$principalMaison = null): array
     {
         $table = $this->loadTransitsTable();
         $contacts = $this->contactsScores($natal, $transits, $transitsDemain);
@@ -918,6 +1010,15 @@ PROMPT;
         $briefPrincipal   = $this->composerBrief($angles['principal'], $table, $seed);
         $briefRelationnel = $this->composerBrief($angles['relationnel'], $table, $seed);
         $briefCouleur     = $this->composerBrief($angles['couleur'], $table, $seed);
+
+        // Toile de fond : le chapitre lent en cours. Seed au mois pour figer la
+        // formulation sur la période (sinon elle scintillerait chaque jour).
+        $seedFond = (new \DateTime('today'))->format('Y-m');
+        $toileDeFond = $this->composerBackdrop(
+            $this->backdropDominant($natal, $transitsLents),
+            $table,
+            $seedFond
+        );
 
         // Fallbacks (§6): never send an empty brief
         if ($briefPrincipal === null) {
@@ -942,6 +1043,7 @@ PROMPT;
             'angle_principal'   => $briefPrincipal,
             'angle_relationnel' => $briefRelationnel,
             'couleur_du_jour'   => $briefCouleur,
+            'toile_de_fond'     => $toileDeFond,
             'baseline'          => $angles['baseline'],
             'date'              => $dateFr,
         ];
