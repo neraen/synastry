@@ -221,6 +221,11 @@ export default function Login() {
 
                         </Animated.View>
 
+                        {/* Flexible spacer — pushes the card to the bottom when content is short
+                            (e.g. production, where the DEV form is absent), collapses to 0 when
+                            content overflows the screen so it scrolls naturally. */}
+                        <View style={styles.spacer} />
+
                         {/* Sign-in card */}
                         <Animated.View
                             style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
@@ -363,7 +368,10 @@ const styles = StyleSheet.create({
     safeArea: { flex: 1 },
     scroll: {
         flexGrow: 1,
-        justifyContent: 'flex-end',
+    },
+    spacer: {
+        flex: 1,
+        minHeight: spacing.xxl,
     },
 
     // Star decorations

@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip, TabHeader } from '@/components/ui';
+import { Screen, GlassCard, FormattedText, GoldButton, CelestialChip, TabHeader, HelpModal } from '@/components/ui';
+import type { HelpSection } from '@/components/ui';
 import { LoaderZodiac } from '@/components/loaders';
 import { usePremium } from '@/hooks/usePremium';
 import {
@@ -28,6 +29,101 @@ const SECTION_CHIPS: Record<string, string[]> = {
     relationships: ['Vénus', 'Mars', 'Maison 7', 'Descendant'],
     ambition:      ['MC', 'Jupiter', 'Saturne', 'Maison 10'],
     mission:       ['Nœud Nord', 'Nœud Sud', 'Saturne'],
+};
+
+// ─── Help content per section ───────────────────────────────────────────────────
+// Explains the astrological points (chips) shown for each section and why they
+// matter for the theme the user is reading.
+
+const SUN = '#e9c349';
+const MOON = '#c8bfff';
+const HOUSE = '#a78bfa';
+
+const SECTION_HELP: Record<string, HelpSection[]> = {
+    identity: [{
+        key: 'identity',
+        title: 'Identité',
+        items: [
+            { name: 'Pourquoi ces points ?', symbolColor: colors.primary,
+              description: "Votre identité se lit au croisement de trois repères : ce que vous êtes au fond (Soleil), l'image que vous projetez (Ascendant) et la planète qui gouverne cette image (Maître de l'Ascendant). Ensemble, ils dessinent qui vous êtes et comment on vous perçoit." },
+            { symbol: '☉', symbolColor: SUN, name: 'Soleil',
+              description: "Votre essence, votre volonté et ce qui vous fait vous sentir vivant. C'est le cœur de votre personnalité, ce que vous cherchez à devenir." },
+            { symbol: 'Asc', symbolColor: colors.primary, name: 'Ascendant',
+              description: "Le signe qui se levait à l'horizon à votre naissance. C'est votre première impression, votre style spontané, le masque par lequel vous abordez le monde." },
+            { name: "Maître de l'Asc", symbolColor: colors.primary,
+              description: "La planète qui gouverne votre signe ascendant. Sa position affine la manière dont vous incarnez votre identité au quotidien — un fil conducteur de votre thème." },
+        ],
+    }],
+    emotions: [{
+        key: 'emotions',
+        title: 'Émotions',
+        items: [
+            { name: 'Pourquoi ces points ?', symbolColor: colors.primary,
+              description: "Votre vie affective se lit à travers votre Lune — votre paysage intérieur — et la maison 4, qui ancre vos racines et votre besoin de sécurité." },
+            { symbol: '☽', symbolColor: MOON, name: 'Lune',
+              description: "Vos émotions, vos besoins affectifs, votre mémoire et votre façon de chercher du réconfort. C'est votre monde intime, souvent invisible aux autres." },
+            { symbol: '⌂', symbolColor: HOUSE, name: 'Maison 4',
+              description: "Le domaine du foyer, de la famille et de vos racines. Elle révèle d'où vous venez et ce qui vous fait vous sentir en sécurité." },
+        ],
+    }],
+    mental: [{
+        key: 'mental',
+        title: 'Mental',
+        items: [
+            { name: 'Pourquoi ces points ?', symbolColor: colors.primary,
+              description: "Votre façon de penser et de communiquer s'éclaire avec Mercure — l'esprit — et la maison 3, le terrain des échanges et de l'apprentissage." },
+            { symbol: '☿', symbolColor: colors.primary, name: 'Mercure',
+              description: "Votre intelligence, votre curiosité et votre manière de parler, d'écrire et de raisonner. C'est le filtre par lequel vous comprenez le monde." },
+            { symbol: '⌂', symbolColor: HOUSE, name: 'Maison 3',
+              description: "Le domaine de la communication, des apprentissages et de l'entourage proche. Elle montre comment vous échangez et apprenez au quotidien." },
+        ],
+    }],
+    relationships: [{
+        key: 'relationships',
+        title: 'Relations',
+        items: [
+            { name: 'Pourquoi ces points ?', symbolColor: colors.primary,
+              description: "Vos relations se lisent dans la rencontre de l'amour (Vénus), du désir (Mars) et de l'axe du partenariat (maison 7 et Descendant), qui décrit ce que vous cherchez chez l'autre." },
+            { symbol: '♀', symbolColor: colors.primary, name: 'Vénus',
+              description: "Votre façon d'aimer, de plaire et de créer du lien. Ce qui vous attire, ce que vous valorisez et comment vous exprimez la tendresse." },
+            { symbol: '♂', symbolColor: '#ef6b5e', name: 'Mars',
+              description: "Votre désir, votre énergie de conquête et votre manière d'agir et de vous affirmer. Dans les relations, c'est la passion et l'élan." },
+            { symbol: '⌂', symbolColor: HOUSE, name: 'Maison 7',
+              description: "Le domaine des partenariats, du couple et des engagements. Elle décrit ce que vous recherchez dans une relation à deux." },
+            { name: 'Descendant', symbolColor: colors.primary,
+              description: "Le point opposé à votre Ascendant : le type de partenaire qui vous complète et vous attire, souvent ce que vous ne reconnaissez pas encore en vous." },
+        ],
+    }],
+    ambition: [{
+        key: 'ambition',
+        title: 'Ambition',
+        items: [
+            { name: 'Pourquoi ces points ?', symbolColor: colors.primary,
+              description: "Votre rapport à la réussite se dessine avec le MC et la maison 10 (votre vocation), Jupiter (votre expansion) et Saturne (votre discipline et votre maturité)." },
+            { name: 'MC', symbolColor: colors.primary,
+              description: "Le Milieu du Ciel : le sommet de votre thème, votre vocation, votre image publique et la direction vers laquelle vous tendez." },
+            { symbol: '♃', symbolColor: SUN, name: 'Jupiter',
+              description: "Votre soif de croissance, vos opportunités et votre confiance. Là où vous cherchez à vous épanouir et à voir grand." },
+            { symbol: '♄', symbolColor: '#8a96b8', name: 'Saturne',
+              description: "Votre discipline, vos responsabilités et vos limites. Saturne exige des efforts mais construit une réussite durable." },
+            { symbol: '⌂', symbolColor: HOUSE, name: 'Maison 10',
+              description: "Le domaine de la carrière, du statut et de l'accomplissement social. Elle montre où vous voulez laisser votre marque." },
+        ],
+    }],
+    mission: [{
+        key: 'mission',
+        title: 'Mission de vie',
+        items: [
+            { name: 'Pourquoi ces points ?', symbolColor: colors.primary,
+              description: "Votre direction de vie se lit sur l'axe des Nœuds lunaires — d'où vous venez (Sud) vers où vous allez (Nord) — soutenu par Saturne, qui structure ce chemin de maturation." },
+            { symbol: '☊', symbolColor: colors.primary, name: 'Nœud Nord',
+              description: "Votre cap karmique : les qualités à développer et la direction qui vous fait grandir, même si elle demande de sortir de votre zone de confort." },
+            { symbol: '☋', symbolColor: colors.onSurfaceMuted, name: 'Nœud Sud',
+              description: "Vos acquis et automatismes du passé. Confortables mais limitants, ils sont le point de départ que vous êtes invité à dépasser." },
+            { symbol: '♄', symbolColor: '#8a96b8', name: 'Saturne',
+              description: "Le maître du temps et des leçons. Il jalonne votre chemin d'épreuves formatrices qui mènent à la maturité et à l'accomplissement." },
+        ],
+    }],
 };
 
 // Aspect type labels
@@ -107,8 +203,10 @@ export default function NatalChartSectionScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isPremiumGated, setIsPremiumGated] = useState(false);
+    const [helpVisible, setHelpVisible] = useState(false);
 
     const chips = SECTION_CHIPS[sectionKey] || [];
+    const helpSections = SECTION_HELP[sectionKey];
     const isAspectsSection = sectionKey === 'aspects';
 
     const loadContent = useCallback(async () => {
@@ -228,6 +326,17 @@ export default function NatalChartSectionScreen() {
                             selected={false}
                         />
                     ))}
+                    {helpSections && (
+                        <Pressable
+                            onPress={() => setHelpVisible(true)}
+                            hitSlop={8}
+                            style={styles.helpChip}
+                            accessibilityRole="button"
+                            accessibilityLabel="Comprendre ces points"
+                        >
+                            <Feather name="help-circle" size={16} color={colors.onSurfaceMuted} />
+                        </Pressable>
+                    )}
                 </ScrollView>
             )}
 
@@ -237,6 +346,15 @@ export default function NatalChartSectionScreen() {
             </View>
 
             <View style={{ height: 60 }} />
+
+            {helpSections && (
+                <HelpModal
+                    visible={helpVisible}
+                    onClose={() => setHelpVisible(false)}
+                    title={sectionLabel}
+                    sections={helpSections}
+                />
+            )}
         </Screen>
     );
 }
@@ -281,6 +399,15 @@ const styles = StyleSheet.create({
     chipsContent: {
         paddingHorizontal: spacing.screenPadding,
         gap: spacing.sm,
+        alignItems: 'center',
+    },
+    helpChip: {
+        width: 32,
+        height: 32,
+        borderRadius: radius.full,
+        backgroundColor: `${colors.onSurfaceMuted}18`,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
     // Content
@@ -406,6 +533,7 @@ const styles = StyleSheet.create({
     },
     titleEmoji: {
         fontSize: 24,
+        color: colors.primary,
     },
     titleText: {
         fontFamily: fonts.display.bold,

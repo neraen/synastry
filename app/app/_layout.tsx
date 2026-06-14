@@ -164,6 +164,8 @@ export default function RootLayout() {
                 <ThemeProvider value={LunestiaTheme}>
                     <Stack>
                         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                        <Stack.Screen name="natal-chart-analysis" options={{ headerShown: false }} />
+                        <Stack.Screen name="natal-chart-section" options={{ headerShown: false }} />
                         <Stack.Screen name="login" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="signup" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="birth-profile" options={{ headerShown: false, presentation: 'modal' }} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -8,7 +8,6 @@ import {
     StyleSheet,
     Modal,
     Alert,
-    Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -21,9 +20,6 @@ import { FullPageLoader } from '@/components/loaders';
 import { getSignAvatar } from '@/utils/signAvatar';
 import { colors, spacing, radius, fonts } from '@/theme';
 import { deleteAccountText } from '@/constants/legalTexts';
-import { getApiEnv, setApiEnv, LOCAL_URL, PROD_URL } from '@/services/apiConfig';
-import { api } from '@/services/api';
-import { getToken } from '@/services/auth';
 
 // ─── Preference Row ────────────────────────────────────────────────────────────
 interface PrefRowProps {
@@ -121,26 +117,6 @@ export default function ProfileTab() {
     const { user, isAuthenticated, isLoading, logout, deleteAccount } = useAuth();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [isLocal, setIsLocal] = useState(getApiEnv() === 'local');
-
-    useEffect(() => {
-        setIsLocal(getApiEnv() === 'local');
-    }, []);
-
-    async function toggleApiEnv(value: boolean) {
-        setIsLocal(value);
-        await setApiEnv(value ? 'local' : 'prod');
-    }
-
-    async function forcePremium() {
-        try {
-            const token = await getToken();
-            await api.post('/api/dev/force-premium', {}, { headers: { Authorization: `Bearer ${token}` } });
-            Alert.alert('✓ Premium activé', 'Reconnecte-toi pour que le statut se mette à jour.');
-        } catch (e: any) {
-            Alert.alert('Erreur', e?.message ?? 'Impossible d\'activer le premium');
-        }
-    }
 
     const handleDeleteAccount = async () => {
         setIsDeleting(true);
@@ -332,60 +308,6 @@ export default function ProfileTab() {
                             <Text style={styles.deleteText}>{t('profile.deleteAccount')}</Text>
                         </Pressable>
                     </View>
-
-                    {/* ── Dev Tools (dev builds only) ────────────────────────── */}
-                    {__DEV__ && (
-                    <>
-                    <View style={styles.demoSection}>
-                        <Text style={styles.sectionLabel}>{t('profile.sectionDevelopment')}</Text>
-                        <GlassCard opacity="low" radius="xl">
-                            <View style={styles.devRow}>
-                                <View style={styles.devInfo}>
-                                    <Text style={styles.devTitle}>
-                                        {isLocal ? t('profile.localServer') : t('profile.prodServer')}
-                                    </Text>
-                                    <Text style={styles.devUrl} numberOfLines={1}>
-                                        {isLocal ? LOCAL_URL : PROD_URL}
-                                    </Text>
-                                </View>
-                                <Switch
-                                    value={isLocal}
-                                    onValueChange={toggleApiEnv}
-                                    trackColor={{ false: `${colors.primary}40`, true: `${colors.secondary}60` }}
-                                    thumbColor={isLocal ? colors.secondary : colors.primary}
-                                />
-                            </View>
-
-                            <View style={styles.devDivider} />
-
-                            <Pressable style={styles.devPremiumBtn} onPress={forcePremium}>
-                                <Text style={styles.devPremiumLabel}>⚡ Activer Premium</Text>
-                            </Pressable>
-                        </GlassCard>
-                    </View>
-
-                    {/* ── Design Demo ────────────────────────────────────────── */}
-                    <View style={styles.demoSection}>
-                        <Text style={styles.sectionLabel}>{t('profile.sectionDesignDemo')}</Text>
-                        <View style={styles.demoGrid}>
-                            {[
-                                { label: 'Onboarding', route: '/onboarding' },
-                                { label: 'Thème Astral', route: '/natal-chart-wheel' },
-                                { label: 'Compat V2', route: '/compatibility-result-v2' },
-                                { label: 'Share V2', route: '/share-card-v2' },
-                            ].map((item) => (
-                                <Pressable
-                                    key={item.route}
-                                    style={styles.demoBtn}
-                                    onPress={() => router.push(item.route as any)}
-                                >
-                                    <Text style={styles.demoBtnText}>{item.label}</Text>
-                                </Pressable>
-                            ))}
-                        </View>
-                    </View>
-                    </>
-                    )}
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
@@ -719,63 +641,6 @@ const styles = StyleSheet.create({
         textDecorationLine: 'underline',
     },
 
-    // Dev tools
-    devRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-    },
-    devInfo: { flex: 1 },
-    devDivider: {
-        height: 1,
-        backgroundColor: `${colors.onSurfaceMuted}15`,
-        marginVertical: spacing.md,
-    },
-    devTitle: {
-        fontFamily: fonts.body.medium,
-        fontSize: 14,
-        color: colors.onSurface,
-        marginBottom: 2,
-    },
-    devUrl: {
-        fontFamily: fonts.body.regular,
-        fontSize: 11,
-        color: colors.onSurfaceMuted,
-    },
-devPremiumBtn: {
-        paddingVertical: spacing.sm,
-        borderRadius: 12,
-        backgroundColor: `${colors.secondary}25`,
-        alignItems: 'center',
-    },
-    devPremiumLabel: {
-        fontFamily: fonts.body.medium,
-        fontSize: 13,
-        color: colors.secondary,
-    },
-
-    // Demo
-    demoSection: {
-        paddingHorizontal: spacing.xl,
-        marginBottom: spacing.xl,
-    },
-    demoGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.sm,
-    },
-    demoBtn: {
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.sm,
-        borderRadius: radius.full,
-        backgroundColor: `${colors.surfaceContainerHigh}CC`,
-    },
-    demoBtnText: {
-        fontFamily: fonts.body.medium,
-        fontSize: 13,
-        color: colors.primary,
-    },
-
     // Modal
     modalOverlay: {
         flex: 1,
@@ -787,6 +652,7 @@ devPremiumBtn: {
     modalCard: {
         width: '100%',
         maxWidth: 340,
+        backgroundColor: colors.surfaceContainer,
     },
     modalEmoji: {
         fontSize: 44,
