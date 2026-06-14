@@ -28,253 +28,253 @@
     "_doc": "Toile de fond = transit LENT (Jupiter/Saturne/Uranus/Neptune/Pluton) sur un point natal, en orbe serree (~1.5 deg). PHP en selectionne UN seul : le chapitre de vie en cours (semaines/mois). Ce n'est pas la scene du jour, c'est l'eau dans laquelle la scene se produit. La variante est figee au mois (seed = annee-mois) pour ne pas scintiller d'un jour a l'autre. flow/tension choisis comme pour contacts.",
     "Saturne": {
       "Soleil": {
-        "theme": "maturation et mise a l'epreuve",
+        "theme": "une periode serieuse et exigeante",
         "flow": [
-          "une periode ou elle pose des bases solides, ce qu'elle construit maintenant tient dans la duree",
-          "une saison de serieux qui recompense la patience, rien de gratuit mais rien de perdu"
+          "depuis quelque temps elle construit des choses qui durent, et le serieux qu'elle y met commence a payer",
+          "une periode ou elle avance lentement mais surement : ce qu'elle pose maintenant tiendra"
         ],
         "tension": [
-          "une traversee exigeante ou elle porte plus de poids que d'habitude, la fatigue est reelle",
-          "une periode qui la met a l'epreuve, on lui demande de faire ses preuves sans raccourci"
+          "en ce moment elle porte beaucoup, elle se sent plus responsable et plus fatiguee que d'habitude",
+          "une periode ou on lui demande beaucoup et ou rien ne lui est donne facilement"
         ]
       },
       "Lune": {
-        "theme": "securite affective a reconstruire",
+        "theme": "apprendre a se rassurer seule",
         "flow": [
-          "une saison ou elle apprend a se securiser de l'interieur, ca la rend plus stable",
-          "une periode qui decante ses besoins, elle sait mieux ce qui la tient debout"
+          "elle apprend depuis quelque temps a se rassurer toute seule, et ca la rend plus solide",
+          "une periode ou elle comprend mieux ce dont elle a besoin pour se sentir bien"
         ],
         "tension": [
-          "une periode ou le reconfort se merite, elle se sent plus seule avec ses emotions",
-          "une saison un peu aride cote tendresse, elle doit se porter elle-meme"
+          "en ce moment elle se sent un peu seule avec ses emotions, le reconfort ne vient pas tout seul",
+          "une periode ou elle a moins de soutien autour d'elle et doit se porter elle-meme"
         ]
       },
       "Venus": {
-        "theme": "l'amour mis a l'epreuve du reel",
+        "theme": "l'amour qui se clarifie",
         "flow": [
-          "une periode ou ses liens se serieux, ce qui reste a de la valeur",
-          "une saison qui trie en amour : moins de papillons, plus de vrai"
+          "ses relations se font plus serieuses, elle garde ce qui compte vraiment et lache le reste",
+          "une periode ou elle voit clair en amour : moins de coups de coeur, plus de liens fiables"
         ],
         "tension": [
-          "une periode ou l'amour demande des preuves, elle teste ce qui tient vraiment",
-          "une saison plus froide cote coeur, les manques se font sentir"
+          "en amour elle traverse une periode plus froide, elle ressent les manques et teste ce qui tient",
+          "une periode ou ses relations lui demandent des efforts et des preuves"
         ]
       },
       "ASC": {
-        "theme": "une presence qui murit",
+        "theme": "gagner en assurance",
         "flow": [
-          "une periode ou elle se construit une presence plus posee, on la prend au serieux",
-          "une saison ou elle gagne en assise, sa facon d'avancer murit"
+          "elle gagne en serieux et en presence, les gens la prennent davantage au mot",
+          "une periode ou elle se pose : elle parait plus sure d'elle qu'avant"
         ],
         "tension": [
-          "une periode ou elle se sent bridee, comme avec un frein a main, chaque elan coute",
-          "une saison ou elle doute de sa place, son image lui pese"
+          "en ce moment elle se sent freinee, comme si chaque elan lui coutait plus cher",
+          "une periode ou elle doute de sa place et se sent moins a l'aise avec les autres"
         ]
       },
       "MC": {
-        "theme": "la carriere brique par brique",
+        "theme": "la carriere qui se construit",
         "flow": [
-          "une periode qui batit sa carriere pas a pas, ce qu'elle pose dure",
-          "une saison ou le serieux paie au travail, on lui confie du solide"
+          "elle batit sa carriere etape par etape, et ce travail de fond commence a se voir",
+          "une periode ou son serieux au travail lui vaut des responsabilites qui comptent"
         ],
         "tension": [
-          "une periode d'examen professionnel, on lui demande de prouver sa legitimite",
-          "une saison ou la carriere pese lourd, les responsabilites s'accumulent"
+          "au travail on lui demande de faire ses preuves, la pression et les responsabilites montent",
+          "une periode chargee professionnellement, elle porte plus que sa part"
         ]
       }
     },
     "Jupiter": {
       "Soleil": {
-        "theme": "un horizon qui s'elargit",
+        "theme": "une periode qui s'ouvre",
         "flow": [
-          "une periode qui elargit son horizon, les portes s'ouvrent plus facilement",
-          "une saison de confiance ou elle peut viser plus grand sans se brider"
+          "depuis quelque temps les choses s'ouvrent pour elle, elle a de la marge pour voir plus grand",
+          "une periode de confiance ou elle peut tenter des choses qu'elle n'osait pas avant"
         ],
         "tension": [
-          "une periode ou elle voit trop grand, le risque c'est de se disperser ou de trop promettre",
-          "une saison d'exces ou l'enthousiasme depasse les moyens"
+          "elle voit grand en ce moment, le risque c'est d'en prendre trop ou de trop promettre",
+          "une periode ou son enthousiasme depasse ses moyens, attention a ne pas se disperser"
         ]
       },
       "Lune": {
-        "theme": "un monde interieur qui respire",
+        "theme": "plus d'aisance interieure",
         "flow": [
-          "une saison ou son monde interieur respire, plus d'espace et de generosite",
-          "une periode genereuse cote coeur, elle donne et recoit largement"
+          "elle se sent plus genereuse et plus a l'aise avec ses emotions, elle a de la place en elle",
+          "une periode ou elle donne et recoit beaucoup d'affection"
         ],
         "tension": [
-          "une periode ou ses besoins enflent, elle en demande peut-etre trop",
-          "une saison ou le trop-plein d'emotion deborde le cadre"
+          "en ce moment ses besoins prennent beaucoup de place, elle en demande peut-etre trop",
+          "une periode ou elle se laisse deborder par ses emotions, tout prend de l'ampleur"
         ]
       },
       "Venus": {
-        "theme": "le coeur qui s'agrandit",
+        "theme": "l'amour genereux",
         "flow": [
-          "une periode genereuse en amour et en plaisirs, le coeur s'agrandit",
-          "une saison ou les liens s'enrichissent, on l'aime et on le lui montre"
+          "une periode genereuse en amour et en plaisirs, ses relations s'enrichissent",
+          "elle se sent aimee et elle le montre, les liens prennent de l'ampleur"
         ],
         "tension": [
-          "une periode ou elle en veut toujours plus en amour, jamais tout a fait rassasiee",
-          "une saison ou le plaisir vire a l'exces"
+          "en amour elle en veut toujours plus, jamais tout a fait comblee",
+          "une periode ou elle force sur les plaisirs, le trop peut se retourner contre elle"
         ]
       },
       "MC": {
-        "theme": "un elan professionnel",
+        "theme": "des opportunites au travail",
         "flow": [
-          "une periode d'elan professionnel, les opportunites se presentent",
-          "une saison ou sa carriere prend de l'ampleur, on lui fait confiance pour plus grand"
+          "des opportunites se presentent au travail, sa situation peut prendre de l'ampleur",
+          "une periode ou on lui fait confiance pour des choses plus grandes"
         ],
         "tension": [
-          "une periode ou elle promet plus qu'elle ne peut tenir au travail",
-          "une saison ou l'ambition s'emballe sans structure pour la porter"
+          "elle promet plus qu'elle ne peut tenir au travail, l'ambition s'emballe",
+          "une periode ou elle voit trop grand professionnellement sans poser les bases"
         ]
       }
     },
     "Pluton": {
       "Soleil": {
-        "theme": "une mue profonde",
+        "theme": "un changement de fond",
         "flow": [
-          "une longue mue ou elle devient quelqu'un de plus dense, de plus vrai",
-          "une periode de transformation profonde, elle se reinvente de l'interieur"
+          "depuis longtemps elle change en profondeur, elle devient quelqu'un de plus vrai et plus solide",
+          "une periode ou elle se transforme de l'interieur et assume mieux qui elle est"
         ],
         "tension": [
-          "une traversee intense ou quelque chose en elle doit mourir pour renaitre, c'est remuant",
-          "une periode de bras de fer avec elle-meme, le controle et le lacher-prise se disputent"
+          "elle traverse un grand changement interieur, quelque chose d'ancien doit partir et ca remue",
+          "une periode intense ou elle se bat avec son besoin de tout controler"
         ]
       },
       "Lune": {
-        "theme": "une verite emotionnelle qui remonte",
+        "theme": "des emotions profondes qui remontent",
         "flow": [
-          "une periode ou elle descend au fond de ses emotions et en remonte plus forte",
-          "une saison de verite interieure, elle ne peut plus se mentir"
+          "elle regarde ses emotions en face depuis quelque temps, et elle en ressort plus forte",
+          "une periode ou elle ne peut plus se mentir sur ce qu'elle ressent vraiment"
         ],
         "tension": [
-          "une traversee remuante ou de vieilles peurs remontent pour etre soldees",
-          "une periode ou l'intensite affective la submerge par vagues"
+          "de vieilles peurs ou blessures remontent en ce moment pour etre reglees, c'est remuant",
+          "une periode ou ses emotions la submergent par vagues, fortes et profondes"
         ]
       },
       "Venus": {
-        "theme": "une facon d'aimer transformee",
+        "theme": "une facon d'aimer plus intense",
         "flow": [
-          "une periode ou l'amour devient plus profond, plus total, plus vrai",
-          "une saison qui transforme sa facon d'aimer, fini le superficiel"
+          "sa facon d'aimer devient plus profonde et plus entiere, fini le superficiel",
+          "une periode ou ses relations gagnent en intensite et en verite"
         ],
         "tension": [
-          "une traversee amoureuse intense, jalousie, fusion, tout est a vif",
-          "une periode ou un lien la transforme ou la brise, rien de tiede"
+          "une periode amoureuse intense ou tout est a vif : attachement, jalousie, peur de perdre",
+          "un lien fort la transforme en profondeur, en bien ou en douleur, rien de tiede"
         ]
       },
       "Mars": {
-        "theme": "une puissance d'agir decuplee",
+        "theme": "une grande force d'action",
         "flow": [
-          "une periode ou sa puissance d'agir se decuple, elle deplace des montagnes",
-          "une saison ou elle canalise une force brute en quelque chose de construit"
+          "elle a une grande force pour agir en ce moment, elle peut accomplir de grosses choses",
+          "une periode ou elle transforme une energie brute en resultats concrets"
         ],
         "tension": [
-          "une periode ou sa colere ou son desir prennent des proportions intenses",
-          "une saison de luttes de pouvoir, attention aux bras de fer destructeurs"
+          "sa colere ou son desir prennent de grosses proportions en ce moment",
+          "une periode de rapports de force, attention aux bras de fer qui detruisent"
         ]
       },
       "ASC": {
-        "theme": "une peau qu'elle quitte",
+        "theme": "se reinventer",
         "flow": [
-          "une mue profonde de sa presence, elle n'apparait plus comme avant",
-          "une periode ou elle se reinvente, une autre version d'elle emerge"
+          "elle change profondement, les gens remarquent qu'elle n'est plus tout a fait la meme",
+          "une periode ou elle se reinvente et affirme une autre version d'elle"
         ],
         "tension": [
-          "une periode ou son rapport au controle se rejoue dans tous ses gestes",
-          "une traversee ou elle doit lacher une vieille peau, et ca resiste"
+          "une periode ou ses questions de controle et de pouvoir reviennent dans tous ses gestes",
+          "elle doit lacher une vieille facon d'etre, et ca resiste fort"
         ]
       }
     },
     "Uranus": {
       "Soleil": {
-        "theme": "un besoin d'air frais",
+        "theme": "un besoin de liberte",
         "flow": [
-          "une periode ou elle se libere de ce qui ne lui ressemble plus, l'air frais entre",
-          "une saison d'affranchissement, elle ose etre elle-meme autrement"
+          "elle se libere de ce qui ne lui correspond plus, elle a besoin d'air et ca fait du bien",
+          "une periode ou elle s'autorise a etre elle-meme autrement, plus librement"
         ],
         "tension": [
-          "une periode imprevisible ou son besoin de liberte bouscule tout, instabilite",
-          "une saison ou elle ne tient plus en place, le cadre saute par a-coups"
+          "en ce moment tout bouge sans prevenir, son besoin de liberte bouscule sa vie",
+          "une periode instable ou elle ne tient pas en place, le cadre lui pese"
         ]
       },
       "Lune": {
-        "theme": "une liberation emotionnelle",
+        "theme": "un besoin d'espace",
         "flow": [
-          "une periode ou elle s'autorise enfin d'autres facons de se sentir bien",
-          "une saison de liberation emotionnelle, elle se detache d'attachements pesants"
+          "elle se detache d'attachements qui pesaient, elle s'autorise de nouvelles facons de se sentir bien",
+          "une periode ou elle a besoin de plus d'espace et ou ca la soulage de le prendre"
         ],
         "tension": [
-          "une periode d'humeur en montagnes russes, le besoin d'espace cogne contre ses liens",
-          "une saison ou son monde intime se decroche sans prevenir"
+          "ses humeurs partent dans tous les sens, son besoin de liberte se heurte a ses liens",
+          "une periode ou sa vie intime change brusquement, sans prevenir"
         ]
       },
       "Venus": {
-        "theme": "l'amour reinvente",
+        "theme": "l'amour qui se renouvelle",
         "flow": [
-          "une periode ou l'amour se reinvente, du neuf, de l'inattendu, de l'electrique",
-          "une saison ou elle veut de la liberte dans ses liens, et ca rafraichit"
+          "sa vie amoureuse se renouvelle, du neuf et de l'inattendu arrivent",
+          "une periode ou elle veut de la liberte dans ses relations, et ca les rafraichit"
         ],
         "tension": [
-          "une periode ou ses liens se decrochent par a-coups, rien de stable en amour",
-          "une saison ou le besoin de liberte fait voler des attaches en eclats"
+          "ses relations sont instables en ce moment, elles se font et se defont par a-coups",
+          "son besoin de liberte fait sauter des attaches, rien de stable cote coeur"
         ]
       },
       "ASC": {
-        "theme": "un changement de peau au grand jour",
+        "theme": "changer d'attitude au grand jour",
         "flow": [
-          "une periode ou elle change de peau au grand jour, plus libre, plus elle-meme",
-          "une saison ou elle surprend tout le monde, y compris elle"
+          "elle change de style et d'attitude au grand jour, plus libre, plus elle-meme",
+          "une periode ou elle surprend son entourage, et elle-meme avec"
         ],
         "tension": [
-          "une periode instable ou elle ne se reconnait plus tout a fait, tout bouge",
-          "une saison de soubresauts dans sa facon d'avancer, l'imprevu domine"
+          "elle ne se reconnait plus tout a fait, tout change vite autour d'elle et en elle",
+          "une periode de soubresauts ou l'imprevu dicte sa facon d'avancer"
         ]
       }
     },
     "Neptune": {
       "Soleil": {
-        "theme": "des frontieres qui se font douces",
+        "theme": "plus de sensibilite, moins de reperes",
         "flow": [
-          "une periode ou elle s'ouvre a plus grand qu'elle, sensibilite et inspiration",
-          "une saison ou les frontieres se font douces, elle ressent tout plus finement"
+          "elle est plus sensible et plus inspiree en ce moment, elle capte des choses que d'autres ne voient pas",
+          "une periode ou elle s'ouvre a plus grand qu'elle, avec douceur"
         ],
         "tension": [
-          "une periode floue ou elle perd un peu ses reperes, fatigue et confusion",
-          "une saison ou ce qu'elle veut se dilue, elle ne sait plus tres bien ou elle va"
+          "en ce moment elle perd un peu ses reperes, elle se sent fatiguee et un peu perdue sur ce qu'elle veut",
+          "une periode floue ou elle a du mal a savoir ce qu'elle veut vraiment"
         ]
       },
       "Lune": {
-        "theme": "une sensibilite a fleur de peau",
+        "theme": "une grande sensibilite",
         "flow": [
-          "une periode ou sa sensibilite devient un don, elle capte l'invisible",
-          "une saison de tendresse diffuse, elle se relie a plus vaste qu'elle"
+          "sa sensibilite est une force en ce moment, elle ressent finement ce qui se passe autour d'elle",
+          "une periode de grande douceur ou elle se sent reliee aux autres"
         ],
         "tension": [
-          "une periode ou ses emotions se brouillent, le reel et le reve se melangent",
-          "une saison ou elle absorbe tout, poreuse, sans filtre, et ca l'epuise"
+          "ses emotions sont confuses en ce moment, elle melange ce qu'elle ressent et ce qu'elle imagine",
+          "une periode ou elle absorbe tout ce qui l'entoure sans filtre, et ca l'epuise"
         ]
       },
       "Venus": {
-        "theme": "l'amour aux couleurs de reve",
+        "theme": "l'amour idealise",
         "flow": [
-          "une periode ou l'amour prend des couleurs de reve, tendresse et idealisme",
-          "une saison ou elle aime avec une douceur presque irreelle"
+          "elle aime avec beaucoup de douceur et de tendresse en ce moment, presque comme dans un reve",
+          "une periode romantique ou elle voit le beau dans ses relations"
         ],
         "tension": [
-          "une periode ou elle idealise, le risque c'est de ne pas voir l'autre tel qu'il est",
-          "une saison de flou amoureux, des illusions a demeler du vrai"
+          "en amour elle idealise, le risque c'est de ne pas voir l'autre tel qu'il est vraiment",
+          "une periode de flou amoureux ou elle doit demeler ce qui est vrai de ce qu'elle imagine"
         ]
       },
       "ASC": {
-        "theme": "une aura plus mysterieuse",
+        "theme": "une image un peu floue",
         "flow": [
-          "une periode ou son aura se fait plus douce, plus mysterieuse, plus inspirante",
-          "une saison ou elle se fond dans l'ambiance, cameleon sensible"
+          "elle degage quelque chose de doux et de mysterieux en ce moment, ca attire",
+          "une periode ou elle s'adapte facilement a l'ambiance et aux gens"
         ],
         "tension": [
-          "une periode ou elle se sent un peu transparente, mal definie aux yeux des autres",
-          "une saison ou elle se cherche, son image se brouille"
+          "elle a l'impression qu'on ne la voit pas clairement, son image est un peu floue pour les autres",
+          "une periode ou elle se cherche, elle ne sait plus bien quelle image elle renvoie"
         ]
       }
     }
