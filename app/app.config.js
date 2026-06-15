@@ -87,6 +87,21 @@ export default {
     // Plugins
     plugins: [
       'expo-router',
+      [
+        'expo-build-properties',
+        {
+          ios: {
+            // GoogleSignIn (via @react-native-google-signin) pulls AppCheckCore,
+            // a Swift pod depending on GoogleUtilities & RecaptchaInterop which
+            // don't define modules. Force modular headers so they can be linked
+            // as static libraries under the New Architecture.
+            extraPods: [
+              { name: 'GoogleUtilities', modular_headers: true },
+              { name: 'RecaptchaInterop', modular_headers: true },
+            ],
+          },
+        },
+      ],
       'expo-secure-store',
       '@react-native-community/datetimepicker',
       'expo-localization',
