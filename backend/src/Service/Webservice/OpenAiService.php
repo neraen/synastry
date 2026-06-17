@@ -2,6 +2,9 @@
 
 namespace App\Service\Webservice;
 
+use App\Entity\User;
+use App\Service\Eval\LlmCallRecorder;
+use App\Service\Eval\LyraLinter;
 use App\Service\PlanetaryCalculator;
 use App\Service\PromptLocaleService;
 
@@ -9,6 +12,8 @@ class OpenAiService
 {
     private OpenAiProvider $openAiProvider;
     private AnthropicProvider $anthropicProvider;
+    private LlmCallRecorder $callRecorder;
+    private LyraLinter $lyraLinter;
     private PromptLocaleService $localeService;
     private const MODEL_DEFAULT     = 'gpt-4.1-mini';
     private const MODEL_TRANSITS    = 'gpt-4.1-mini';
@@ -17,9 +22,11 @@ class OpenAiService
     // One-time per user: a deeper model is justified here (quality propagates to
     // every future chat/horoscope). Conversational prod stays on gpt-4.1-mini.
     private const MODEL_PSY_EXTRACT = 'gpt-4.1';
+    // LLM-as-judge for the evaluation engine. Must be stronger than the models
+    // it grades. Adjust to the Sonnet id available on the account if needed.
+    public const MODEL_JUDGE = 'claude-sonnet-4-5';
 
     private string $model = self::MODEL_DEFAULT;
-    private ?array $bannisConfig = null;
 
     /**
      * Shared astrologer persona injected into every interpretation prompt.
@@ -65,11 +72,34 @@ PERSONA;
 
     public function __construct(
         OpenAiProvider $openAiProvider,
-        AnthropicProvider $anthropicProvider
+        AnthropicProvider $anthropicProvider,
+        LlmCallRecorder $callRecorder,
+        LyraLinter $lyraLinter
     ) {
         $this->openAiProvider = $openAiProvider;
         $this->anthropicProvider = $anthropicProvider;
+        $this->callRecorder = $callRecorder;
+        $this->lyraLinter = $lyraLinter;
         $this->localeService = new PromptLocaleService();
+    }
+
+    /**
+     * Tag subsequent LLM calls for token/cost attribution (user + reference).
+     * Orchestrators call this before generating, then {@see clearCallContext()}.
+     */
+    public function setCallContext(
+        ?string $generationType = null,
+        ?string $referenceType = null,
+        ?string $referenceId = null,
+        ?User $user = null,
+    ): self {
+        $this->callRecorder->setContext($generationType, $referenceType, $referenceId, $user);
+        return $this;
+    }
+
+    public function clearCallContext(): void
+    {
+        $this->callRecorder->clearContext();
     }
 
     /**
@@ -106,10 +136,35 @@ PERSONA;
      * One-shot prompt → response, routed to the correct provider.
      * Pass $modelOverride to use a specific model instead of the default.
      */
-    private function callResponsesApi(string $input, ?string $instructions = null, ?int $maxTokens = null, ?string $modelOverride = null): array
+    private function callResponsesApi(string $input, ?string $instructions = null, ?int $maxTokens = null, ?string $modelOverride = null, ?string $generationType = null): array
     {
-        $model = $modelOverride ?? $this->model;
-        return $this->getProviderForModel($model)->call($model, $input, $instructions, $maxTokens);
+        $model    = $modelOverride ?? $this->model;
+        $provider = $this->getProviderForModel($model);
+
+        $start  = microtime(true);
+        $result = $provider->call($model, $input, $instructions, $maxTokens);
+        $this->recordCall($model, $result, $generationType, $start);
+
+        return $result;
+    }
+
+    /**
+     * Persist token usage + cost for a provider result (best-effort, never throws).
+     */
+    private function recordCall(string $model, array $result, ?string $generationType, float $start): void
+    {
+        try {
+            $provider = str_starts_with($model, 'claude-') ? 'anthropic' : 'openai';
+            $this->callRecorder->record(
+                $provider,
+                $model,
+                $result,
+                $generationType,
+                (int) round((microtime(true) - $start) * 1000),
+            );
+        } catch (\Throwable) {
+            // Cost accounting must never break generation.
+        }
     }
 
     /**
@@ -119,6 +174,16 @@ PERSONA;
     public function callSimplePrompt(string $prompt, ?string $instructions = null): array
     {
         return $this->callResponsesApi($prompt, $instructions);
+    }
+
+    /**
+     * Run the LLM-as-judge (evaluation engine). Uses the strong judge model and
+     * tags the call as 'llm_judge' so its cost is tracked separately.
+     * Returns the raw provider result (['success','content','model','usage']).
+     */
+    public function callJudge(string $input, string $instructions): array
+    {
+        return $this->callResponsesApi($input, $instructions, 2048, self::MODEL_JUDGE, 'llm_judge');
     }
 
     /**
@@ -200,7 +265,7 @@ IMPORTANT: Do not ask questions, do not request additional information."
 
 IMPORTANT : Ne pose pas de questions, ne demande pas d'informations supplémentaires.";
 
-        $result = $this->callResponsesApi($input, $instructions);
+        $result = $this->callResponsesApi($input, $instructions, null, null, 'astro_advice');
 
         if (!$result['success']) {
             return $result;
@@ -247,7 +312,7 @@ INST;
             $input = "Position natale : {$planet} en {$sign} à {$degreeStr}°\n\nRédige la fiche d'explication de cette position natale.";
         }
 
-        $result = $this->callResponsesApi($input, $instructions);
+        $result = $this->callResponsesApi($input, $instructions, null, null, 'planet_interpretation');
 
         if (!$result['success']) {
             return $result;
@@ -274,7 +339,7 @@ INST;
             . json_encode($themeTranslated, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
             . "\n\n" . $prompt['instruction'];
 
-        $result = $this->callResponsesApi($input, $instructions);
+        $result = $this->callResponsesApi($input, $instructions, null, null, 'natal_summary');
 
         if (!$result['success']) {
             return $result;
@@ -321,7 +386,7 @@ Rédige une interprétation précise qui couvre :
 4. Où vont son énergie et son désir — et où ça se bloque (Mars)
 5. Les tensions psychologiques principales de ce thème et ce qu'elles exigent";
 
-        $result = $this->callResponsesApi($input, $instructions);
+        $result = $this->callResponsesApi($input, $instructions, null, null, 'natal_section');
 
         if (!$result['success']) {
             return $result;
@@ -352,7 +417,7 @@ Rédige une interprétation précise qui couvre :
                 : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence de ton analyse, mais ne base pas toute ton interprétation dessus. Nuance toujours avec les aspects qualitatifs du thème.";
         }
 
-        $result = $this->callResponsesApi($prompt, $instructions);
+        $result = $this->callResponsesApi($prompt, $instructions, null, null, 'synastry_v1');
 
         if (!$result['success']) {
             return $result;
@@ -411,7 +476,7 @@ Rédige une interprétation précise qui couvre :
                 : "\n\nUn score de compatibilité de {$score}/100 a été pré-calculé. Utilise-le comme point de repère pour la cohérence, mais nuance avec les aspects qualitatifs du thème.";
         }
 
-        $result = $this->callResponsesApi($prompt, $instructions);
+        $result = $this->callResponsesApi($prompt, $instructions, null, null, 'synastry_v2');
 
         if (!$result['success']) {
             return $result;
@@ -568,7 +633,7 @@ Rédige une interprétation précise qui couvre :
     public function generateNotificationMessage(string $prompt): array
     {
         $instructions = "Tu génères des notifications push courtes et engageantes pour une app d'astrologie. Réponds UNIQUEMENT en JSON valide.";
-        $result = $this->callResponsesApi($prompt, $instructions);
+        $result = $this->callResponsesApi($prompt, $instructions, null, null, 'notification');
 
         if (!$result['success']) {
             return $result;
@@ -727,7 +792,7 @@ JSON valide strict, rien avant ni après :
 }{$languageNote}
 INST;
 
-        $result = $this->callResponsesApi($prompt, $instructions, null, self::MODEL_HOROSCOPE);
+        $result = $this->callResponsesApi($prompt, $instructions, null, self::MODEL_HOROSCOPE, 'horoscope');
 
         if (!$result['success']) {
             return $result;
@@ -798,7 +863,7 @@ INST;
             ? "You are a precise astrologer. Identify the 3 most significant upcoming transits based on the natal chart and current planetary positions.\n\nIMPORTANT RULES:\n{$baseInstructions}\n- Respond ONLY with a valid JSON array, no text before or after\n- Each transit must be personally significant based on the natal chart positions\n- Write descriptions in clear, non-technical language"
             : "Tu es un astrologue précis. Identifie les 3 prochains transits les plus significatifs basés sur le thème natal et les positions planétaires actuelles.\n\nRÈGLES IMPORTANTES :\n{$baseInstructions}\n- Réponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ou après\n- Chaque transit doit être personnellement significatif d'après les positions natales\n- Rédige les descriptions dans un langage clair et non technique";
 
-        $result = $this->callResponsesApi($prompt, $instructions, null, self::MODEL_TRANSITS);
+        $result = $this->callResponsesApi($prompt, $instructions, null, self::MODEL_TRANSITS, 'transits');
 
         if (!$result['success']) {
             return $result;
@@ -859,7 +924,7 @@ Règles :
 PROMPT;
         }
 
-        $result = $this->callResponsesApi($prompt, $instructions);
+        $result = $this->callResponsesApi($prompt, $instructions, null, null, 'cosmic_headline');
 
         if (!$result['success']) {
             return $result;
@@ -897,7 +962,9 @@ PROMPT;
     {
         $chatMessages = $this->buildChatMessages($messages, $userContext, $tools);
 
+        $start  = microtime(true);
         $result = $this->getProviderForModel(self::MODEL_CHAT)->callMultiTurn(self::MODEL_CHAT, $chatMessages, $toolHandler, $tools, $previousResponseId);
+        $this->recordCall(self::MODEL_CHAT, $result, 'chat', $start);
 
         if (!$result['success']) {
             return $result;
@@ -914,48 +981,15 @@ PROMPT;
     // Lyra linter — deterministic banned-term enforcement (ajout 3)
     // =========================================================================
 
-    private function loadBannis(): array
-    {
-        if ($this->bannisConfig === null) {
-            $path = __DIR__ . '/../../../data/lyra_bannis.json';
-            $this->bannisConfig = file_exists($path)
-                ? (json_decode(file_get_contents($path), true) ?: [])
-                : [];
-        }
-        return $this->bannisConfig;
-    }
-
     /**
-     * Detect banned terms/expressions/aspects/regex in a generated reply.
-     * Terms & aspects: whole-word on the normalised text. Expressions: substring
-     * on the normalised text. Regex: applied to the RAW text (em dash, "maison N").
+     * Detect banned terms/expressions/aspects in a generated reply.
+     * Delegates to {@see LyraLinter} (shared with the evaluation engine).
      *
      * @return string[] list of distinct violations (empty = clean)
      */
     public function linterLyra(string $texte): array
     {
-        $bannis = $this->loadBannis();
-        $norm   = PlanetaryCalculator::normaliser($texte);
-        $violations = [];
-
-        foreach (array_merge($bannis['termes'] ?? [], $bannis['aspects'] ?? []) as $mot) {
-            if ($mot === '') continue;
-            if (preg_match('/\b' . preg_quote($mot, '/') . '\b/u', $norm)) {
-                $violations[] = $mot;
-            }
-        }
-        foreach ($bannis['expressions'] ?? [] as $exp) {
-            if ($exp !== '' && str_contains($norm, $exp)) {
-                $violations[] = $exp;
-            }
-        }
-        foreach ($bannis['regex'] ?? [] as $re) {
-            if (@preg_match('/' . $re . '/iu', $texte)) {
-                $violations[] = $re;
-            }
-        }
-
-        return array_values(array_unique($violations));
+        return $this->lyraLinter->lint($texte);
     }
 
     /**
@@ -976,7 +1010,7 @@ PROMPT;
                 ? "Rewrite the text below without using any of these words or expressions: {$liste}. Keep the same meaning, tone and length. Reply with the rewritten text only, nothing else."
                 : "Réécris le texte ci-dessous sans employer aucun de ces mots ou expressions : {$liste}. Garde le même sens, le même ton, la même longueur. Réponds uniquement avec le texte réécrit, rien d'autre.";
 
-            $res = $this->callResponsesApi($texte, $instructions);
+            $res = $this->callResponsesApi($texte, $instructions, null, null, 'lint_correction');
             if (empty($res['success']) || empty($res['content'])) {
                 break;
             }
@@ -993,25 +1027,11 @@ PROMPT;
     }
 
     /**
-     * Last-resort deterministic scrub: em dash -> comma, banned single words
-     * removed (accent-insensitive). Multi-word expressions are left to the log.
+     * Last-resort deterministic scrub. Delegates to {@see LyraLinter}.
      */
     private function scrubMecanique(string $texte): string
     {
-        $bannis = $this->loadBannis();
-        $texte  = str_replace('—', ',', $texte);
-
-        $banSet = array_flip(array_merge($bannis['termes'] ?? [], $bannis['aspects'] ?? []));
-
-        $texte = preg_replace_callback('/\p{L}+/u', function (array $m) use ($banSet) {
-            $norm = PlanetaryCalculator::normaliser($m[0]);
-            return isset($banSet[$norm]) ? '' : $m[0];
-        }, $texte);
-
-        $texte = preg_replace('/\s+([,.;:!?])/u', '$1', $texte); // tidy " ," -> ","
-        $texte = preg_replace('/\s{2,}/u', ' ', $texte);
-
-        return trim($texte);
+        return $this->lyraLinter->scrub($texte);
     }
 
     /**
@@ -1042,7 +1062,7 @@ Reponds UNIQUEMENT en JSON conforme a ce schema (aucun texte autour) :
   "travail": string, "rapport_a_soi": string}, "sensibilites": string }
 INST;
 
-        $result = $this->callResponsesApi($analyse, $instructions, null, self::MODEL_PSY_EXTRACT);
+        $result = $this->callResponsesApi($analyse, $instructions, null, self::MODEL_PSY_EXTRACT, 'psy_extract');
         if (!($result['success'] ?? false) || empty($result['content'])) {
             return ['success' => false, 'error' => $result['error'] ?? 'extraction failed'];
         }
@@ -1324,7 +1344,7 @@ TOOLS;
 
         $input = ($isEnglish ? "Chat messages:\n" : "Messages du chat :\n") . $chatText . ($isEnglish ? "\n\nGenerate title:" : "\n\nGénère le titre :");
 
-        $result = $this->callResponsesApi($input, $instructions);
+        $result = $this->callResponsesApi($input, $instructions, null, null, 'chat_title');
 
         if (!$result['success']) {
             return $isEnglish ? "New conversation" : "Nouvelle conversation";
@@ -1418,7 +1438,11 @@ TOOLS;
         ?string $previousResponseId,
         callable $onDelta
     ): array {
-        return $this->getProviderForModel(self::MODEL_CHAT)->stream(self::MODEL_CHAT, $chatMessages, $toolHandler, $tools, $previousResponseId, $onDelta);
+        $start  = microtime(true);
+        $result = $this->getProviderForModel(self::MODEL_CHAT)->stream(self::MODEL_CHAT, $chatMessages, $toolHandler, $tools, $previousResponseId, $onDelta);
+        $this->recordCall(self::MODEL_CHAT, $result, 'chat', $start);
+
+        return $result;
     }
 
     /**
@@ -1494,7 +1518,7 @@ Analyse ce transit en respectant cette structure dans le paragraphe :
 PROMPT;
         }
 
-        $result = $this->callResponsesApi($input, $instructions, null, self::MODEL_TRANSITS);
+        $result = $this->callResponsesApi($input, $instructions, null, self::MODEL_TRANSITS, 'transit_interpretation');
 
         if (!$result['success']) {
             return $result;
@@ -1568,7 +1592,7 @@ Paragraphe 4 — Ce que cette année marque.
 En une ou deux phrases : qu'est-ce que cette période inscrit dans la trajectoire de vie ? Pas de leçon morale, pas d'encouragement. Juste ce qui a bougé, ce qui ne sera plus pareil après.
 INPUT;
 
-        $result = $this->callResponsesApi($input, $instructions);
+        $result = $this->callResponsesApi($input, $instructions, null, null, 'mirror');
 
         if (!$result['success']) {
             return $result;
@@ -1590,7 +1614,7 @@ INPUT;
      */
     public function generateNatalChartSection(string $input, string $instructions): array
     {
-        $result = $this->callResponsesApi($input, $instructions);
+        $result = $this->callResponsesApi($input, $instructions, null, null, 'natal_section');
 
         if (!$result['success']) {
             return $result;

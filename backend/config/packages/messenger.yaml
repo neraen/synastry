@@ -29,3 +29,4 @@ framework:
             App\Message\ProcessPersonalTransitsMessage: async
             App\Message\ProcessSkyEventsMessage: async
             App\Message\ProcessDailyRemindersMessage: async
+            App\Message\RunGoldenSuiteMessage: async

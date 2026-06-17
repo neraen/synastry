@@ -228,7 +228,12 @@ class ChatController extends AbstractController
         $tools = $this->buildChatTools($locale);
         $toolHandler = $this->buildToolHandler($user, $topic);
 
-        $result = $this->openAiService->getChatResponse($messages, $userContext, $toolHandler, $tools, $previousResponseId);
+        $this->openAiService->setCallContext('chat', 'User', (string) $user->getId(), $user);
+        try {
+            $result = $this->openAiService->getChatResponse($messages, $userContext, $toolHandler, $tools, $previousResponseId);
+        } finally {
+            $this->openAiService->clearCallContext();
+        }
 
         if (!$result['success']) {
             return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -411,18 +416,23 @@ class ChatController extends AbstractController
             $fullResponse = '';
             try {
                 $chatMessages = $openAiService->buildChatMessages($messages, $userContext, $tools);
-                $result = $openAiService->streamChatResponse(
-                    $chatMessages,
-                    $toolHandler,
-                    $tools,
-                    $previousResponseId,
-                    function (string $delta) use (&$fullResponse) {
-                        $fullResponse .= $delta;
-                        echo 'data: ' . json_encode(['type' => 'delta', 'content' => $delta]) . "\n\n";
-                        if (ob_get_level() > 0) ob_flush();
-                        flush();
-                    }
-                );
+                $openAiService->setCallContext('chat', 'User', (string) $user->getId(), $user);
+                try {
+                    $result = $openAiService->streamChatResponse(
+                        $chatMessages,
+                        $toolHandler,
+                        $tools,
+                        $previousResponseId,
+                        function (string $delta) use (&$fullResponse) {
+                            $fullResponse .= $delta;
+                            echo 'data: ' . json_encode(['type' => 'delta', 'content' => $delta]) . "\n\n";
+                            if (ob_get_level() > 0) ob_flush();
+                            flush();
+                        }
+                    );
+                } finally {
+                    $openAiService->clearCallContext();
+                }
 
                 echo 'data: ' . json_encode([
                     'type'               => 'done',

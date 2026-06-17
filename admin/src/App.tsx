@@ -9,6 +9,9 @@ import { ConversationsPage } from './pages/ConversationsPage';
 import { ConversationDetailPage } from './pages/ConversationDetailPage';
 import { ChatLogsPage } from './pages/ChatLogsPage';
 import { SandboxPage } from './pages/SandboxPage';
+import { CostDashboardPage } from './pages/CostDashboardPage';
+import { EvalDashboardPage } from './pages/EvalDashboardPage';
+import { GoldenSuitePage } from './pages/GoldenSuitePage';
 
 function App() {
   const { isAuthenticated, login, logout } = useAuth();
@@ -28,6 +31,9 @@ function App() {
           <Route path="/conversations/:id" element={<ConversationDetailPage />} />
           <Route path="/chat-logs" element={<ChatLogsPage />} />
           <Route path="/sandbox" element={<SandboxPage />} />
+          <Route path="/eval" element={<EvalDashboardPage />} />
+          <Route path="/eval/golden" element={<GoldenSuitePage />} />
+          <Route path="/cost" element={<CostDashboardPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
