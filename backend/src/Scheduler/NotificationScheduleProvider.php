@@ -9,6 +9,7 @@ use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\RecurringMessage;
 use Symfony\Component\Scheduler\Schedule;
 use Symfony\Component\Scheduler\ScheduleProviderInterface;
+use Symfony\Contracts\Cache\CacheInterface;
 
 /**
  * Run with:
@@ -17,9 +18,19 @@ use Symfony\Component\Scheduler\ScheduleProviderInterface;
 #[AsSchedule('notifications')]
 class NotificationScheduleProvider implements ScheduleProviderInterface
 {
+    public function __construct(
+        private CacheInterface $cache,
+    ) {
+    }
+
     public function getSchedule(): Schedule
     {
         return (new Schedule())
+            // Persist trigger state so the hourly worker restarts (--time-limit=3600)
+            // don't reset timers or skip/duplicate runs.
+            ->stateful($this->cache)
+            ->processOnlyLastMissedRun(true)
+
             // Check for notifiable personal transits every hour
             ->add(RecurringMessage::every('1 hour', new ProcessPersonalTransitsMessage()))
             // Check for sky events daily at 07:00 UTC

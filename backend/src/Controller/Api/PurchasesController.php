@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Entity\User;
 use App\Service\PremiumService;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,7 @@ class PurchasesController extends AbstractController
     public function __construct(
         private PremiumService $premiumService,
         private HttpClientInterface $httpClient,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -57,6 +59,7 @@ class PurchasesController extends AbstractController
         }
 
         $appUserId = (string) $user->getId();
+        $entitlementActive = false;
 
         try {
             $response = $this->httpClient->request(
@@ -70,23 +73,50 @@ class PurchasesController extends AbstractController
                 ]
             );
 
-            $data        = $response->toArray();
+            $status      = $response->getStatusCode();
+            $data        = $response->toArray(false);
             $entitlement = $data['subscriber']['entitlements'][self::ENTITLEMENT] ?? null;
 
+            $expiresAt = null;
             if ($entitlement) {
-                $expiresAt = null;
                 if (!empty($entitlement['expires_date'])) {
                     $expiresAt = new \DateTime($entitlement['expires_date']);
                 }
-                $this->premiumService->activate($appUserId, $expiresAt);
+                // An entitlement is only *active* if it has no expiry (lifetime)
+                // or expires in the future. RC may still list a past entitlement.
+                $entitlementActive = ($expiresAt === null) || ($expiresAt > new \DateTime());
             }
-            // If entitlement is absent, keep the current DB value (webhook handles revocation)
+
+            if ($entitlementActive) {
+                $this->premiumService->activate($appUserId, $expiresAt);
+                $this->logger->info('[purchases.verify] entitlement active — premium activated', [
+                    'appUserId'   => $appUserId,
+                    'rcStatus'    => $status,
+                    'expiresAt'   => $expiresAt?->format('c'),
+                ]);
+            } else {
+                // No active entitlement at RC. Most common iOS cause: RevenueCat
+                // could not validate the Apple receipt (App-Specific Shared Secret
+                // not set in the RC dashboard). Keep current DB value (webhook
+                // handles revocation) but log loudly so the cause is visible.
+                $this->logger->warning('[purchases.verify] no active "premium" entitlement at RevenueCat', [
+                    'appUserId'        => $appUserId,
+                    'rcStatus'         => $status,
+                    'entitlementKeys'  => array_keys($data['subscriber']['entitlements'] ?? []),
+                    'subscriptionKeys' => array_keys($data['subscriber']['subscriptions'] ?? []),
+                ]);
+            }
 
         } catch (\Throwable $e) {
             // RC call failed — do not change DB, just return current state
+            $this->logger->error('[purchases.verify] RC verification failed', [
+                'appUserId' => $appUserId,
+                'error'     => $e->getMessage(),
+            ]);
             return $this->json([
                 'success' => false,
                 'isPremium' => $user->isPremium(),
+                'entitlementActive' => false,
                 'error' => 'RC verification failed: ' . $e->getMessage(),
             ], Response::HTTP_BAD_GATEWAY);
         }
@@ -94,6 +124,7 @@ class PurchasesController extends AbstractController
         return $this->json([
             'success' => true,
             'isPremium' => $user->isPremium(),
+            'entitlementActive' => $entitlementActive,
             'premiumUntil' => $user->getPremiumUntil()?->format('c'),
         ]);
     }

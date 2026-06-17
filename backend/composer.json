@@ -12,6 +12,7 @@
         "doctrine/doctrine-bundle": "^2.13",
         "doctrine/doctrine-migrations-bundle": "^3.4",
         "doctrine/orm": "^3.3",
+        "dragonmantank/cron-expression": "^3.6",
         "firebase/php-jwt": "^7.0",
         "gesdinet/jwt-refresh-token-bundle": "^1.5",
         "knpuniversity/oauth2-client-bundle": "^2.19",

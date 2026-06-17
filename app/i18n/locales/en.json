@@ -368,6 +368,8 @@
     "successTitle": "Subscription activated ✦",
     "successMessageWithDate": "Thank you for your support! Your Lunestia Premium subscription is now active until {{date}}.",
     "successMessageDefault": "Thank you for your support! Your Lunestia Premium subscription is now active.",
+    "pendingValidationTitle": "Payment received",
+    "pendingValidation": "Your payment was received, but activating your subscription is still being validated. This can take a few moments. If Premium access doesn't appear, use \"Restore purchases\" in a little while.",
     "restoreNone": "No subscription found",
     "restoreNoneDefault": "No active purchase on this Apple/Google account.",
     "chatLimitReached": "You've used your 5 free messages",

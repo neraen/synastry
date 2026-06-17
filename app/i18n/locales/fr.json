@@ -368,6 +368,8 @@
     "successTitle": "Abonnement activé ✦",
     "successMessageWithDate": "Merci pour votre confiance ! Votre abonnement Lunestia Premium est maintenant bien actif jusqu'au {{date}}.",
     "successMessageDefault": "Merci pour votre confiance ! Votre abonnement Lunestia Premium est maintenant actif.",
+    "pendingValidationTitle": "Paiement reçu",
+    "pendingValidation": "Votre paiement a bien été reçu, mais l'activation de votre abonnement est encore en cours de validation. Cela peut prendre quelques instants. Si l'accès Premium n'apparaît pas, utilisez « Restaurer mes achats » dans un moment.",
     "restoreNone": "Aucun abonnement trouvé",
     "restoreNoneDefault": "Aucun achat actif sur ce compte Apple/Google.",
     "chatLimitReached": "Tu as utilisé tes 5 messages gratuits",

@@ -251,10 +251,24 @@ export default function PremiumScreen() {
             const result = await purchasePackage(pkg);
             if (result.cancelled) return;
             if (result.success) {
-                // Always verify with backend — on Google Play the local
+                // Always verify with backend — on Google Play / Apple the local
                 // entitlement may not be active yet due to propagation delay
                 await verifyPremiumWithBackend();
                 const freshUser = await refreshUser();
+
+                // The store sheet completing does NOT mean the subscription is
+                // active: RevenueCat may still reject the receipt (e.g. iOS
+                // shared-secret not set). Only celebrate if the backend really
+                // flipped the user to premium — otherwise show a pending state
+                // instead of a misleading "thank you" modal.
+                if (!freshUser?.isPremium) {
+                    Alert.alert(
+                        t('premium.pendingValidationTitle'),
+                        t('premium.pendingValidation'),
+                        [{ text: t('common.done') }]
+                    );
+                    return;
+                }
 
                 const premiumUntil = freshUser?.premiumUntil;
                 const formattedDate = premiumUntil

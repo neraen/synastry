@@ -182,6 +182,15 @@ export async function getOffering(): Promise<Offering | null> {
 export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
     if (!configured) return { success: false, isPremium: false, error: 'Purchases not available' };
     try {
+        // Diagnostic: confirm the purchase is attributed to the backend user ID
+        // (numeric) and not a leftover anonymous "$RCAnonymousID:…" — an anonymous
+        // ID means the webhook/verify will not be able to map the purchase to a user.
+        try {
+            const appUserId = await Purchases!.getAppUserID();
+            console.log(`[Purchases] purchasing as appUserID="${appUserId}" (${Platform.OS})`);
+        } catch {
+            // non-fatal
+        }
         const { customerInfo } = await Purchases.purchasePackage(pkg);
         return {
             success: true,

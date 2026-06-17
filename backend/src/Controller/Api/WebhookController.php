@@ -3,6 +3,7 @@
 namespace App\Controller\Api;
 
 use App\Service\PremiumService;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -51,6 +52,7 @@ class WebhookController extends AbstractController
 
     public function __construct(
         private PremiumService $premiumService,
+        private LoggerInterface $logger,
         private string $webhookSecret = '',
     ) {
         $this->webhookSecret = $_ENV['REVENUECAT_WEBHOOK_SECRET'] ?? '';
@@ -80,9 +82,27 @@ class WebhookController extends AbstractController
         $eventType  = $event['type'] ?? '';
         $appUserId  = $event['app_user_id'] ?? '';
         $expiryMs   = $event['expiration_at_ms'] ?? null;
+        $store      = $event['store'] ?? null; // APP_STORE / PLAY_STORE
+
+        $this->logger->info('[webhook.revenuecat] event received', [
+            'type'      => $eventType,
+            'store'     => $store,
+            'appUserId' => $appUserId,
+        ]);
 
         if (!$appUserId) {
             return $this->json(['error' => 'Missing app_user_id'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // A non-numeric app_user_id means the purchase was made while RevenueCat
+        // was still anonymous ($RCAnonymousID:…) and never aliased to the backend
+        // user — PremiumService.findUser() will fail to map it. Flag it clearly.
+        if (!is_numeric($appUserId)) {
+            $this->logger->warning('[webhook.revenuecat] non-numeric app_user_id — purchase not linked to a backend user', [
+                'type'      => $eventType,
+                'store'     => $store,
+                'appUserId' => $appUserId,
+            ]);
         }
 
         // ── 3. Compute expiry date ─────────────────────────────────────────────
