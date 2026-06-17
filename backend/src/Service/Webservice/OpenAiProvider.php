@@ -93,6 +93,7 @@ class OpenAiProvider implements AiProviderInterface
             $responseId = $data['id'] ?? null;
             $outputText = null;
             $toolCalls  = [];
+            $usage      = $this->sumUsage(null, $data['usage'] ?? null);
 
             foreach ($data['output'] ?? [] as $item) {
                 if (($item['type'] ?? '') === 'function_call') {
@@ -129,6 +130,7 @@ class OpenAiProvider implements AiProviderInterface
                 ]);
                 $data2      = $response2->toArray();
                 $responseId = $data2['id'] ?? $responseId;
+                $usage      = $this->sumUsage($usage, $data2['usage'] ?? null);
 
                 foreach ($data2['output'] ?? [] as $item) {
                     if (($item['type'] ?? '') === 'message') {
@@ -145,7 +147,7 @@ class OpenAiProvider implements AiProviderInterface
                 return ['success' => false, 'error' => 'No response from AI', 'raw' => $data];
             }
 
-            return ['success' => true, 'content' => $outputText, 'response_id' => $responseId];
+            return ['success' => true, 'content' => $outputText, 'response_id' => $responseId, 'usage' => $usage];
         } catch (ExceptionInterface $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
@@ -177,7 +179,7 @@ class OpenAiProvider implements AiProviderInterface
         $headers = $this->headers();
 
         try {
-            [$responseId, $toolCalls] = $this->doStreamRequest($payload, $headers, $onDelta);
+            [$responseId, $toolCalls, $usage] = $this->doStreamRequest($payload, $headers, $onDelta);
 
             // If tool calls, execute them then stream the follow-up
             if (!empty($toolCalls) && $toolHandler !== null) {
@@ -192,10 +194,11 @@ class OpenAiProvider implements AiProviderInterface
                 if ($instructions !== '') $payload2['instructions'] = $instructions;
                 if (!empty($formattedTools)) $payload2['tools'] = $formattedTools;
 
-                [$responseId] = $this->doStreamRequest($payload2, $headers, $onDelta);
+                [$responseId, , $usage2] = $this->doStreamRequest($payload2, $headers, $onDelta);
+                $usage = $this->sumUsage($usage, $usage2);
             }
 
-            return ['success' => true, 'response_id' => $responseId];
+            return ['success' => true, 'response_id' => $responseId, 'usage' => $usage];
         } catch (ExceptionInterface $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
@@ -285,7 +288,7 @@ class OpenAiProvider implements AiProviderInterface
 
     /**
      * Execute one streaming API call, invoking $onDelta for each text token.
-     * @return array{0: string|null, 1: array} [responseId, toolCalls]
+     * @return array{0: string|null, 1: array, 2: ?array} [responseId, toolCalls, usage]
      */
     private function doStreamRequest(array $payload, array $headers, callable $onDelta): array
     {
@@ -300,6 +303,7 @@ class OpenAiProvider implements AiProviderInterface
         $responseId    = null;
         $toolCalls     = [];
         $toolCallAccum = [];
+        $usage         = null;
 
         foreach ($this->client->stream($response) as $chunk) {
             $buffer .= $chunk->getContent();
@@ -343,10 +347,30 @@ class OpenAiProvider implements AiProviderInterface
                     }
                 } elseif ($type === 'response.completed') {
                     $responseId = $event['response']['id'] ?? null;
+                    $usage      = $event['response']['usage'] ?? $usage;
                 }
             }
         }
 
-        return [$responseId, $toolCalls];
+        return [$responseId, $toolCalls, $usage];
+    }
+
+    /**
+     * Merge two OpenAI Responses usage payloads (snake_case), preserving the
+     * nested input_tokens_details.cached_tokens used for cache cost.
+     */
+    private function sumUsage(?array $a, ?array $b): ?array
+    {
+        if ($a === null) return $b;
+        if ($b === null) return $a;
+
+        return [
+            'input_tokens'         => (int) ($a['input_tokens'] ?? 0) + (int) ($b['input_tokens'] ?? 0),
+            'output_tokens'        => (int) ($a['output_tokens'] ?? 0) + (int) ($b['output_tokens'] ?? 0),
+            'input_tokens_details' => [
+                'cached_tokens' => (int) ($a['input_tokens_details']['cached_tokens'] ?? 0)
+                                 + (int) ($b['input_tokens_details']['cached_tokens'] ?? 0),
+            ],
+        ];
     }
 }

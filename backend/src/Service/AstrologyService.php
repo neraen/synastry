@@ -465,7 +465,12 @@ class AstrologyService
 
             $calculatedScores = $userCalc->calculateCompatibilityScore($partnerCalc);
             $prompt = $userCalc->buildCompatibilityPromptV2($partnerCalc, $question, $this->locale, $userProfile->getGender(), $partnerGender);
-            $aiResult = $this->openAiService->getCompatibilityAnalysisV2($prompt, $calculatedScores);
+            $this->openAiService->setCallContext('synastry_v2', 'User', (string) $user->getId(), $user);
+            try {
+                $aiResult = $this->openAiService->getCompatibilityAnalysisV2($prompt, $calculatedScores);
+            } finally {
+                $this->openAiService->clearCallContext();
+            }
 
             if (!$aiResult['success']) {
                 return $aiResult;

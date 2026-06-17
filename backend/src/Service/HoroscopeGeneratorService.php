@@ -462,7 +462,12 @@ PROMPT;
 
         // Call LLM with brief as user prompt
         $userPrompt = json_encode($brief, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-        $response = $this->openAiService->generateDailyHoroscope($userPrompt);
+        $this->openAiService->setCallContext('horoscope', 'DailyHoroscope', ($brief['date'] ?? (new \DateTimeImmutable())->format('Y-m-d')), $user);
+        try {
+            $response = $this->openAiService->generateDailyHoroscope($userPrompt);
+        } finally {
+            $this->openAiService->clearCallContext();
+        }
 
         if (!$response['success']) {
             throw new \RuntimeException($response['error'] ?? 'AI service error');

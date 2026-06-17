@@ -6,6 +6,9 @@ const NAV = [
   { to: '/conversations', label: 'Conversations sauvées', icon: '◎' },
   { to: '/chat-logs', label: 'Logs Lyra', icon: '◐' },
   { to: '/sandbox', label: 'Sandbox', icon: '◈' },
+  { to: '/eval', label: 'Évaluation', icon: '◍' },
+  { to: '/eval/golden', label: 'Tests Golden', icon: '◆' },
+  { to: '/cost', label: 'Coûts LLM', icon: '$' },
 ];
 
 export function Sidebar({ onLogout }: { onLogout: () => void }) {
@@ -33,7 +36,7 @@ export function Sidebar({ onLogout }: { onLogout: () => void }) {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={to === '/' || to === '/eval'}
             style={({ isActive }) => ({
               display: 'flex',
               alignItems: 'center',

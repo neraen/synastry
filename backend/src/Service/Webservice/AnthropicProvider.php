@@ -9,6 +9,7 @@ use Anthropic\Messages\MessageParam;
 use Anthropic\Messages\RawContentBlockDeltaEvent;
 use Anthropic\Messages\RawContentBlockStartEvent;
 use Anthropic\Messages\RawMessageDeltaEvent;
+use Anthropic\Messages\RawMessageStartEvent;
 use Anthropic\Messages\TextBlock;
 use Anthropic\Messages\TextBlockParam;
 use Anthropic\Messages\TextDelta;
@@ -90,6 +91,7 @@ class AnthropicProvider implements AiProviderInterface
 
         try {
             $textParts = [];
+            $usage     = $this->emptyUsage();
 
             for ($round = 0; $round <= self::MAX_TOOL_ROUNDS; $round++) {
                 $response = $this->client->messages->create(
@@ -99,6 +101,8 @@ class AnthropicProvider implements AiProviderInterface
                     system: $system,
                     tools: $anthropicTools,
                 );
+
+                $this->accumulateUsage($usage, $response->usage ?? null);
 
                 $text = $this->extractText($response);
                 if ($text !== null && trim($text) !== '') {
@@ -117,7 +121,7 @@ class AnthropicProvider implements AiProviderInterface
                 return ['success' => false, 'error' => 'No response from AI'];
             }
 
-            return ['success' => true, 'content' => $outputText, 'response_id' => null];
+            return ['success' => true, 'content' => $outputText, 'response_id' => null, 'usage' => $usage];
         } catch (\Throwable $e) {
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
@@ -130,6 +134,7 @@ class AnthropicProvider implements AiProviderInterface
         $anthropicTools = ($toolHandler !== null && !empty($tools)) ? $this->formatTools($tools) : null;
 
         $anyTextStreamed = false;
+        $usage           = $this->emptyUsage();
 
         try {
             for ($round = 0; $round <= self::MAX_TOOL_ROUNDS; $round++) {
@@ -146,7 +151,10 @@ class AnthropicProvider implements AiProviderInterface
                 $toolUses   = []; // content index => ['id' => string, 'name' => string, 'json' => string]
 
                 foreach ($stream as $event) {
-                    if ($event instanceof RawContentBlockStartEvent && $event->contentBlock instanceof ToolUseBlock) {
+                    if ($event instanceof RawMessageStartEvent) {
+                        // message_start carries input + cache token counts.
+                        $this->accumulateUsage($usage, $event->message->usage ?? null);
+                    } elseif ($event instanceof RawContentBlockStartEvent && $event->contentBlock instanceof ToolUseBlock) {
                         $toolUses[$event->index] = [
                             'id'   => $event->contentBlock->id,
                             'name' => $event->contentBlock->name,
@@ -165,11 +173,13 @@ class AnthropicProvider implements AiProviderInterface
                         }
                     } elseif ($event instanceof RawMessageDeltaEvent) {
                         $stopReason = $event->delta->stopReason;
+                        // message_delta carries the running output token count.
+                        $this->accumulateUsage($usage, $event->usage ?? null);
                     }
                 }
 
                 if ($stopReason !== 'tool_use' || empty($toolUses) || $toolHandler === null) {
-                    return ['success' => true, 'response_id' => null];
+                    return ['success' => true, 'response_id' => null, 'usage' => $usage];
                 }
 
                 // Visual gap if the model already spoke before calling the tool.
@@ -181,17 +191,55 @@ class AnthropicProvider implements AiProviderInterface
             }
 
             // Tool-round cap reached: end gracefully with the text streamed so far.
-            return ['success' => true, 'response_id' => null];
+            return ['success' => true, 'response_id' => null, 'usage' => $usage];
         } catch (\Throwable $e) {
             if ($anyTextStreamed) {
                 // Don't surface an error to the client mid-message; keep what was streamed.
-                return ['success' => true, 'response_id' => null];
+                return ['success' => true, 'response_id' => null, 'usage' => $usage];
             }
             return ['success' => false, 'error' => 'AI service error: ' . $e->getMessage()];
         }
     }
 
     // ── Private helpers ─────────────────────────────────────────────────
+
+    /**
+     * @return array{input_tokens:int,output_tokens:int,cache_creation_input_tokens:int,cache_read_input_tokens:int}
+     */
+    private function emptyUsage(): array
+    {
+        return [
+            'input_tokens'                => 0,
+            'output_tokens'               => 0,
+            'cache_creation_input_tokens' => 0,
+            'cache_read_input_tokens'     => 0,
+        ];
+    }
+
+    /**
+     * Add an SDK usage object's counts into the running totals (defensive:
+     * usage shapes vary slightly between message/start/delta events).
+     */
+    private function accumulateUsage(array &$usage, ?object $u): void
+    {
+        if ($u === null) {
+            return;
+        }
+        $usage['input_tokens']                += $this->readToken($u, 'inputTokens');
+        $usage['output_tokens']               += $this->readToken($u, 'outputTokens');
+        $usage['cache_creation_input_tokens'] += $this->readToken($u, 'cacheCreationInputTokens');
+        $usage['cache_read_input_tokens']     += $this->readToken($u, 'cacheReadInputTokens');
+    }
+
+    /** Read a possibly-uninitialized typed token property without throwing. */
+    private function readToken(object $u, string $prop): int
+    {
+        try {
+            return isset($u->$prop) ? (int) $u->$prop : 0;
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
 
     /**
      * Convert Chat-Completions style tool definitions
