@@ -110,7 +110,7 @@ function handleNotificationNavigation(
 
     switch (data.screen) {
         case 'actu-astro':
-            router.push('/(tabs)/daily-horoscope');
+            router.push('/(tabs)/actu-astro');
             break;
         case 'transits':
             router.push('/(tabs)/transits');

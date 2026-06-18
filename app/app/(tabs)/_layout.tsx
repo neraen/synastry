@@ -105,6 +105,8 @@ export default function TabsLayout() {
                     ),
                 }}
             />
+            {/* Actu astro feed: reached from the horoscope tab's button + push deep-links — not a tab itself. */}
+            <Tabs.Screen name="actu-astro" options={{ href: null }} />
             <Tabs.Screen name="mirror" options={{ href: null }} />
             <Tabs.Screen name="history" options={{ href: null }} />
             <Tabs.Screen name="profile" options={{ href: null }} />

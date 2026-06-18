@@ -42,9 +42,49 @@ class HoroscopeControllerTest extends TestCase
         }
     }
 
-    // NOTE: the per-user daily horoscope endpoint was removed in the Actu astro
-    // pivot. The underlying service method is kept (eval + admin sandbox) and is
-    // covered by HoroscopeGeneratorServiceTest.
+    public function testGetDailyHoroscopeReturns400IfNoBirthProfile()
+    {
+        $user = new User(); // Pas de profil
+        $this->loginUser($user);
+
+        $request = new Request();
+        $request->headers->set('Accept-Language', 'fr');
+
+        $response = $this->controller->getDailyHoroscope($request);
+
+        $this->assertInstanceOf(JsonResponse::class, $response);
+        $this->assertEquals(400, $response->getStatusCode());
+
+        $data = json_decode($response->getContent(), true);
+        $this->assertEquals('Veuillez compléter votre profil de naissance', $data['error']);
+    }
+
+    public function testGetDailyHoroscopeReturnsData()
+    {
+        $user = new User();
+        $user->setBirthProfile(new BirthProfile());
+        $this->loginUser($user);
+
+        $request = new Request();
+        $request->query->set('refresh', '1');
+
+        $this->horoscopeGeneratorService->expects($this->once())
+            ->method('setLocale')
+            ->with('fr');
+
+        $this->horoscopeGeneratorService->expects($this->once())
+            ->method('getDailyHoroscope')
+            ->with($user, true) // refresh = true
+            ->willReturn(['success' => true, 'horoscope' => ['title' => 'Mon Horoscope']]);
+
+        $response = $this->controller->getDailyHoroscope($request);
+
+        $this->assertEquals(200, $response->getStatusCode());
+
+        $data = json_decode($response->getContent(), true);
+        $this->assertTrue($data['success']);
+        $this->assertEquals('Mon Horoscope', $data['horoscope']['title']);
+    }
 
     public function testGetCosmicHeadlineReturnsData()
     {

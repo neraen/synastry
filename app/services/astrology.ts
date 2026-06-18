@@ -153,6 +153,23 @@ export interface SynastryHistoryDetailResponse {
 }
 
 // Daily Horoscope types
+export interface DailyHoroscope {
+    title: string;
+    overview: string;
+    love: string;
+    energy: string;
+    advice: string;
+    date: string;
+    cached: boolean;
+}
+
+export interface DailyHoroscopeResponse {
+    success: boolean;
+    horoscope?: DailyHoroscope;
+    message?: string;
+    error?: string;
+}
+
 // ─── Actu astro (collective dated events + deterministic per-user overlay) ───
 
 export type AstroEventStatus = 'past' | 'today' | 'upcoming';
@@ -283,6 +300,14 @@ export async function deleteSynastryHistoryEntry(id: number): Promise<{ success:
     return authApi.delete<{ success: boolean; error?: string }>(
         `/api/astrology/synastry/history/${id}`
     );
+}
+
+/**
+ * Get the per-user daily horoscope (4 sections). Cached server-side per day.
+ */
+export async function getDailyHoroscope(refresh = false): Promise<DailyHoroscopeResponse> {
+    const url = refresh ? '/api/horoscope/daily?refresh=true' : '/api/horoscope/daily';
+    return authApi.get<DailyHoroscopeResponse>(url);
 }
 
 /**
