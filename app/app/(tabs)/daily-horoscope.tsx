@@ -212,20 +212,15 @@ export default function TodayHome() {
 
                 {/* Horoscope — humeur du jour, discreet, just under the month card */}
                 {mood && (
-                    <>
-                        <View style={styles.humeur}>
-                            <View style={styles.humeurGlyph}>
-                                <Feather name="moon" size={16} color={colors.onSurfaceMuted} />
-                            </View>
-                            <View style={styles.humeurBody}>
-                                <Text style={styles.humeurLabel}>
-                                    HOROSCOPE{mood.tone ? <Text style={styles.humeurTone}>{`  ·  ${mood.tone}`}</Text> : null}
-                                </Text>
-                                <Text style={styles.humeurText}>{mood.text}</Text>
-                            </View>
+                    <View style={styles.humeur}>
+                        <View style={styles.humeurGlyph}>
+                            <Feather name="moon" size={16} color={colors.onSurfaceMuted} />
                         </View>
-                        <Text style={styles.note}>L'humeur du jour est une touche, pas une prédiction.</Text>
-                    </>
+                        <View style={styles.humeurBody}>
+                            <Text style={styles.humeurLabel}>HOROSCOPE</Text>
+                            <Text style={styles.humeurText}>{mood.text}</Text>
+                        </View>
+                    </View>
                 )}
 
                 {/* Feed */}
@@ -323,7 +318,5 @@ const styles = StyleSheet.create({
     humeurGlyph: { width: 30, height: 30, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceContainerHigh },
     humeurBody: { flex: 1, minWidth: 0 },
     humeurLabel: { color: colors.onSurfaceMuted, fontSize: 9.5, letterSpacing: 1.6, fontFamily: fonts.body.bold, marginBottom: 5 },
-    humeurTone: { color: colors.onSurfaceMuted, letterSpacing: 0, fontFamily: fonts.body.regular },
     humeurText: { color: colors.text.secondary, fontSize: 12.5, lineHeight: 18, fontFamily: fonts.body.regular },
-    note: { color: colors.onSurfaceMuted, fontSize: 10.5, marginTop: spacing.sm, marginLeft: spacing.xs, fontFamily: fonts.body.regular },
 });
