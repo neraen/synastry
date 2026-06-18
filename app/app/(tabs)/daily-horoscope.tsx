@@ -1,12 +1,13 @@
 // Home tab ("Aujourd'hui", sun icon). Since the Actu astro pivot this page holds
-// the whole experience: month header + dated event feed (today / upcoming / past)
-// with deterministic perso hooks, plus a discreet "humeur du jour".
+// the whole experience: a discreet "humeur du jour" on top, then the month header
+// and the dated event feed (today / upcoming / past) with deterministic perso hooks.
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
-import { NoBirthProfileCard, Starfield } from '@/components/ui';
+import { NoBirthProfileCard, Starfield, TabHeader } from '@/components/ui';
 import { FullPageLoader } from '@/components/loaders';
 import { getActuAstro, getMoodToday, AstroEvent, MoodToday } from '@/services/astrology';
 import { colors, spacing, radius, fonts } from '@/theme';
@@ -16,10 +17,6 @@ const SIGN_SYMBOL: Record<string, string> = {
     'Bélier': '♈', 'Taureau': '♉', 'Gémeaux': '♊', 'Cancer': '♋',
     'Lion': '♌', 'Vierge': '♍', 'Balance': '♎', 'Scorpion': '♏',
     'Sagittaire': '♐', 'Capricorne': '♑', 'Verseau': '♒', 'Poissons': '♓',
-};
-const PLANET_SYMBOL: Record<string, string> = {
-    Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Mars: '♂', Jupiter: '♃',
-    Saturn: '♄', Uranus: '♅', Neptune: '♆', Pluto: '♇',
 };
 
 const PHASE_INDEX: Record<string, number> = {
@@ -53,9 +50,7 @@ function cap(s: string): string {
 function whenBadge(event: AstroEvent): string {
     if (event.status === 'today') return "Aujourd'hui";
     if (event.status === 'past') return 'Passé';
-    const now = new Date();
-    const d = new Date(event.exactAt);
-    const days = Math.max(1, Math.ceil((d.getTime() - now.getTime()) / 86400000));
+    const days = Math.max(1, Math.ceil((new Date(event.exactAt).getTime() - Date.now()) / 86400000));
     return `Dans ${days} j`;
 }
 
@@ -68,6 +63,23 @@ function whenText(event: AstroEvent): string {
     return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+// Subtle gradient glow overlay (approximates the mockup's radial glow in RN).
+function Glow({ palette }: { palette: 'month' | 'gold' }) {
+    const cols =
+        palette === 'month'
+            ? [colors.primary + '22', 'transparent', colors.secondaryContainer + '2E'] as const
+            : [colors.primary + '26', 'transparent'] as const;
+    return (
+        <LinearGradient
+            colors={cols}
+            start={{ x: 1, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+        />
+    );
+}
+
 // ─── Event card ──────────────────────────────────────────────────────────────
 function EventCard({ event }: { event: AstroEvent }) {
     const v = visualFor(event.type);
@@ -75,10 +87,9 @@ function EventCard({ event }: { event: AstroEvent }) {
     const isToday = event.status === 'today';
     const isHero = isToday && (event.perso?.isHighlight ?? false);
 
-    const factParts: React.ReactNode[] = [];
-    factParts.push(<Text key="when" style={styles.factStrong}>{whenText(event)}</Text>);
+    const facts: React.ReactNode[] = [<Text key="when" style={styles.factStrong}>{whenText(event)}</Text>];
     if (event.signFr) {
-        factParts.push(
+        facts.push(
             <Text key="s1" style={styles.factMuted}>
                 {' · '}<Text style={styles.glyph}>{SIGN_SYMBOL[event.signFr] ?? ''}</Text> {event.signFr}
                 {event.degree != null ? ` ${event.degree}°` : ''}
@@ -86,7 +97,7 @@ function EventCard({ event }: { event: AstroEvent }) {
         );
     }
     if (event.aspectType && event.sign2Fr) {
-        factParts.push(
+        facts.push(
             <Text key="s2" style={styles.factMuted}>
                 {' · '}<Text style={styles.glyph}>{SIGN_SYMBOL[event.sign2Fr] ?? ''}</Text> {event.sign2Fr}
                 {event.degree2 != null ? ` ${event.degree2}°` : ''}
@@ -95,15 +106,11 @@ function EventCard({ event }: { event: AstroEvent }) {
     }
 
     return (
-        <View style={[
-            styles.ev,
-            isHero && styles.evHero,
-            isPast && styles.evPast,
-        ]}>
+        <View style={[styles.ev, isHero && styles.evHero, isPast && styles.evPast]}>
+            {isHero && <Glow palette="gold" />}
             <View style={styles.evTop}>
                 <View style={[
-                    styles.tile,
-                    isHero && styles.tileHero,
+                    styles.tile, isHero && styles.tileHero,
                     { backgroundColor: v.color + '26', borderColor: v.color + '55' },
                 ]}>
                     <Feather name={v.icon} size={isHero ? 24 : 21} color={v.color} />
@@ -120,7 +127,7 @@ function EventCard({ event }: { event: AstroEvent }) {
                         )}
                     </View>
                     <Text style={[styles.evTitle, isHero && styles.evTitleHero]}>{event.title ?? v.label}</Text>
-                    <Text style={styles.evFacts}>{factParts}</Text>
+                    <Text style={styles.evFacts}>{facts}</Text>
                 </View>
 
                 <Text style={[styles.when, isToday && styles.whenToday]}>{whenBadge(event)}</Text>
@@ -183,37 +190,35 @@ export default function TodayHome() {
     const upcoming = events.filter((e) => e.status === 'upcoming');
     const past = events.filter((e) => e.status === 'past');
     const highlightCount = today.filter((e) => e.perso?.isHighlight).length;
-    const firstName = user?.birthProfile?.firstName;
     const phaseIdx = mood ? PHASE_INDEX[mood.phase] ?? -1 : -1;
 
     return (
         <SafeAreaView style={styles.screen} edges={['top']}>
             <Starfield />
+            <TabHeader />
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-                {/* Topbar */}
-                <View style={styles.topbar}>
-                    <View style={styles.brand}>
-                        <Feather name="star" size={16} color={colors.primary} />
-                        <Text style={styles.brandText}>Lunestia</Text>
-                    </View>
-                    {firstName ? (
-                        <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+                {/* Humeur du jour — discreet, on top */}
+                {mood && (
+                    <>
+                        <View style={styles.humeur}>
+                            <View style={styles.humeurGlyph}>
+                                <Feather name="moon" size={16} color={colors.onSurfaceMuted} />
+                            </View>
+                            <View style={styles.humeurBody}>
+                                <Text style={styles.humeurLabel}>
+                                    HUMEUR DU JOUR{mood.tone ? <Text style={styles.humeurTone}>{`  ·  ${mood.tone}`}</Text> : null}
+                                </Text>
+                                <Text style={styles.humeurText}>{mood.text}</Text>
+                            </View>
                         </View>
-                    ) : null}
-                </View>
-
-                {/* Greeting */}
-                <View style={styles.greet}>
-                    <Text style={styles.hello}>Bonjour{firstName ? `, ${firstName}` : ''}</Text>
-                    <Text style={styles.date}>
-                        {cap(new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}
-                    </Text>
-                </View>
+                        <Text style={styles.note}>L'humeur du jour est une touche, pas une prédiction.</Text>
+                    </>
+                )}
 
                 {/* Month hero */}
                 <View style={styles.monthHero}>
+                    <Glow palette="month" />
                     <View style={styles.monthKickerRow}>
                         <Feather name="compass" size={13} color={colors.primary} />
                         <Text style={styles.monthKicker}>ACTU ASTRO</Text>
@@ -258,23 +263,6 @@ export default function TodayHome() {
                 {events.length === 0 && (
                     <Text style={styles.empty}>Le ciel se prépare — les événements du mois arrivent bientôt.</Text>
                 )}
-
-                {/* Humeur du jour — discreet */}
-                {mood && (
-                    <View style={styles.humeur}>
-                        <View style={styles.humeurGlyph}>
-                            <Feather name="moon" size={16} color={colors.onSurfaceMuted} />
-                        </View>
-                        <View style={styles.humeurBody}>
-                            <Text style={styles.humeurLabel}>
-                                HUMEUR DU JOUR{mood.tone ? <Text style={styles.humeurTone}>{`  ·  ${mood.tone}`}</Text> : null}
-                            </Text>
-                            <Text style={styles.humeurText}>{mood.text}</Text>
-                        </View>
-                    </View>
-                )}
-
-                <Text style={styles.note}>L'humeur du jour est une touche, pas une prédiction.</Text>
             </ScrollView>
         </SafeAreaView>
     );
@@ -282,20 +270,11 @@ export default function TodayHome() {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.surfaceLowest },
-    scroll: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
-
-    topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
-    brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    brandText: { color: colors.onSurface, fontSize: 18, fontFamily: fonts.display.regular },
-    avatar: { width: 32, height: 32, borderRadius: 99, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-    avatarText: { color: colors.text.inverse, fontFamily: fonts.body.bold, fontSize: 13 },
-
-    greet: { marginBottom: spacing.lg },
-    hello: { color: colors.onSurface, fontSize: 27, fontFamily: fonts.display.regular },
-    date: { color: colors.onSurfaceMuted, fontSize: 13, fontFamily: fonts.body.regular, marginTop: 4 },
+    scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.xxl * 2 },
 
     monthHero: {
-        borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.md,
+        position: 'relative', overflow: 'hidden',
+        borderRadius: radius.xl, padding: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.md,
         backgroundColor: colors.surfaceLow, borderWidth: 1, borderColor: colors.border.subtle,
     },
     monthKickerRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 },
@@ -316,6 +295,7 @@ const styles = StyleSheet.create({
     feedLineToday: { backgroundColor: colors.glow.gold },
 
     ev: {
+        position: 'relative', overflow: 'hidden',
         borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm, gap: spacing.sm,
         backgroundColor: colors.surfaceLow, borderWidth: 1, borderColor: colors.border.subtle,
     },
@@ -338,7 +318,7 @@ const styles = StyleSheet.create({
     factStrong: { color: colors.onSurface, fontFamily: fonts.body.semiBold },
     factMuted: { color: colors.text.secondary },
     glyph: { color: colors.primary, fontSize: 13 },
-    when: { color: colors.onSurfaceMuted, fontSize: 10, fontFamily: fonts.body.bold, overflow: 'hidden' },
+    when: { color: colors.onSurfaceMuted, fontSize: 10, fontFamily: fonts.body.bold },
     whenToday: { color: colors.primary },
     evBody: { color: colors.text.secondary, fontSize: 13, lineHeight: 19, fontFamily: fonts.body.regular },
 
@@ -353,7 +333,7 @@ const styles = StyleSheet.create({
     empty: { color: colors.onSurfaceMuted, fontFamily: fonts.body.regular, textAlign: 'center', marginTop: spacing.xl, marginBottom: spacing.lg },
 
     humeur: {
-        flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', marginTop: spacing.xl,
+        flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', marginTop: spacing.sm,
         backgroundColor: colors.surfaceVariant, borderRadius: radius.lg, padding: spacing.md,
     },
     humeurGlyph: { width: 30, height: 30, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceContainerHigh },
@@ -361,6 +341,5 @@ const styles = StyleSheet.create({
     humeurLabel: { color: colors.onSurfaceMuted, fontSize: 9.5, letterSpacing: 1.6, fontFamily: fonts.body.bold, marginBottom: 5 },
     humeurTone: { color: colors.onSurfaceMuted, letterSpacing: 0, fontFamily: fonts.body.regular },
     humeurText: { color: colors.text.secondary, fontSize: 12.5, lineHeight: 18, fontFamily: fonts.body.regular },
-
-    note: { color: colors.onSurfaceMuted, fontSize: 10.5, textAlign: 'center', marginTop: spacing.lg, fontFamily: fonts.body.regular },
+    note: { color: colors.onSurfaceMuted, fontSize: 10.5, marginTop: spacing.sm, marginLeft: spacing.xs, fontFamily: fonts.body.regular },
 });

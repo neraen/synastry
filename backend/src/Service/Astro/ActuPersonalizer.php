@@ -201,11 +201,48 @@ class ActuPersonalizer
 
         $hook = $domain !== '' ? "{$lead} — {$domain}." : "{$lead}.";
 
-        if ($hit !== null) {
-            $hook .= " Et ça vient toucher ton {$hit['planetFr']} natal en {$hit['signFr']}.";
+        // Second sentence: what it concretely does for you, in plain language
+        // (no technical "ça touche ton X natal"). A natal hit just makes it personal.
+        $effect = $this->effectSentence($event);
+        if ($effect !== '') {
+            $hook .= $hit !== null
+                ? ' Ça te concerne de près : ' . $this->lcfirstFr($effect)
+                : ' ' . $effect;
         }
 
         return $hook;
+    }
+
+    /** Plain, non-technical "what it does" sentence, per event family. */
+    private function effectSentence(SkyEvent $event): string
+    {
+        if ($event->type === SkyEvent::TYPE_ASPECT) {
+            return match ($event->aspectType) {
+                'conjunction' => 'Une nouvelle énergie démarre dans ce domaine.',
+                'sextile'     => "Un coup de pouce à saisir si tu fais le premier pas.",
+                'square'      => 'Une tension à gérer, mais elle te pousse à avancer.',
+                'trine'       => 'Tout coule plus facilement de ce côté.',
+                'opposition'  => 'Un équilibre à trouver entre deux besoins.',
+                default       => 'Quelque chose se met en mouvement de ce côté.',
+            };
+        }
+
+        return match ($event->type) {
+            SkyEvent::TYPE_FULL_MOON     => "Quelque chose arrive à maturité ici — c'est le moment d'y voir clair.",
+            SkyEvent::TYPE_LUNAR_ECLIPSE => 'Un tournant émotionnel qui peut clore un chapitre.',
+            SkyEvent::TYPE_NEW_MOON      => 'Une bonne fenêtre pour amorcer quelque chose de neuf.',
+            SkyEvent::TYPE_SOLAR_ECLIPSE => "Un nouveau départ s'impose, parfois plus vite que prévu.",
+            SkyEvent::TYPE_INGRESSION    => "L'ambiance change ici pour les semaines à venir.",
+            SkyEvent::TYPE_RETROGRADE_START => 'Lève le pied de ce côté : on revoit, on ne fonce pas.',
+            SkyEvent::TYPE_RETROGRADE_END   => 'Ça se débloque, tu peux repartir de l\'avant.',
+            default => '',
+        };
+    }
+
+    /** lcfirst that leaves accented first letters alone (our effects start with ASCII). */
+    private function lcfirstFr(string $s): string
+    {
+        return $s === '' ? $s : lcfirst($s);
     }
 
     private function planetFr(string $name): string

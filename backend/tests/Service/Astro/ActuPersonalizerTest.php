@@ -44,7 +44,9 @@ class ActuPersonalizerTest extends TestCase
         $this->assertSame('Sun', $overlay['natalHit']['planet']);
         $this->assertLessThan(0.5, $overlay['natalHit']['orb']);
         $this->assertTrue($overlay['isHighlight']);
-        $this->assertStringContainsString('Soleil natal', $overlay['hook']);
+        // A hit makes the hook personal but stays non-technical (no "ton X natal").
+        $this->assertStringContainsString('Ça te concerne de près', $overlay['hook']);
+        $this->assertStringNotContainsString('natal', $overlay['hook']);
     }
 
     public function testEventFarFromAnyPlanetHasNoHit(): void

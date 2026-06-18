@@ -984,7 +984,10 @@ Ton seul travail : une prose ancrée, chaleureuse et concrète, pour tout le mon
 Réponds UNIQUEMENT en JSON valide : {"title": "...", "body": "..."}
 - "title" : 3 à 6 mots, comme une couverture de magazine — ce que ça FAIT vivre, pas la mécanique.
 - "body" : 2 à 3 phrases courtes. Dis clairement de quoi parle cet événement et ce qu'il invite,
-  en t'appuyant sur les angles fournis. Pas de jargon d'aspect, pas de voyance, pas de positivité forcée.
+  en t'appuyant sur les angles fournis.
+- Langage de tous les jours, comme à un ami : ZÉRO vocabulaire technique (pas de
+  noms d'aspect, de maison, de degré, de "rétrograde/ingression", pas de voyance,
+  pas de positivité forcée). Concret et humain avant tout.
 INST;
         }
 
