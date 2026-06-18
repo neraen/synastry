@@ -105,8 +105,6 @@ export default function TabsLayout() {
                     ),
                 }}
             />
-            {/* Actu astro full feed: reachable from the home (sun tab) "Voir le mois" CTA and from push deep-links — not a tab itself. */}
-            <Tabs.Screen name="actu-astro" options={{ href: null }} />
             <Tabs.Screen name="mirror" options={{ href: null }} />
             <Tabs.Screen name="history" options={{ href: null }} />
             <Tabs.Screen name="profile" options={{ href: null }} />
