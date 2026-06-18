@@ -9,6 +9,7 @@ const NAV = [
   { to: '/eval', label: 'Évaluation', icon: '◍' },
   { to: '/eval/golden', label: 'Tests Golden', icon: '◆' },
   { to: '/cost', label: 'Coûts LLM', icon: '$' },
+  { to: '/notifications', label: 'Notifications', icon: '◔' },
 ];
 
 export function Sidebar({ onLogout }: { onLogout: () => void }) {

@@ -58,7 +58,7 @@ class AstroNotificationEngine
 
     // ─── Personal transits ───────────────────────────────────────────────────
 
-    public function processPersonalTransits(): void
+    public function processPersonalTransits(): int
     {
         $tokenRows = $this->tokenRepository->findActiveTokensWithPreferences('transits');
         $userIds   = array_unique(array_column($tokenRows, 'userId'));
@@ -71,13 +71,16 @@ class AstroNotificationEngine
         $transitCalc = new PlanetaryCalculator($today, $now->format('H:i'), 0.0, 0.0, 'Transit');
         $transitPositions = $this->getSlowPlanetPositions($transitCalc);
 
+        $sent = 0;
         foreach ($userIds as $userId) {
             try {
-                $this->processTransitsForUser(
+                if ($this->processTransitsForUser(
                     (int) $userId,
                     $tokenMap[$userId] ?? [],
                     $transitPositions
-                );
+                )) {
+                    $sent++;
+                }
             } catch (\Throwable $e) {
                 $this->logger->error('Transit processing failed for user', [
                     'userId' => $userId,
@@ -85,28 +88,30 @@ class AstroNotificationEngine
                 ]);
             }
         }
+
+        return $sent;
     }
 
-    private function processTransitsForUser(int $userId, array $tokens, array $transitPositions): void
+    private function processTransitsForUser(int $userId, array $tokens, array $transitPositions): bool
     {
         /** @var \App\Entity\User|null $user */
         $user = $this->entityManager->find(User::class, $userId);
         if (!$user || !$user->getBirthProfile()) {
-            return;
+            return false;
         }
 
         // Respect quiet hours
         $prefs = $this->prefsRepository->findByUser($user);
         if (!$this->isWithinNotificationWindow($prefs)) {
-            return;
+            return false;
         }
 
         // Rate limiting
         if ($this->logRepository->countTodayForUser($user, $prefs?->getTimezone() ?? 'Europe/Paris') >= self::MAX_PER_DAY) {
-            return;
+            return false;
         }
         if ($this->logRepository->countThisWeekForUser($user) >= self::MAX_PER_WEEK) {
-            return;
+            return false;
         }
 
         // Compute natal chart
@@ -118,7 +123,7 @@ class AstroNotificationEngine
         // Find the best notifiable transit (highest priority, orb < EXACT_ORB)
         $best = $this->findBestNotifiableTransit($transitPositions, $natalPoints);
         if (!$best) {
-            return;
+            return false;
         }
 
         // Dedup
@@ -130,14 +135,14 @@ class AstroNotificationEngine
         ];
 
         if ($this->logRepository->alreadySent($user, 'transit_personal', $triggerData)) {
-            return;
+            return false;
         }
 
         // Generate message via AI
         $firstName = $birthProfile->getFirstName() ?? 'toi';
         $message   = $this->generateTransitMessage($firstName, $best);
         if (!$message) {
-            return;
+            return false;
         }
 
         // Send
@@ -159,15 +164,17 @@ class AstroNotificationEngine
         $this->entityManager->flush();
 
         $this->logger->info('Transit notification sent', ['userId' => $userId, 'transit' => $best]);
+
+        return true;
     }
 
     // ─── Sky events ──────────────────────────────────────────────────────────
 
-    public function processSkyEvents(): void
+    public function processSkyEvents(): int
     {
         $events = $this->detectTodaySkyEvents();
         if (empty($events)) {
-            return;
+            return 0;
         }
 
         // Use the most significant event
@@ -176,12 +183,13 @@ class AstroNotificationEngine
 
         $message = $this->generateSkyEventMessage($event);
         if (!$message) {
-            return;
+            return 0;
         }
 
         $tokenRows = $this->tokenRepository->findActiveTokensWithPreferences('skyEvents');
         $tokenMap  = $this->buildTokenMap($tokenRows);
 
+        $sent = 0;
         foreach ($tokenMap as $userId => $tokens) {
             $user = $this->entityManager->find(User::class, $userId);
             if (!$user) {
@@ -212,14 +220,17 @@ class AstroNotificationEngine
                 ->setSentAt(new \DateTime());
 
             $this->entityManager->persist($log);
+            $sent++;
         }
 
         $this->entityManager->flush();
+
+        return $sent;
     }
 
     // ─── Daily reminder ──────────────────────────────────────────────────────
 
-    public function processDailyReminders(): void
+    public function processDailyReminders(): int
     {
         $tokenRows = $this->tokenRepository->findActiveTokensWithPreferences('dailyReminder');
         $tokenMap  = $this->buildTokenMap($tokenRows);
@@ -228,6 +239,7 @@ class AstroNotificationEngine
         $title     = $templates[array_rand($templates)];
         $body      = 'Ton horoscope personnalisé est disponible dans l\'app.';
 
+        $sent = 0;
         foreach ($tokenMap as $userId => $tokens) {
             $user = $this->entityManager->find(User::class, $userId);
             if (!$user) {
@@ -254,9 +266,92 @@ class AstroNotificationEngine
                 ->setSentAt(new \DateTime());
 
             $this->entityManager->persist($log);
+            $sent++;
         }
 
         $this->entityManager->flush();
+
+        return $sent;
+    }
+
+    // ─── Preview / dry-run (admin) ───────────────────────────────────────────
+
+    /**
+     * Generate the transit notification that WOULD be sent to a user right now,
+     * without sending, logging, rate-limiting or deduplication.
+     *
+     * @return array{found: bool, transit: array|null, message: array|null, reason?: string}
+     */
+    public function previewTransitForUser(User $user): array
+    {
+        $birthProfile = $user->getBirthProfile();
+        if (!$birthProfile) {
+            return ['found' => false, 'transit' => null, 'message' => null, 'reason' => 'no_birth_profile'];
+        }
+
+        $now   = new \DateTime('now', new \DateTimeZone('UTC'));
+        $today = $now->format('Y-m-d');
+
+        $transitCalc      = new PlanetaryCalculator($today, $now->format('H:i'), 0.0, 0.0, 'Transit');
+        $transitPositions = $this->getSlowPlanetPositions($transitCalc);
+
+        $natalCalc   = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
+        $natalChart  = $natalCalc->getFullChart();
+        $natalPoints = $this->extractNatalPoints($natalChart);
+
+        $best = $this->findBestNotifiableTransit($transitPositions, $natalPoints);
+        if (!$best) {
+            return ['found' => false, 'transit' => null, 'message' => null, 'reason' => 'no_notifiable_transit'];
+        }
+
+        $firstName = $birthProfile->getFirstName() ?? 'toi';
+        $message   = $this->generateTransitMessage($firstName, $best);
+
+        return [
+            'found'   => true,
+            'transit' => $best,
+            'message' => $message,
+            'reason'  => $message ? null : 'ai_generation_failed',
+        ];
+    }
+
+    /**
+     * Detect today's sky events and generate the message that WOULD be sent,
+     * without sending or logging.
+     *
+     * @return array{events: array, message: array|null, reason?: string}
+     */
+    public function previewSkyEvent(): array
+    {
+        $events = $this->detectTodaySkyEvents();
+        if (empty($events)) {
+            return ['events' => [], 'message' => null, 'reason' => 'no_sky_event_today'];
+        }
+
+        $message = $this->generateSkyEventMessage($events[0]);
+
+        return [
+            'events'  => $events,
+            'message' => $message,
+            'reason'  => $message ? null : 'ai_generation_failed',
+        ];
+    }
+
+    /**
+     * Return a sample daily reminder (the body is static, the title is picked
+     * from the rotation of templates).
+     *
+     * @return array{title: string, body: string, templates: string[]}
+     */
+    public function previewDailyReminder(): array
+    {
+        $templates = self::DAILY_REMINDER_TEMPLATES;
+
+        return [
+            'title'     => $templates[array_rand($templates)],
+            'body'      => 'Ton horoscope personnalisé est disponible dans l\'app.',
+            'templates' => $templates,
+        ];
     }
 
     // ─── Transit detection ───────────────────────────────────────────────────
