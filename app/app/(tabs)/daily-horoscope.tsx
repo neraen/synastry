@@ -19,11 +19,6 @@ const SIGN_SYMBOL: Record<string, string> = {
     'Sagittaire': '♐', 'Capricorne': '♑', 'Verseau': '♒', 'Poissons': '♓',
 };
 
-const PHASE_INDEX: Record<string, number> = {
-    new: 0, waxing_crescent: 1, first_quarter: 2, waxing_gibbous: 3,
-    full: 4, waning_gibbous: 5, last_quarter: 6, balsamic: 7,
-};
-
 // ─── Event-type visual system (one icon + hue per family) ───────────────────────
 type EventVisual = { icon: keyof typeof Feather.glyphMap; color: string; label: string };
 function visualFor(type: string): EventVisual {
@@ -190,31 +185,12 @@ export default function TodayHome() {
     const upcoming = events.filter((e) => e.status === 'upcoming');
     const past = events.filter((e) => e.status === 'past');
     const highlightCount = today.filter((e) => e.perso?.isHighlight).length;
-    const phaseIdx = mood ? PHASE_INDEX[mood.phase] ?? -1 : -1;
 
     return (
         <SafeAreaView style={styles.screen} edges={['top']}>
             <Starfield />
             <TabHeader />
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-                {/* Humeur du jour — discreet, on top */}
-                {mood && (
-                    <>
-                        <View style={styles.humeur}>
-                            <View style={styles.humeurGlyph}>
-                                <Feather name="moon" size={16} color={colors.onSurfaceMuted} />
-                            </View>
-                            <View style={styles.humeurBody}>
-                                <Text style={styles.humeurLabel}>
-                                    HUMEUR DU JOUR{mood.tone ? <Text style={styles.humeurTone}>{`  ·  ${mood.tone}`}</Text> : null}
-                                </Text>
-                                <Text style={styles.humeurText}>{mood.text}</Text>
-                            </View>
-                        </View>
-                        <Text style={styles.note}>L'humeur du jour est une touche, pas une prédiction.</Text>
-                    </>
-                )}
 
                 {/* Month hero */}
                 <View style={styles.monthHero}>
@@ -232,14 +208,25 @@ export default function TodayHome() {
                             <Text>{'   ·   '}<Text style={styles.monthStatGold}>{highlightCount}</Text> temps fort pour toi</Text>
                         ) : null}
                     </Text>
-                    {phaseIdx >= 0 && (
-                        <View style={styles.phaseStrip}>
-                            {Array.from({ length: 8 }).map((_, i) => (
-                                <View key={i} style={[styles.phaseBar, i === phaseIdx && styles.phaseBarOn]} />
-                            ))}
-                        </View>
-                    )}
                 </View>
+
+                {/* Horoscope — humeur du jour, discreet, just under the month card */}
+                {mood && (
+                    <>
+                        <View style={styles.humeur}>
+                            <View style={styles.humeurGlyph}>
+                                <Feather name="moon" size={16} color={colors.onSurfaceMuted} />
+                            </View>
+                            <View style={styles.humeurBody}>
+                                <Text style={styles.humeurLabel}>
+                                    HOROSCOPE{mood.tone ? <Text style={styles.humeurTone}>{`  ·  ${mood.tone}`}</Text> : null}
+                                </Text>
+                                <Text style={styles.humeurText}>{mood.text}</Text>
+                            </View>
+                        </View>
+                        <Text style={styles.note}>L'humeur du jour est une touche, pas une prédiction.</Text>
+                    </>
+                )}
 
                 {/* Feed */}
                 {today.length > 0 && (
@@ -284,9 +271,6 @@ const styles = StyleSheet.create({
     monthStats: { color: colors.text.secondary, fontSize: 12, fontFamily: fonts.body.regular, marginTop: 10 },
     monthStatStrong: { color: colors.onSurface, fontFamily: fonts.body.bold },
     monthStatGold: { color: colors.primary, fontFamily: fonts.body.bold },
-    phaseStrip: { flexDirection: 'row', gap: 5, marginTop: 14 },
-    phaseBar: { flex: 1, height: 4, borderRadius: 99, backgroundColor: colors.surfaceContainerHigh },
-    phaseBarOn: { backgroundColor: colors.primary },
 
     feedLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: spacing.lg, marginBottom: spacing.sm },
     feedLabel: { color: colors.onSurfaceMuted, fontSize: 10.5, letterSpacing: 2, fontFamily: fonts.body.bold },
