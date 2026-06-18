@@ -88,6 +88,36 @@ class NotificationLogRepository extends ServiceEntityRepository
             ->getArrayResult();
     }
 
+    /**
+     * Recent notifications, optionally filtered by type, newest first.
+     *
+     * @return NotificationLog[]
+     */
+    public function findRecent(?string $type, int $limit, int $offset): array
+    {
+        $qb = $this->createQueryBuilder('l')
+            ->orderBy('l.sentAt', 'DESC')
+            ->setMaxResults($limit)
+            ->setFirstResult($offset);
+
+        if ($type !== null && $type !== '') {
+            $qb->andWhere('l.type = :type')->setParameter('type', $type);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    public function countRecent(?string $type): int
+    {
+        $qb = $this->createQueryBuilder('l')->select('COUNT(l.id)');
+
+        if ($type !== null && $type !== '') {
+            $qb->andWhere('l.type = :type')->setParameter('type', $type);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
     private function fingerprint(array $data): string
     {
         ksort($data);

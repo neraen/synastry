@@ -12,6 +12,7 @@ import { SandboxPage } from './pages/SandboxPage';
 import { CostDashboardPage } from './pages/CostDashboardPage';
 import { EvalDashboardPage } from './pages/EvalDashboardPage';
 import { GoldenSuitePage } from './pages/GoldenSuitePage';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 function App() {
   const { isAuthenticated, login, logout } = useAuth();
@@ -34,6 +35,7 @@ function App() {
           <Route path="/eval" element={<EvalDashboardPage />} />
           <Route path="/eval/golden" element={<GoldenSuitePage />} />
           <Route path="/cost" element={<CostDashboardPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
