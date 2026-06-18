@@ -158,11 +158,6 @@ export default function DailyHoroscopeTab() {
                         )}
                     </View>
 
-                    {/* Actu astro entry */}
-                    <View style={styles.sectionPad}>
-                        <ActuAstroButton onPress={() => router.push('/(tabs)/actu-astro')} />
-                    </View>
-
                     {/* Error */}
                     {error && (
                         <View style={styles.sectionPad}>
@@ -230,6 +225,11 @@ export default function DailyHoroscopeTab() {
                     {/* AI Disclaimer */}
                     <View style={styles.disclaimer}>
                         <Text style={styles.disclaimerText}>{aiDisclaimerText}</Text>
+                    </View>
+
+                    {/* Actu astro entry — bottom of the page */}
+                    <View style={[styles.sectionPad, { marginTop: spacing.xxl }]}>
+                        <ActuAstroButton onPress={() => router.push('/(tabs)/actu-astro')} />
                     </View>
 
                     <View style={{ height: 100 }} />
