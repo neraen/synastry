@@ -98,15 +98,15 @@ export default function TabsLayout() {
                 }}
             />
             <Tabs.Screen
-                name="actu-astro"
+                name="transits"
                 options={{
                     tabBarIcon: ({ focused }) => (
-                        <TabIcon name="compass" focused={focused} />
+                        <TabIcon name="zap" focused={focused} />
                     ),
                 }}
             />
-            {/* Transits route kept (mirror redirect + push targets) but off the tab bar since the Actu astro pivot */}
-            <Tabs.Screen name="transits" options={{ href: null }} />
+            {/* Actu astro full feed: reachable from the home (sun tab) "Voir le mois" CTA and from push deep-links — not a tab itself. */}
+            <Tabs.Screen name="actu-astro" options={{ href: null }} />
             <Tabs.Screen name="mirror" options={{ href: null }} />
             <Tabs.Screen name="history" options={{ href: null }} />
             <Tabs.Screen name="profile" options={{ href: null }} />
