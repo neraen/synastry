@@ -53,6 +53,9 @@ fastlane/README.md
 
 # Builds
 /builds/
+*.aab
+*.apk
+*.ipa
 
 # Google Service Account
 google-service-account.json
