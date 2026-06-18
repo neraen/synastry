@@ -28,42 +28,10 @@ class HoroscopeController extends AbstractController
         return $localeService->normalizeLocale($acceptLanguage);
     }
 
-    /**
-     * Get daily horoscope for the authenticated user
-     */
-    #[Route('/daily', name: 'api_horoscope_daily', methods: ['GET'])]
-    public function getDailyHoroscope(Request $request): JsonResponse
-    {
-        /** @var User $user */
-        $user = $this->getUser();
-
-        // Get locale from request
-        $locale = $this->getLocaleFromRequest($request);
-
-        if (!$user->hasBirthProfile()) {
-            $errorMessage = $locale === 'en'
-                ? 'Please complete your birth profile first'
-                : 'Veuillez compléter votre profil de naissance';
-
-            return $this->json([
-                'success' => false,
-                'error' => $errorMessage,
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        $forceRefresh = $request->query->getBoolean('refresh', false);
-
-        // Set locale on the service
-        $this->horoscopeGeneratorService->setLocale($locale);
-
-        $result = $this->horoscopeGeneratorService->getDailyHoroscope($user, $forceRefresh);
-
-        if (!$result['success']) {
-            return $this->json($result, Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-
-        return $this->json($result);
-    }
+    // Removed in the Actu astro pivot: the per-user/day LLM horoscope endpoint
+    // (`GET /api/horoscope/daily`). Replaced by the cached Actu astro feed
+    // (ActuAstroController) + the deterministic "humeur du jour". The service
+    // method is retained for the eval engine and the admin sandbox.
 
     /**
      * Get the weekly cosmic headline (global, cached per locale per week)

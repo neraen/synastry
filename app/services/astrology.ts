@@ -153,20 +153,60 @@ export interface SynastryHistoryDetailResponse {
 }
 
 // Daily Horoscope types
-export interface DailyHoroscope {
-    title: string;
-    overview: string;
-    love: string;
-    energy: string;
-    advice: string;
-    date: string;
-    cached: boolean;
+// ─── Actu astro (collective dated events + deterministic per-user overlay) ───
+
+export type AstroEventStatus = 'past' | 'today' | 'upcoming';
+
+export interface AstroEventPerso {
+    house: number;
+    houseRoman: string;
+    domain: string;
+    natalHit: { planet: string; planetFr: string; signFr: string; orb: number } | null;
+    relevance: number;
+    isHighlight: boolean;
+    hook: string;
 }
 
-export interface DailyHoroscopeResponse {
+export interface AstroEvent {
+    id: number;
+    type: string;
+    planet: string | null;
+    planet2: string | null;
+    aspectType: string | null;
+    sign: string | null;
+    signFr: string | null;
+    degree: number | null;
+    sign2Fr: string | null;
+    degree2: number | null;
+    longitude: number | null;
+    longitude2: number | null;
+    exactAt: string;
+    monthKey: string;
+    metadata: Record<string, unknown>;
+    title: string | null;
+    body: string | null;
+    status: AstroEventStatus;
+    perso: AstroEventPerso | null;
+}
+
+export interface ActuAstroResponse {
     success: boolean;
-    horoscope?: DailyHoroscope;
-    message?: string;
+    month?: string;
+    year?: number;
+    events?: AstroEvent[];
+    error?: string;
+}
+
+export interface MoodToday {
+    signFr: string;
+    phase: string;
+    tone: string | null;
+    text: string;
+}
+
+export interface MoodResponse {
+    success: boolean;
+    mood?: MoodToday | null;
     error?: string;
 }
 
@@ -246,11 +286,19 @@ export async function deleteSynastryHistoryEntry(id: number): Promise<{ success:
 }
 
 /**
- * Get daily horoscope
+ * Get the monthly Actu astro feed (collective events + deterministic per-user
+ * overlay). `month` is 'YYYY-MM'; omit for the current month.
  */
-export async function getDailyHoroscope(refresh = false): Promise<DailyHoroscopeResponse> {
-    const url = refresh ? '/api/horoscope/daily?refresh=true' : '/api/horoscope/daily';
-    return authApi.get<DailyHoroscopeResponse>(url);
+export async function getActuAstro(month?: string): Promise<ActuAstroResponse> {
+    const url = month ? `/api/actu-astro?month=${encodeURIComponent(month)}` : '/api/actu-astro';
+    return authApi.get<ActuAstroResponse>(url);
+}
+
+/**
+ * Get today's "humeur du jour" (deterministic lookup, may be null).
+ */
+export async function getMoodToday(): Promise<MoodResponse> {
+    return authApi.get<MoodResponse>('/api/mood/today');
 }
 
 /**

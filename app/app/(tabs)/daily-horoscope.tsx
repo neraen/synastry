@@ -1,404 +1,152 @@
+// Home tab ("Aujourd'hui"). Since the Actu astro pivot this screen no longer
+// shows a per-user daily horoscope: it surfaces the Actu astro "temps fort" and a
+// discreet "humeur du jour". (Route kept as /daily-horoscope to avoid churn; can
+// be renamed to /today later.)
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { GlassCard, GoldButton, GhostButton, TabHeader, NoBirthProfileCard, FeedbackThumbs, Starfield } from '@/components/ui';
+import { GlassCard, NoBirthProfileCard, Starfield } from '@/components/ui';
 import { FullPageLoader } from '@/components/loaders';
-import { getDailyHoroscope, DailyHoroscope } from '@/services/astrology';
-import { aiDisclaimerText } from '@/constants/legalTexts';
+import { getActuAstro, getMoodToday, AstroEvent, MoodToday } from '@/services/astrology';
 import { colors, spacing, radius, fonts } from '@/theme';
 
-// ─── Horoscope section card ────────────────────────────────────────────────────
-const getSections = (t: (key: string) => string) => [
-    { key: 'overview', icon: '✦', label: t('dailyHoroscope.sectionOverview'), color: colors.primary },
-    { key: 'love',     icon: '♡', label: t('dailyHoroscope.sectionLove'),     color: '#ec4899' },
-    { key: 'energy',   icon: '⚡', label: t('dailyHoroscope.sectionEnergy'),  color: colors.secondary },
-    { key: 'advice',   icon: '◈', label: t('dailyHoroscope.sectionAdvice'),  color: colors.onSurface },
-] as const;
-
-function HoroscopeSection({ icon, label, content, color }: {
-    icon: string; label: string; content: string; color: string;
-}) {
-    return (
-        <GlassCard opacity="low" radius="xl">
-            <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionIcon, { color }]}>{icon}</Text>
-                <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
-            </View>
-            <Text selectable style={styles.sectionContent}>{content} </Text>
-        </GlassCard>
-    );
+function visualColor(type: string): string {
+    if (type.startsWith('lunation')) return colors.events.lunaison;
+    if (type.startsWith('eclipse')) return colors.events.eclipse;
+    if (type.startsWith('retrograde')) return colors.events.retro;
+    if (type === 'ingression') return colors.events.ingression;
+    return colors.events.aspect;
 }
 
-// ─── Empty states ──────────────────────────────────────────────────────────────
-function EmptyState({ emoji, message, actionLabel, onAction }: {
-    emoji: string; message: string; actionLabel: string; onAction: () => void;
-}) {
-    return (
-        <View style={styles.screen}>
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.emptyWrap}>
-                    <Text style={styles.emptyEmoji}>{emoji}</Text>
-                    <Text style={styles.emptyText}>{message}</Text>
-                    <View style={{ marginTop: spacing.xl }}>
-                        <GoldButton label={actionLabel} onPress={onAction} />
-                    </View>
-                </View>
-            </SafeAreaView>
-        </View>
-    );
+function visualIcon(type: string): keyof typeof Feather.glyphMap {
+    if (type === 'lunation_full' || type === 'eclipse_lunar') return 'moon';
+    if (type.startsWith('lunation') || type.startsWith('eclipse')) return 'circle';
+    if (type.startsWith('retrograde')) return 'rotate-ccw';
+    if (type === 'ingression') return 'arrow-right-circle';
+    return 'triangle';
 }
 
-// ─── Screen ────────────────────────────────────────────────────────────────────
-export default function DailyHoroscopeTab() {
+export default function TodayHome() {
     const router = useRouter();
-    const { t } = useTranslation();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
 
-    const [isLoading, setIsLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [error, setError] = useState<string>();
-    const [horoscope, setHoroscope] = useState<DailyHoroscope | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [highlight, setHighlight] = useState<AstroEvent | null>(null);
+    const [mood, setMood] = useState<MoodToday | null>(null);
 
-    const loadHoroscope = useCallback(async (refresh = false) => {
+    const load = useCallback(async () => {
         try {
-            setError(undefined);
-            const response = await getDailyHoroscope(refresh);
-            if (response.success && response.horoscope) {
-                setHoroscope(response.horoscope);
-            } else {
-                setError(response.error || t('dailyHoroscope.loadError'));
+            const [actu, moodRes] = await Promise.all([getActuAstro(), getMoodToday()]);
+            if (actu.success && actu.events?.length) {
+                // Best upcoming/today event: prefer a personal highlight, else most relevant soon.
+                const soon = actu.events.filter((e) => e.status !== 'past');
+                soon.sort((a, b) => {
+                    const ra = a.perso?.relevance ?? 0;
+                    const rb = b.perso?.relevance ?? 0;
+                    return rb - ra;
+                });
+                setHighlight(soon[0] ?? null);
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : t('dailyHoroscope.unknownError'));
+            if (moodRes.success) setMood(moodRes.mood ?? null);
+        } finally {
+            setLoading(false);
         }
-    }, [t]);
+    }, []);
 
     useEffect(() => {
-        if (isAuthenticated && user?.hasBirthProfile) {
-            loadHoroscope().finally(() => setIsLoading(false));
-        } else {
-            setIsLoading(false);
-        }
-    }, [isAuthenticated, user, loadHoroscope]);
+        if (isAuthenticated) load();
+        else setLoading(false);
+    }, [isAuthenticated, load]);
 
-    const handleRefresh = useCallback(async () => {
-        setIsRefreshing(true);
-        await loadHoroscope(true);
-        setIsRefreshing(false);
-    }, [loadHoroscope]);
+    if (isAuthLoading || loading) return <FullPageLoader visible />;
+    if (!user?.hasBirthProfile) return <NoBirthProfileCard />;
 
-    const formatDate = (dateString: string) =>
-        new Date(dateString).toLocaleDateString('fr-FR', {
-            weekday: 'long', day: 'numeric', month: 'long',
-        });
-
-    // Not authenticated
-    if (!isAuthLoading && !isLoading && !isAuthenticated) {
-        return (
-            <EmptyState
-                emoji="🌟"
-                message={t('dailyHoroscope.loginPrompt')}
-                actionLabel={t('dailyHoroscope.loginBtn')}
-                onAction={() => router.push('/login')}
-            />
-        );
-    }
-
-    // No birth profile
-    if (!isAuthLoading && !isLoading && !user?.hasBirthProfile) {
-        return <NoBirthProfileCard />;
-    }
-
-    const SECTIONS = getSections(t);
+    const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
     return (
-        <View style={styles.screen}>
+        <SafeAreaView style={styles.screen} edges={['top']}>
             <Starfield />
-            <SafeAreaView style={styles.safeArea} edges={['top']}>
-                <ScrollView
-                    style={styles.scroll}
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                >
-                    <TabHeader />
+            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                <View style={styles.greet}>
+                    <Text style={styles.hello}>Bonjour{user?.birthProfile?.firstName ? `, ${user.birthProfile.firstName}` : ''}</Text>
+                    <Text style={styles.date}>{today}</Text>
+                </View>
 
-                    {/* Hero */}
-                    <View style={styles.hero}>
-                        <View style={styles.badge}>
-                            <View style={styles.badgeDot} />
-                            <Text style={styles.badgeText}>{t('dailyHoroscope.badge')}</Text>
+                {/* Actu astro — temps fort (strong, the flagship surface) */}
+                {highlight && (
+                    <GlassCard opacity="medium" radius="xl" style={styles.feature}>
+                        <Text style={styles.featureKicker}>ACTU ASTRO · TEMPS FORT</Text>
+                        <View style={styles.featureBody}>
+                            <View style={[styles.featureTile, { backgroundColor: visualColor(highlight.type) + '26', borderColor: visualColor(highlight.type) + '66' }]}>
+                                <Feather name={visualIcon(highlight.type)} size={26} color={visualColor(highlight.type)} />
+                            </View>
+                            <View style={styles.featureMain}>
+                                <Text style={styles.featureTitle}>{highlight.title ?? highlight.signFr}</Text>
+                                {highlight.perso?.hook ? (
+                                    <Text style={styles.featureMeta} numberOfLines={2}>{highlight.perso.hook}</Text>
+                                ) : null}
+                            </View>
                         </View>
-                        {horoscope ? (
-                            <>
-                                <Text style={styles.heroTitle}>{horoscope.title}</Text>
-                                <Text style={styles.heroDate}>{formatDate(horoscope.date)}</Text>
-                            </>
-                        ) : (
-                            <Text style={styles.heroTitle}>{t('dailyHoroscope.defaultTitle')}</Text>
-                        )}
+                        <Pressable style={styles.cta} onPress={() => router.push('/actu-astro')}>
+                            <Text style={styles.ctaText}>Voir le mois</Text>
+                            <Feather name="arrow-right" size={15} color={colors.text.inverse} />
+                        </Pressable>
+                    </GlassCard>
+                )}
+
+                {/* Humeur du jour — deliberately small + quiet */}
+                {mood && (
+                    <View style={styles.humeur}>
+                        <View style={styles.humeurGlyph}>
+                            <Feather name="moon" size={16} color={colors.onSurfaceMuted} />
+                        </View>
+                        <View style={styles.humeurBody}>
+                            <Text style={styles.humeurLabel}>
+                                HUMEUR DU JOUR{mood.tone ? <Text style={styles.humeurTone}>  · {mood.tone}</Text> : null}
+                            </Text>
+                            <Text style={styles.humeurText}>{mood.text}</Text>
+                        </View>
                     </View>
+                )}
 
-                    {/* Error */}
-                    {error && (
-                        <View style={styles.sectionPad}>
-                            <GlassCard opacity="low" radius="xl">
-                                <Text style={styles.errorText}>{error}</Text>
-                                <View style={{ marginTop: spacing.lg }}>
-                                    <GhostButton label={t('dailyHoroscope.retry')} onPress={() => loadHoroscope()} />
-                                </View>
-                            </GlassCard>
-                        </View>
-                    )}
-
-                    {/* Refreshing indicator */}
-                    {isRefreshing && (
-                        <View style={styles.refreshingRow}>
-                            <ActivityIndicator color={colors.primary} size="small" />
-                            <Text style={styles.refreshingText}>{t('dailyHoroscope.refreshing')}</Text>
-                        </View>
-                    )}
-
-                    {/* Horoscope sections */}
-                    {horoscope && !isRefreshing && (
-                        <View style={styles.sectionsContainer}>
-                            {SECTIONS.map((s) => {
-                                const content = horoscope[s.key];
-                                if (!content) return null;
-                                return (
-                                    <HoroscopeSection
-                                        key={s.key}
-                                        icon={s.icon}
-                                        label={s.label}
-                                        content={content}
-                                        color={s.color}
-                                    />
-                                );
-                            })}
-                        </View>
-                    )}
-
-                    {/* Feedback */}
-                    {horoscope && !isRefreshing && (
-                        <View style={styles.feedbackSection}>
-                            <FeedbackThumbs
-                                contentType="horoscope"
-                                contentRef={horoscope.date}
-                                label="Avez-vous aimé ce contenu ?"
-                            />
-                        </View>
-                    )}
-
-                    {/* Actions */}
-                    {horoscope && !isRefreshing && (
-                        <View style={styles.actionsSection}>
-                            <GhostButton
-                                label={horoscope.cached ? t('dailyHoroscope.refreshBtn') : t('dailyHoroscope.refreshBtnSimple')}
-                                onPress={handleRefresh}
-                                disabled={isRefreshing}
-                            />
-                            {horoscope.cached && (
-                                <Text style={styles.cachedText}>{t('dailyHoroscope.generatedToday')}</Text>
-                            )}
-                        </View>
-                    )}
-
-                    {/* AI Disclaimer */}
-                    <View style={styles.disclaimer}>
-                        <Text style={styles.disclaimerText}>{aiDisclaimerText}</Text>
-                    </View>
-
-                    <View style={{ height: 100 }} />
-                </ScrollView>
-            </SafeAreaView>
-            <FullPageLoader
-                visible={isAuthLoading || isLoading}
-                variant="default"
-                hint="L'horoscope observe le dialogue entre les planètes d'aujourd'hui et votre signe de naissance, pour vous offrir des clés de compréhension au fil des jours."
-            />
-        </View>
+                <Text style={styles.note}>L'humeur du jour est une touche, pas une prédiction.</Text>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.surfaceLowest },
-    safeArea: { flex: 1 },
-    scroll: { flex: 1 },
-    scrollContent: { flexGrow: 1 },
-
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: spacing.xl,
-        paddingVertical: spacing.lg,
+    scroll: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
+    greet: { marginBottom: spacing.lg },
+    hello: { color: colors.onSurface, fontSize: 27, fontFamily: fonts.display.regular },
+    date: { color: colors.onSurfaceMuted, fontSize: 13, fontFamily: fonts.body.regular, marginTop: 4, textTransform: 'capitalize' },
+    feature: { marginBottom: spacing.lg, gap: spacing.md },
+    featureKicker: { color: colors.primary, fontSize: 10, letterSpacing: 1.8, fontFamily: fonts.body.regular },
+    featureBody: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+    featureTile: { width: 54, height: 54, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+    featureMain: { flex: 1, minWidth: 0 },
+    featureTitle: { color: colors.onSurface, fontSize: 21, fontFamily: fonts.display.regular, lineHeight: 24 },
+    featureMeta: { color: colors.text.secondary, fontSize: 12.5, fontFamily: fonts.body.regular, marginTop: 4 },
+    cta: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        backgroundColor: colors.primary, borderRadius: 99, paddingVertical: 12,
     },
-    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    logoIcon: {
-        fontSize: 14,
-        color: colors.primary,
-        lineHeight: 18,
+    ctaText: { color: colors.text.inverse, fontSize: 14, fontFamily: fonts.body.regular },
+    humeur: {
+        flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start',
+        backgroundColor: colors.surfaceVariant, borderRadius: radius.lg, padding: spacing.md,
     },
-    logoText: {
-        fontFamily: fonts.display.regular,
-        fontSize: 18,
-        color: colors.onSurface,
-        letterSpacing: 0.5,
-    },
-    userRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    hiText: { fontFamily: fonts.body.regular, fontSize: 14, color: colors.onSurfaceMuted },
-    avatarBubble: {
-        width: 36, height: 36, borderRadius: 18,
+    humeurGlyph: {
+        width: 30, height: 30, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center',
         backgroundColor: colors.surfaceContainerHigh,
-        alignItems: 'center', justifyContent: 'center',
     },
-    avatarLetter: { fontFamily: fonts.body.semiBold, fontSize: 14, color: colors.onSurface },
-
-    // Hero
-    hero: {
-        paddingHorizontal: spacing.xl,
-        paddingTop: spacing.xl,
-        paddingBottom: spacing.xxxl,
-    },
-    badge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        alignSelf: 'flex-start',
-        gap: spacing.sm,
-        backgroundColor: colors.surfaceContainerHigh,
-        borderRadius: radius.full,
-        paddingHorizontal: spacing.md,
-        paddingVertical: 6,
-        marginBottom: spacing.xl,
-    },
-    badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
-    badgeText: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 10,
-        letterSpacing: 1.5,
-        color: colors.onSurfaceMuted,
-        textTransform: 'uppercase',
-    },
-    heroTitle: {
-        fontFamily: fonts.display.bold,
-        fontSize: 40,
-        lineHeight: 48,
-        color: colors.onSurface,
-        letterSpacing: -0.5,
-        marginBottom: spacing.md,
-    },
-    heroDate: {
-        fontFamily: fonts.body.regular,
-        fontSize: 15,
-        color: colors.onSurfaceMuted,
-        textTransform: 'capitalize',
-    },
-
-    sectionPad: { paddingHorizontal: spacing.xl },
-
-    // Horoscope sections
-    sectionsContainer: {
-        paddingHorizontal: spacing.xl,
-        gap: spacing.lg,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        marginBottom: spacing.lg,
-    },
-    sectionIcon: { fontSize: 16, lineHeight: 20 },
-    sectionLabel: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 11,
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
-    },
-    sectionContent: {
-        fontFamily: fonts.body.regular,
-        fontSize: 15,
-        lineHeight: 24,
-        color: colors.onSurface,
-    },
-
-    // Feedback
-    feedbackSection: {
-        paddingHorizontal: spacing.xl,
-        marginTop: spacing.xl,
-        alignItems: 'flex-start',
-    },
-
-    // Actions
-    actionsSection: {
-        paddingHorizontal: spacing.xl,
-        marginTop: spacing.xxl,
-        alignItems: 'center',
-        gap: spacing.md,
-    },
-    cachedText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 12,
-        color: colors.onSurfaceMuted,
-    },
-
-    // Disclaimer
-    disclaimer: {
-        paddingHorizontal: spacing.xl,
-        marginTop: spacing.xxl,
-    },
-    disclaimerText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 11,
-        lineHeight: 18,
-        color: `${colors.onSurfaceMuted}80`,
-        fontStyle: 'italic',
-        textAlign: 'center',
-    },
-
-    // Empty / Loading states
-    emptyWrap: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: spacing.xl,
-        gap: spacing.lg,
-    },
-    emptyEmoji: { fontSize: 56, lineHeight: 68 },
-    emptyText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 15,
-        lineHeight: 24,
-        color: colors.onSurfaceMuted,
-        textAlign: 'center',
-        maxWidth: 280,
-    },
-    loadingText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
-        color: colors.onSurfaceMuted,
-        marginTop: spacing.lg,
-    },
-    refreshingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.md,
-        paddingVertical: spacing.xl,
-    },
-    refreshingText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
-        color: colors.onSurfaceMuted,
-    },
-    errorText: {
-        fontFamily: fonts.body.regular,
-        fontSize: 14,
-        color: colors.error,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
+    humeurBody: { flex: 1, minWidth: 0 },
+    humeurLabel: { color: colors.onSurfaceMuted, fontSize: 10, letterSpacing: 1.6, fontFamily: fonts.body.regular, marginBottom: 5 },
+    humeurTone: { color: colors.onSurfaceMuted, letterSpacing: 0 },
+    humeurText: { color: colors.text.secondary, fontSize: 13, lineHeight: 19, fontFamily: fonts.body.regular },
+    note: { color: colors.onSurfaceMuted, fontSize: 10.5, textAlign: 'center', marginTop: spacing.lg, fontFamily: fonts.body.regular },
 });

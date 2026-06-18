@@ -30,3 +30,4 @@ framework:
             App\Message\ProcessSkyEventsMessage: async
             App\Message\ProcessDailyRemindersMessage: async
             App\Message\RunGoldenSuiteMessage: async
+            App\Message\GenerateActuAstroMessage: async

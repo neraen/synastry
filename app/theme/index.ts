@@ -47,6 +47,15 @@ const colors = {
         libre: '#72ce9d',
     },
 
+    // Per-event-type accents for the Actu astro feed (one hue per family, palette-tuned)
+    events: {
+        lunaison: '#7fa9ec',   // clair de lune (blue)
+        retro: '#db9b68',      // ralentir / relire (terracotta)
+        ingression: '#72ce9d', // passage / mouvement (green)
+        eclipse: '#ab8ff3',    // bascule (purple)
+        aspect: '#d2b45a',     // géométrie / or
+    },
+
     // ==========================================================================
     // LEGACY COMPATIBILITY (maps old nested structure to new flat tokens)
     // TODO: Migrate components to use flat tokens, then remove this section

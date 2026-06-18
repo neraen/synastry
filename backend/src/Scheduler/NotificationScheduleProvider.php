@@ -2,6 +2,7 @@
 
 namespace App\Scheduler;
 
+use App\Message\GenerateActuAstroMessage;
 use App\Message\ProcessDailyRemindersMessage;
 use App\Message\ProcessPersonalTransitsMessage;
 use App\Message\ProcessSkyEventsMessage;
@@ -36,6 +37,8 @@ class NotificationScheduleProvider implements ScheduleProviderInterface
             // Check for sky events daily at 07:00 UTC
             ->add(RecurringMessage::cron('0 7 * * *', new ProcessSkyEventsMessage()))
             // Send daily reminders at 06:00 UTC (before users' preferred morning hour)
-            ->add(RecurringMessage::cron('0 6 * * *', new ProcessDailyRemindersMessage()));
+            ->add(RecurringMessage::cron('0 6 * * *', new ProcessDailyRemindersMessage()))
+            // Generate the Actu astro feed + mood corpus a month ahead, on the 1st at 03:00 UTC
+            ->add(RecurringMessage::cron('0 3 1 * *', new GenerateActuAstroMessage()));
     }
 }

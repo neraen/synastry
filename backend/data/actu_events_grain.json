@@ -1,0 +1,69 @@
+{
+  "_doc": "Grain database for the collective Actu astro prose. Deterministic interpretation seeds injected as context into the brief→prose pipeline (same pattern as lunestia_transits_natal.json). The LLM only weaves these grounded angles into prose; it never invents dates/signs/degrees.",
+  "types": {
+    "lunation_new": {
+      "label": "Nouvelle lune",
+      "angles": ["un cycle qui redémarre", "poser une intention", "une page neuve, encore discrète", "semer plutôt que récolter"]
+    },
+    "lunation_full": {
+      "label": "Pleine lune",
+      "angles": ["un point culminant", "quelque chose se révèle ou se boucle", "les émotions montent d'un cran", "récolter, relâcher, voir clair"]
+    },
+    "eclipse_solar": {
+      "label": "Éclipse de Soleil",
+      "angles": ["une bascule, un tournant", "un nouveau départ accéléré par le destin", "ce qui se joue dépasse le quotidien", "laisser partir l'ancien pour faire de la place"]
+    },
+    "eclipse_lunar": {
+      "label": "Éclipse de Lune",
+      "angles": ["une révélation émotionnelle", "une fin qui libère", "un seuil franchi", "ce qui était caché remonte"]
+    },
+    "retrograde_start": {
+      "label": "Rétrograde",
+      "angles": ["ralentir, relire, réviser", "pas le moment de signer ou de lancer", "revenir sur ce qui n'a pas été fini", "le passé revient frapper"]
+    },
+    "retrograde_end": {
+      "label": "Reprise directe",
+      "angles": ["le mouvement reprend", "on peut de nouveau avancer", "la clarté revient", "fin d'une parenthèse de révision"]
+    },
+    "ingression": {
+      "label": "Ingression",
+      "angles": ["un changement d'ambiance", "une nouvelle saison s'installe", "le ton change pour les semaines à venir"]
+    },
+    "aspect": {
+      "label": "Aspect",
+      "by_aspect": {
+        "conjunction": ["deux forces fusionnent", "un nouveau cycle entre ces énergies", "intensité concentrée"],
+        "sextile": ["une opportunité à saisir", "ça coule si on fait le premier pas", "une porte entrouverte"],
+        "square": ["une tension qui pousse à agir", "un frottement, une friction féconde", "choisir ses batailles"],
+        "trine": ["un courant porteur", "ça circule sans effort", "un talent qui s'exprime"],
+        "opposition": ["un face-à-face à équilibrer", "tension entre deux pôles", "trouver le juste milieu"]
+      }
+    }
+  },
+  "planets": {
+    "Sun": "l'identité, la vitalité, ce qui rayonne",
+    "Moon": "les émotions, les besoins, l'intime",
+    "Mercury": "la pensée, les échanges, les contrats et déplacements",
+    "Venus": "l'amour, le plaisir, les valeurs, l'argent affectif",
+    "Mars": "l'élan, le désir, l'action, parfois la colère",
+    "Jupiter": "l'expansion, la chance, le sens, l'excès possible",
+    "Saturn": "la structure, le temps, les limites, la maturité",
+    "Uranus": "la rupture, la liberté, l'imprévu, l'éveil",
+    "Neptune": "le rêve, l'inspiration, le flou, le spirituel",
+    "Pluto": "le pouvoir, la transformation profonde, ce qui meurt et renaît"
+  },
+  "signs": {
+    "Bélier": "l'élan brut, l'initiative, le courage",
+    "Taureau": "la stabilité, les sens, le concret, la lenteur",
+    "Gémeaux": "la curiosité, les liens, la parole, le mouvement",
+    "Cancer": "le foyer, la tendresse, la protection, les racines",
+    "Lion": "le cœur, la création, la fierté, la générosité",
+    "Vierge": "le soin du détail, l'utile, la santé, le tri",
+    "Balance": "l'harmonie, le lien, l'esthétique, la justice",
+    "Scorpion": "l'intensité, l'intime, la vérité, la métamorphose",
+    "Sagittaire": "l'horizon, le sens, la liberté, l'enthousiasme",
+    "Capricorne": "l'ambition, la rigueur, la patience, la responsabilité",
+    "Verseau": "la liberté, le collectif, l'originalité, le futur",
+    "Poissons": "la sensibilité, le rêve, la compassion, le lâcher-prise"
+  }
+}

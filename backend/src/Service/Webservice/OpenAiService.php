@@ -25,6 +25,10 @@ class OpenAiService
     // LLM-as-judge for the evaluation engine. Must be stronger than the models
     // it grades. Adjust to the Sonnet id available on the account if needed.
     public const MODEL_JUDGE = 'claude-sonnet-4-5';
+    // Collective "Actu astro" prose — generated once per event (≈12/month), so a
+    // quality model is justified. Mood corpus is light → Haiku.
+    private const MODEL_ACTU = 'claude-sonnet-4-5';
+    private const MODEL_MOOD = 'claude-haiku-4-5-20251001';
 
     private string $model = self::MODEL_DEFAULT;
 
@@ -941,6 +945,113 @@ PROMPT;
             'title'    => $data['title'],
             'subtitle' => $data['subtitle'],
         ];
+    }
+
+    /**
+     * Collective "Actu astro" prose for ONE detected event (written once, cached).
+     *
+     * The brief is already fully interpreted by PHP (facts + grain angles). The
+     * model only turns it into prose — it never produces a date, sign or degree.
+     *
+     * @param array<string,mixed> $brief from ActuAstroService::buildEventBrief()
+     * @return array{success:bool, title?:string, body?:string, error?:string}
+     */
+    public function generateActuEventProse(array $brief, string $locale = 'fr'): array
+    {
+        $isEnglish = $locale === 'en';
+        $briefJson = json_encode($brief, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+        if ($isEnglish) {
+            $instructions = <<<INST
+You write the collective sky-news entry for an astrology app. The astronomy is
+ALREADY decided and given to you (date, sign, degree, planets): never invent or
+change any of it, never add another date/sign/degree. Your only job is grounded,
+warm, concrete prose for everyone (no "you", this is collective).
+
+Respond ONLY with valid JSON: {"title": "...", "body": "..."}
+- "title": 3–6 words, a magazine cover line about the FEELING/theme, not the mechanics.
+- "body": 2–3 short sentences. Say plainly what this event is about and what it invites,
+  using the provided angles. No aspect jargon, no fortune-telling, no toxic positivity.
+INST;
+        } else {
+            $instructions = <<<INST
+Tu rédiges l'entrée collective d'actu du ciel pour une app d'astrologie.
+L'astronomie est DÉJÀ décidée et te sera donnée (date, signe, degré, planètes) :
+ne l'invente jamais, ne la modifie jamais, n'ajoute aucune date/signe/degré.
+Ton seul travail : une prose ancrée, chaleureuse et concrète, pour tout le monde
+(pas de "tu", c'est collectif).
+
+Réponds UNIQUEMENT en JSON valide : {"title": "...", "body": "..."}
+- "title" : 3 à 6 mots, comme une couverture de magazine — ce que ça FAIT vivre, pas la mécanique.
+- "body" : 2 à 3 phrases courtes. Dis clairement de quoi parle cet événement et ce qu'il invite,
+  en t'appuyant sur les angles fournis. Pas de jargon d'aspect, pas de voyance, pas de positivité forcée.
+INST;
+        }
+
+        $prompt = ($isEnglish ? "Event brief (facts are fixed):\n" : "Brief de l'événement (les faits sont fixes) :\n") . $briefJson;
+
+        $result = $this->callResponsesApi($prompt, $instructions, 600, self::MODEL_ACTU, 'actu_event');
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $data = $this->parseJsonResponse($result['content']);
+        if (!$data || empty($data['title']) || empty($data['body'])) {
+            return ['success' => false, 'error' => 'Invalid actu event response from AI'];
+        }
+
+        return ['success' => true, 'title' => $data['title'], 'body' => $data['body']];
+    }
+
+    /**
+     * One "humeur du jour" paragraph for a Moon sign × phase (written once, cached).
+     * Deliberately light — a mood touch, never a prediction.
+     *
+     * @param array<string,mixed> $brief {moon_sign, phase_label, phase_meaning, tone}
+     * @return array{success:bool, text?:string, tone?:string, error?:string}
+     */
+    public function generateMoodParagraph(array $brief, string $locale = 'fr'): array
+    {
+        $isEnglish = $locale === 'en';
+        $briefJson = json_encode($brief, JSON_UNESCAPED_UNICODE);
+
+        if ($isEnglish) {
+            $instructions = <<<INST
+You write a tiny "mood of the day" note for an astrology app, based on the Moon's
+sign and phase (given). It is a LIGHT touch, never a prediction and never about a
+specific person's life. Collective, gentle, concrete.
+
+Respond ONLY with valid JSON: {"text": "...", "tone": "one word"}
+- "text": exactly 2 short sentences about the day's general mood/texture. No advice,
+  no astrology jargon, no planet/house names, no fortune-telling.
+- "tone": one lowercase word (e.g. light, calm, restless).
+INST;
+        } else {
+            $instructions = <<<INST
+Tu écris une toute petite note "humeur du jour" pour une app d'astrologie, à partir
+du signe et de la phase de la Lune (fournis). C'est une touche LÉGÈRE, jamais une
+prédiction, jamais la vie d'une personne précise. Collectif, doux, concret.
+
+Réponds UNIQUEMENT en JSON valide : {"text": "...", "tone": "un mot"}
+- "text" : exactement 2 phrases courtes sur l'humeur/la teinte générale du jour. Pas de conseil,
+  pas de jargon astro, pas de noms de planète/maison, pas de voyance.
+- "tone" : un seul mot en minuscule (ex. léger, calme, agité).
+INST;
+        }
+
+        $prompt = ($isEnglish ? "Mood brief:\n" : "Brief humeur :\n") . $briefJson;
+
+        $result = $this->callResponsesApi($prompt, $instructions, 300, self::MODEL_MOOD, 'mood_paragraph');
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $data = $this->parseJsonResponse($result['content']);
+        if (!$data || empty($data['text'])) {
+            return ['success' => false, 'error' => 'Invalid mood response from AI'];
+        }
+
+        return ['success' => true, 'text' => $data['text'], 'tone' => $data['tone'] ?? null];
     }
 
     /**

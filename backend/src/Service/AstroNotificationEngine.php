@@ -52,6 +52,7 @@ class AstroNotificationEngine
         private UserNotificationPreferencesRepository $prefsRepository,
         private NotificationLogRepository $logRepository,
         private AstrologyAnalysisService $astrologyAnalysisService,
+        private \App\Repository\AstroEventRepository $astroEventRepository,
         private EntityManagerInterface $entityManager,
         private LoggerInterface $logger,
     ) {}
@@ -165,16 +166,25 @@ class AstroNotificationEngine
 
     public function processSkyEvents(): void
     {
-        $events = $this->detectTodaySkyEvents();
-        if (empty($events)) {
+        // Source events from the precomputed, cached Actu astro feed (deterministic
+        // detection + collective prose already written). NO LLM at push time.
+        $tz    = new \DateTimeZone('UTC');
+        $from  = new \DateTimeImmutable('today', $tz);
+        $to    = new \DateTimeImmutable('tomorrow 23:59:59', $tz);
+        $rows  = $this->astroEventRepository->findBetween('fr', $from, $to);
+
+        $event = $this->selectMostSignificant($rows);
+        if ($event === null) {
             return;
         }
 
-        // Use the most significant event
-        $event = $events[0];
-        $triggerData = ['event' => $event['type'], 'date' => date('Y-m-d'), 'fingerprint' => md5(json_encode($event))];
+        $triggerData = [
+            'event'       => $event->getType(),
+            'date'        => date('Y-m-d'),
+            'fingerprint' => $event->getFingerprint(),
+        ];
 
-        $message = $this->generateSkyEventMessage($event);
+        $message = $this->buildEventPush($event);
         if (!$message) {
             return;
         }
@@ -200,7 +210,7 @@ class AstroNotificationEngine
 
             $this->expoPushService->send($tokens, $message['title'], $message['body'], [
                 'type'   => 'sky_event',
-                'screen' => 'horoscope',
+                'screen' => 'actu-astro',
             ]);
 
             $log = (new NotificationLog())
@@ -215,6 +225,77 @@ class AstroNotificationEngine
         }
 
         $this->entityManager->flush();
+    }
+
+    /** Priority order for picking the single push-worthy event of the day. */
+    private const EVENT_PRIORITY = [
+        'eclipse_solar'    => 100,
+        'eclipse_lunar'    => 95,
+        'lunation_full'    => 80,
+        'lunation_new'     => 75,
+        'retrograde_start' => 70,
+        'aspect'           => 50,
+        'ingression'       => 45,
+        'retrograde_end'   => 40,
+    ];
+
+    /** @param \App\Entity\AstroEvent[] $rows */
+    private function selectMostSignificant(array $rows): ?\App\Entity\AstroEvent
+    {
+        $best = null;
+        $bestScore = -1;
+        foreach ($rows as $e) {
+            $score = self::EVENT_PRIORITY[$e->getType()] ?? 10;
+            if ($score > $bestScore) {
+                $best = $e;
+                $bestScore = $score;
+            }
+        }
+        return $best;
+    }
+
+    /**
+     * Build a push title/body from a cached event — entirely deterministic, no LLM.
+     * @return array{title:string, body:string}|null
+     */
+    private function buildEventPush(\App\Entity\AstroEvent $e): ?array
+    {
+        $fr      = PlanetaryCalculator::PLANETS_FR;
+        $isToday = $e->getExactAt()->format('Y-m-d') === (new \DateTime())->format('Y-m-d');
+        $when    = $isToday ? "aujourd'hui" : 'demain';
+        $planet  = $e->getPlanet() ? ($fr[$e->getPlanet()] ?? $e->getPlanet()) : '';
+
+        $title = match ($e->getType()) {
+            'lunation_full'    => "🌕 Pleine lune en {$e->getSignFr()}",
+            'lunation_new'     => "🌑 Nouvelle lune en {$e->getSignFr()}",
+            'eclipse_solar'    => "🌑 Éclipse solaire en {$e->getSignFr()}",
+            'eclipse_lunar'    => "🌕 Éclipse lunaire en {$e->getSignFr()}",
+            'retrograde_start' => "{$planet} rétrograde",
+            'retrograde_end'   => "{$planet} redevient direct",
+            'ingression'       => "{$planet} entre en {$e->getSignFr()}",
+            'aspect'           => sprintf('%s %s %s', $planet, $this->aspectLabelFr($e->getAspectType()), $fr[$e->getPlanet2()] ?? $e->getPlanet2()),
+            default            => 'Actu du ciel',
+        };
+
+        // Body: prefer the cached collective headline; otherwise a light fallback.
+        $body = $e->getTitle() ?: "C'est {$when} — viens voir ce que ça raconte.";
+        if ($isToday && in_array($e->getType(), ['lunation_full', 'lunation_new', 'eclipse_solar', 'eclipse_lunar'], true)) {
+            $body = ($e->getTitle() ? $e->getTitle() . ' ' : '') . 'Temps fort ce soir.';
+        }
+
+        return ['title' => $title, 'body' => $body];
+    }
+
+    private function aspectLabelFr(?string $aspect): string
+    {
+        return match ($aspect) {
+            'conjunction' => 'conjoint à',
+            'sextile'     => 'sextile à',
+            'square'      => 'carré à',
+            'trine'       => 'trigone à',
+            'opposition'  => 'opposé à',
+            default       => 'en aspect avec',
+        };
     }
 
     // ─── Daily reminder ──────────────────────────────────────────────────────
