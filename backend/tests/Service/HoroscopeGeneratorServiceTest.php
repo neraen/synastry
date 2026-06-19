@@ -77,7 +77,7 @@ class HoroscopeGeneratorServiceTest extends TestCase
             ->willReturn($existing);
 
         // We shouldn't call OpenAI or save anything
-        $this->openAiService->expects($this->never())->method('generateDailyHoroscope');
+        $this->openAiService->expects($this->never())->method('generateDailyHoroscopeFactuel');
         $this->entityManager->expects($this->never())->method('persist');
 
         $result = $this->service->getDailyHoroscope($user, false);
@@ -123,7 +123,7 @@ class HoroscopeGeneratorServiceTest extends TestCase
 
         $promptEnvoye = null;
         $this->openAiService->expects($this->once())
-            ->method('generateDailyHoroscope')
+            ->method('generateDailyHoroscopeFactuel')
             ->willReturnCallback(function (string $prompt) use (&$promptEnvoye) {
                 $promptEnvoye = $prompt;
                 return [
@@ -150,16 +150,17 @@ class HoroscopeGeneratorServiceTest extends TestCase
         $this->assertEquals('Titre test', $result['horoscope']['title']);
         $this->assertFalse($result['horoscope']['cached']);
 
-        // The brief carries yesterday's text and the per-angle 'sens' key
+        // The factual brief carries yesterday's text and the main fact's keys
         $brief = json_decode($promptEnvoye, true);
         $this->assertSame('Titre hier', $brief['hier']['title'] ?? null);
         $this->assertSame('Overview hier', $brief['hier']['overview'] ?? null);
-        $this->assertArrayHasKey('sens', $brief['angle_principal']);
-        $this->assertContains($brief['angle_principal']['sens'], ['se_renforce', 'se_desserre', null]);
 
-        // tonalite/intensite let the LLM calibrate friction and volume
-        $this->assertContains($brief['angle_principal']['tonalite'] ?? null, ['flow', 'tension']);
-        $this->assertContains($brief['angle_principal']['intensite'] ?? null, ['forte', 'moyenne', 'legere']);
+        // The main fact drives the day: nature (support/tension), volume, dynamic
+        $principal = $brief['faits']['principal'];
+        $this->assertArrayHasKey('dynamique', $principal);
+        $this->assertContains($principal['dynamique'], ['se_renforce', 'se_desserre', null]);
+        $this->assertContains($principal['nature'] ?? null, ['soutien', 'tension']);
+        $this->assertContains($principal['intensite'] ?? null, ['forte', 'moyenne', 'legere']);
     }
 
     public function testGetUpcomingTransitsFailsIfNoBirthProfile()

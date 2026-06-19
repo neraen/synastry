@@ -419,8 +419,10 @@ PROMPT;
         $transits = $this->buildTransitsArray();
         $transitsDemain = $this->buildTransitsArray(1);
         $transitsLents = $this->buildTransitsArray(0, self::BACKDROP_PLANETS);
-        $principalMaison = null;
-        $brief = $this->genererBriefHoroscope($natal, $transits, $transitsDemain, $transitsLents, $this->formatDateFr(), $principalMaison);
+        $brief = $this->genererBriefFactuel($natal, $transits, $transitsDemain, $transitsLents, $this->formatDateFr());
+
+        // La maison du fait principal (sinon humeur du jour) pilote l'axe psy injecté.
+        $principalMaison = $brief['faits']['principal']['maison'] ?? ($brief['faits']['humeur_du_jour']['maison'] ?? null);
 
         // Anti-répétition : un aspect rapide reste en orbe 3-4 jours, deux jours
         // consécutifs partagent donc souvent le même brief. On envoie l'horoscope
@@ -445,18 +447,15 @@ PROMPT;
         // Diagnostic: log the exact brief sent to the LLM + which angles are null
         // (distinguishes a selection bug from a genuinely quiet day).
         $this->horoscopeLogger->info('horoscope.brief', [
-            'user_id'           => $user->getId(),
-            'date'              => $brief['date'] ?? null,
-            'angle_principal'   => $brief['angle_principal'],
-            'angle_relationnel' => $brief['angle_relationnel'],
-            'couleur_du_jour'   => $brief['couleur_du_jour'],
-            'toile_de_fond'     => $brief['toile_de_fond'],
-            'baseline'          => $brief['baseline'],
-            'null_flags'        => [
-                'angle_principal'   => $brief['angle_principal'] === null,
-                'angle_relationnel' => $brief['angle_relationnel'] === null,
-                'couleur_du_jour'   => $brief['couleur_du_jour'] === null,
-                'toile_de_fond'     => $brief['toile_de_fond'] === null,
+            'user_id'    => $user->getId(),
+            'date'       => $brief['date'] ?? null,
+            'faits'      => $brief['faits'],
+            'baseline'   => $brief['baseline'],
+            'null_flags' => [
+                'principal'      => ($brief['faits']['principal'] ?? null) === null,
+                'relationnel'    => ($brief['faits']['relationnel'] ?? null) === null,
+                'humeur_du_jour' => ($brief['faits']['humeur_du_jour'] ?? null) === null,
+                'toile_de_fond'  => ($brief['faits']['toile_de_fond'] ?? null) === null,
             ],
         ]);
 
@@ -464,7 +463,7 @@ PROMPT;
         $userPrompt = json_encode($brief, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         $this->openAiService->setCallContext('horoscope', 'DailyHoroscope', ($brief['date'] ?? (new \DateTimeImmutable())->format('Y-m-d')), $user);
         try {
-            $response = $this->openAiService->generateDailyHoroscope($userPrompt);
+            $response = $this->openAiService->generateDailyHoroscopeFactuel($userPrompt);
         } finally {
             $this->openAiService->clearCallContext();
         }
@@ -865,35 +864,6 @@ PROMPT;
     }
 
     /**
-     * Compose a brief section from a contact + the JSON table.
-     * $seed (date du jour) rend le choix de variante stable sur la journée
-     * mais différent d'un jour et d'un contact à l'autre.
-     */
-    private function composerBrief(?array $contact, array $table, string $seed = ''): ?array
-    {
-        if ($contact === null) return null;
-
-        $cell = $table['contacts'][$contact['transit']][$contact['cible']] ?? null;
-        if ($cell === null) return null;
-
-        if ($contact['aspect'] === 'conjonction') {
-            $flavorKey = in_array($contact['cible'], ['Saturne', 'Mars'], true) ? 'tension' : 'flow';
-        } else {
-            $regle = $table['regle_aspect'][$contact['aspect']] ?? 'flow';
-            $flavorKey = str_contains($regle, 'tension') ? 'tension' : 'flow';
-        }
-
-        return [
-            'theme'     => $cell['theme'],
-            'situation' => $this->choisirVariante($cell[$flavorKey], $seed . $contact['transit'] . $contact['cible']),
-            'domaine'   => $table['maisons'][(string) $contact['maison']] ?? null,
-            'tonalite'  => $flavorKey,
-            'intensite' => $this->intensiteContact($contact),
-            'sens'      => $contact['sens'] ?? null,
-        ];
-    }
-
-    /**
      * Detect the dominant slow-planet transit on a natal point: the "chapter"
      * the person is in (lasts weeks/months). Single best contact within the tight
      * backdrop orb, or null when no slow transit is genuinely active right now.
@@ -939,41 +909,6 @@ PROMPT;
     }
 
     /**
-     * Compose the toile_de_fond section from a slow contact + the JSON backdrop
-     * table. $seed is month-scoped (année-mois) so the phrasing stays stable
-     * across the chapter instead of flickering daily. Null if no cell exists for
-     * this pair — the day then runs purely on its fast trigger, as before.
-     */
-    private function composerBackdrop(?array $contact, array $table, string $seed): ?array
-    {
-        if ($contact === null) return null;
-
-        $cell = $table['backdrop'][$contact['transit']][$contact['cible']] ?? null;
-        if ($cell === null) return null;
-
-        if ($contact['aspect'] === 'conjonction') {
-            // Slow conjunctions lean tension when the mover or the target is heavy
-            // (Saturne/Pluton, or Saturne/Mars natal); otherwise the opening face.
-            $tension = in_array($contact['transit'], ['Saturne', 'Pluton'], true)
-                || in_array($contact['cible'], ['Saturne', 'Mars'], true);
-            $flavorKey = $tension ? 'tension' : 'flow';
-        } else {
-            $regle = $table['regle_aspect'][$contact['aspect']] ?? 'flow';
-            $flavorKey = str_contains($regle, 'tension') ? 'tension' : 'flow';
-        }
-        if (!isset($cell[$flavorKey])) {
-            $flavorKey = isset($cell['flow']) ? 'flow' : 'tension';
-        }
-
-        return [
-            'theme'     => $cell['theme'],
-            'situation' => $this->choisirVariante($cell[$flavorKey], $seed . $contact['transit'] . $contact['cible']),
-            'domaine'   => $table['maisons'][(string) $contact['maison']] ?? null,
-            'tonalite'  => $flavorKey,
-        ];
-    }
-
-    /**
      * Volume indication for the LLM. Score = poids aspect × orbFactor × cible
      * (max 1.30) : ≥0.75 only for tight major aspects, <0.40 for wide or
      * minor contacts that should stay a nuance, not an event.
@@ -987,70 +922,87 @@ PROMPT;
     }
 
     /**
-     * Deterministic pick among equivalent phrasings (the JSON table stores
-     * flow/tension as variant arrays). String accepted for backward compat.
+     * Voie du milieu — brief FACTUEL : au lieu de pré-mâcher l'interprétation via
+     * la table JSON, on remet au LLM les faits astro bruts (mouvement, cible
+     * natale, aspect, nature, domaine de vie, intensité, dynamique) déjà calculés
+     * et sélectionnés par PHP. Le LLM interprète lui-même. Aucun lookup de prose.
      */
-    private function choisirVariante(string|array $variantes, string $seed): string
+    private function genererBriefFactuel(array $natal, array $transits, array $transitsDemain, array $transitsLents, string $dateFr): array
     {
-        if (is_string($variantes)) {
-            return $variantes;
-        }
-        return $variantes[crc32($seed) % count($variantes)];
-    }
-
-    /**
-     * Orchestrate: natal + transits → deterministic brief for the LLM.
-     */
-    private function genererBriefHoroscope(array $natal, array $transits, array $transitsDemain, array $transitsLents, string $dateFr, ?int &$principalMaison = null): array
-    {
-        $table = $this->loadTransitsTable();
+        $table    = $this->loadTransitsTable(); // seulement pour le libellé du domaine (maisons)
         $contacts = $this->contactsScores($natal, $transits, $transitsDemain);
-        $angles = $this->selectionnerAngles($contacts, $natal);
+        $angles   = $this->selectionnerAngles($contacts, $natal);
+        $backdrop = $this->backdropDominant($natal, $transitsLents);
 
-        // House of the angle that actually drives the day (principal, else the
-        // Moon "couleur" used as fallback) — used to pick the psy axis to inject.
-        $principalMaison = $angles['principal']['maison'] ?? ($angles['couleur']['maison'] ?? null);
-
-        $seed = (new \DateTime('today'))->format('Y-m-d');
-        $briefPrincipal   = $this->composerBrief($angles['principal'], $table, $seed);
-        $briefRelationnel = $this->composerBrief($angles['relationnel'], $table, $seed);
-        $briefCouleur     = $this->composerBrief($angles['couleur'], $table, $seed);
-
-        // Toile de fond : le chapitre lent en cours. Seed au mois pour figer la
-        // formulation sur la période (sinon elle scintillerait chaque jour).
-        $seedFond = (new \DateTime('today'))->format('Y-m');
-        $toileDeFond = $this->composerBackdrop(
-            $this->backdropDominant($natal, $transitsLents),
-            $table,
-            $seedFond
-        );
-
-        // Fallbacks (§6): never send an empty brief
-        if ($briefPrincipal === null) {
-            $briefPrincipal = $briefCouleur;
-            if ($briefPrincipal === null) {
-                $briefPrincipal = [
-                    'theme'     => 'coloration de fond',
-                    'situation' => sprintf(
-                        'journée calme, la tonalité vient de sa sensibilité %s et de son apparence %s',
-                        $angles['baseline']['lune_signe'] ?? 'naturelle',
-                        $angles['baseline']['asc_signe'] ?? 'naturelle'
-                    ),
-                    'domaine'   => null,
-                    'tonalite'  => 'flow',
-                    'intensite' => 'legere',
-                    'sens'      => null,
-                ];
+        $fait = function (?array $c) use ($table): ?array {
+            if ($c === null) {
+                return null;
             }
+            $maison = $c['maison'] ?? null;
+
+            return [
+                'mouvement'    => $c['transit'],
+                'cible_natale' => $c['cible'],
+                'aspect'       => $c['aspect'],
+                'nature'       => $this->natureAspect($c['aspect'], $c['cible']),
+                'domaine'      => $maison !== null ? ($table['maisons'][(string) $maison] ?? null) : null,
+                'maison'       => $maison,
+                'intensite'    => $this->intensiteContact($c),
+                'dynamique'    => $c['sens'] ?? null,
+            ];
+        };
+
+        // Jour calme : aucun transit rapide hors Lune → l'humeur du jour (Lune)
+        // devient l'angle central. Garantit, comme l'ancien moteur, un principal
+        // jamais vide (la Lune touche presque toujours un point en un jour).
+        $principal = $fait($angles['principal']) ?? $fait($angles['couleur']);
+        if ($principal === null) {
+            $principal = [
+                'mouvement'    => null,
+                'cible_natale' => null,
+                'aspect'       => null,
+                'nature'       => 'soutien',
+                'domaine'      => null,
+                'maison'       => null,
+                'intensite'    => 'legere',
+                'dynamique'    => null,
+                'note'         => 'journée calme : aucun contact marquant, tonalité portée par la baseline',
+            ];
         }
 
         return [
-            'angle_principal'   => $briefPrincipal,
-            'angle_relationnel' => $briefRelationnel,
-            'couleur_du_jour'   => $briefCouleur,
-            'toile_de_fond'     => $toileDeFond,
-            'baseline'          => $angles['baseline'],
-            'date'              => $dateFr,
+            'date'  => $dateFr,
+            'faits' => [
+                'principal'      => $principal,
+                'relationnel'    => $fait($angles['relationnel']),
+                'humeur_du_jour' => $fait($angles['couleur']),
+                'toile_de_fond'  => $fait($backdrop),
+            ],
+            'baseline' => $angles['baseline'],
+        ];
+    }
+
+    /**
+     * Outil d'aperçu (tuning du prompt) : pour un thème natal donné, génère
+     * l'horoscope du jour via la voie du milieu (faits bruts → interprétation LLM),
+     * sans DB, sans cache, sans profil psy. Renvoie aussi les faits envoyés.
+     */
+    public function genererApercu(PlanetaryCalculator $natalCalc): array
+    {
+        $natal          = $this->buildNatalArray($natalCalc);
+        $transits       = $this->buildTransitsArray();
+        $transitsDemain = $this->buildTransitsArray(1);
+        $transitsLents  = $this->buildTransitsArray(0, self::BACKDROP_PLANETS);
+        $dateFr         = $this->formatDateFr();
+
+        $brief = $this->genererBriefFactuel($natal, $transits, $transitsDemain, $transitsLents, $dateFr);
+        $resp  = $this->openAiService->generateDailyHoroscopeFactuel(
+            json_encode($brief, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+        );
+
+        return [
+            'brief'     => $brief,
+            'horoscope' => $resp['success'] ? $resp['content'] : ['error' => $resp['error'] ?? 'échec'],
         ];
     }
 
