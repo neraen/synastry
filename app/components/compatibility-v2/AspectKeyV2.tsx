@@ -111,9 +111,9 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(229,90,140,0.06)',
         borderWidth: 1,
         borderColor: BORDER_HI,
-        paddingTop: 18,
-        paddingBottom: 18,
-        paddingHorizontal: 16,
+        paddingTop: 22,
+        paddingBottom: 20,
+        paddingHorizontal: 20,
         alignItems: 'center',
     },
     visual: {

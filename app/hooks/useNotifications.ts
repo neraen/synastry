@@ -109,9 +109,6 @@ function handleNotificationNavigation(
     if (!data?.screen) return;
 
     switch (data.screen) {
-        case 'actu-astro':
-            router.push('/(tabs)/actu-astro');
-            break;
         case 'transits':
             router.push('/(tabs)/transits');
             break;

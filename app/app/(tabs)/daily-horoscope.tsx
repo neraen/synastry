@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlassCard, GoldButton, GhostButton, TabHeader, NoBirthProfileCard, FeedbackThumbs, Starfield } from '@/components/ui';
@@ -30,22 +29,6 @@ function HoroscopeSection({ icon, label, content, color }: {
             </View>
             <Text selectable style={styles.sectionContent}>{content} </Text>
         </GlassCard>
-    );
-}
-
-// ─── Actu astro entry card (leads to the monthly sky feed) ──────────────────────
-function ActuAstroButton({ onPress }: { onPress: () => void }) {
-    return (
-        <Pressable style={styles.actuCard} onPress={onPress}>
-            <View style={styles.actuTile}>
-                <Feather name="compass" size={22} color={colors.primary} />
-            </View>
-            <View style={styles.actuMain}>
-                <Text style={styles.actuKicker}>ACTU ASTRO</Text>
-                <Text style={styles.actuTitle}>Les événements du ciel ce mois-ci</Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.onSurfaceMuted} />
-        </Pressable>
     );
 }
 
@@ -227,11 +210,6 @@ export default function DailyHoroscopeTab() {
                         <Text style={styles.disclaimerText}>{aiDisclaimerText}</Text>
                     </View>
 
-                    {/* Actu astro entry — bottom of the page */}
-                    <View style={[styles.sectionPad, { marginTop: spacing.xxl }]}>
-                        <ActuAstroButton onPress={() => router.push('/(tabs)/actu-astro')} />
-                    </View>
-
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
@@ -292,33 +270,6 @@ const styles = StyleSheet.create({
     },
 
     sectionPad: { paddingHorizontal: spacing.xl },
-
-    // Actu astro entry card
-    actuCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        padding: spacing.lg,
-        borderRadius: radius.xl,
-        backgroundColor: colors.surfaceLow,
-        borderWidth: 1,
-        borderColor: colors.glow.gold,
-        marginBottom: spacing.xl,
-    },
-    actuTile: {
-        width: 44, height: 44, borderRadius: radius.md,
-        alignItems: 'center', justifyContent: 'center',
-        backgroundColor: colors.glow.gold,
-    },
-    actuMain: { flex: 1, minWidth: 0 },
-    actuKicker: {
-        fontFamily: fonts.body.bold, fontSize: 10, letterSpacing: 1.8,
-        color: colors.primary, marginBottom: 3,
-    },
-    actuTitle: {
-        fontFamily: fonts.display.regular, fontSize: 17, lineHeight: 21,
-        color: colors.onSurface,
-    },
 
     // Horoscope sections
     sectionsContainer: {

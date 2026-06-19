@@ -8,7 +8,6 @@ import {
     Share,
     Platform,
     Dimensions,
-    Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop, Line as SvgLine } from 'react-native-svg';
@@ -200,15 +199,16 @@ export function ShareCardPageV2({ data }: PageProps) {
         }
     };
 
-    const tryDeepLink = async (url: string): Promise<boolean> => {
-        try {
-            const ok = await Linking.canOpenURL(url);
-            if (ok) {
-                await Linking.openURL(url);
-                return true;
-            }
-        } catch {}
-        return false;
+    // Titre du dialogue de partage par réseau — sert d'indice sur l'app à choisir
+    // dans la feuille système. Les plateformes interdisent de pré-remplir la légende :
+    // l'image porte déjà l'info (prénoms, score, tagline, lunestia.app) et on copie la
+    // légende dans le presse-papier pour que l'utilisateur la colle s'il le souhaite.
+    const SHARE_TITLES: Record<Exclude<Social, 'copy'>, string> = {
+        instagram: 'Partager sur Instagram',
+        tiktok: 'Partager sur TikTok',
+        twitter: 'Partager sur X',
+        whatsapp: 'Partager sur WhatsApp',
+        facebook: 'Partager sur Facebook',
     };
 
     const handleSocial = async (network: Social) => {
@@ -216,53 +216,18 @@ export function ShareCardPageV2({ data }: PageProps) {
         setBusy(true);
         try {
             if (network === 'copy') {
-                const uri = await captureCard();
                 await Clipboard.setStringAsync(shareText);
-                if (uri && Platform.OS === 'ios') {
-                    try {
-                        // Best-effort: also copy image bytes to clipboard on iOS
-                        // (expo-clipboard supports setImageAsync with base64)
-                        // Skipped here to keep the flow simple/reliable.
-                    } catch {}
-                }
                 flash('Texte copié dans le presse-papier');
                 return;
             }
 
-            if (network === 'whatsapp') {
-                const encoded = encodeURIComponent(shortText);
-                const opened = await tryDeepLink(`whatsapp://send?text=${encoded}`);
-                if (!opened) {
-                    const uri = await captureCard();
-                    if (uri) await shareImageViaSheet(uri, 'Partager sur WhatsApp');
-                    else flash('WhatsApp n’est pas installé');
-                }
-                return;
-            }
-
-            if (network === 'twitter') {
-                // Twitter / X web intent (works whether app is installed or not)
-                const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shortText)}`;
-                // Prefer native X app deep link first, fallback to web intent
-                const opened = await tryDeepLink(`twitter://post?message=${encodeURIComponent(shortText)}`);
-                if (!opened) await Linking.openURL(intent);
-                return;
-            }
-
-            // Instagram / TikTok / Facebook → image share via system sheet
-            // (these apps accept the image as a native share target and create a post/story)
+            // Tous les réseaux : on partage la CARTE IMAGE via la feuille native.
             const uri = await captureCard();
             if (!uri) return;
 
-            if (network === 'instagram') {
-                // iOS Instagram Stories deep link with pasteboard isn't supported via Expo's
-                // public APIs without a native module — system share sheet is the reliable path.
-                await shareImageViaSheet(uri, 'Partager sur Instagram');
-            } else if (network === 'tiktok') {
-                await shareImageViaSheet(uri, 'Partager sur TikTok');
-            } else if (network === 'facebook') {
-                await shareImageViaSheet(uri, 'Partager sur Facebook');
-            }
+            await Clipboard.setStringAsync(shortText);
+            await shareImageViaSheet(uri, SHARE_TITLES[network]);
+            flash('Légende copiée — colle-la dans ta publication');
         } catch (e: any) {
             flash('Le partage a échoué');
         } finally {
@@ -277,9 +242,8 @@ export function ShareCardPageV2({ data }: PageProps) {
     };
 
     const handleNativeShare = async () => {
-        try {
-            await Share.share({ message: shareText });
-        } catch {}
+        const uri = await captureCard();
+        if (uri) await shareImageViaSheet(uri, 'Partager la carte');
     };
 
     const formatBtns: { key: Format; label: string }[] = [
@@ -305,7 +269,7 @@ export function ShareCardPageV2({ data }: PageProps) {
                         </Pressable>
                     </View>
 
-                    <Text style={styles.subtitle}>Choisis un format, prévisualise et publie ta carte.</Text>
+                    <Text style={styles.subtitle}>Choisis un format — ta carte s'ouvre dans le menu de partage, la légende est copiée.</Text>
 
                     {/* Format tabs */}
                     <View style={styles.formatTabs}>

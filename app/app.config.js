@@ -60,8 +60,11 @@ export default {
       package: getUniqueIdentifier(),
       versionCode: 1,
       adaptiveIcon: {
-        backgroundColor: '#0A0A1A',
-        foregroundImage: './assets/images/lunestia-icon.png',
+        // Android masque le foreground : seul le centre ~66% est garanti visible.
+        // On utilise une variante « matelassée » (visuel réduit + marge) pour ne
+        // pas paraître zoomé, là où iOS garde l'icône plein cadre.
+        backgroundColor: '#0E0822',
+        foregroundImage: './assets/images/lunestia-adaptive-foreground.png',
       },
       edgeToEdgeEnabled: true,
       permissions: [

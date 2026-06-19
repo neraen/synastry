@@ -24,6 +24,8 @@ frontend/build/
 frontend/.env.local
 
 # Mobile App (Expo)
+# Feature désactivée pour le launch (Actu astro) — code isolé, réactivable plus tard
+app/_disabled/
 app/node_modules/
 app/.expo/
 app/dist/
