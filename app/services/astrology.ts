@@ -52,6 +52,8 @@ export interface NatalChartResponse {
     success: boolean;
     chart?: NatalChart;
     sunSignData?: SunSignData;
+    /** Cuspides Placidus des 12 maisons (index 0 = maison 1), pour la carte du ciel */
+    houseCusps?: number[] | null;
     cached?: boolean;
     error?: string;
 }

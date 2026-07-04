@@ -70,6 +70,7 @@ class AstrologyService
             return [
                 'success' => true,
                 'chart' => $existingChart->toArray(),
+                'houseCusps' => $this->computeHouseCusps($birthProfile),
                 'cached' => true,
             ];
         }
@@ -77,7 +78,8 @@ class AstrologyService
         // Calculate planetary positions using PlanetaryCalculator
         try {
             $calculator = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($birthProfile);
-            $positions = $calculator->getPlanetaryPositionsForApi();
+            $positions = $calculator->getWheelPositionsForApi();
+            $houseCusps = $calculator->getHouseCusps();
         } catch (\Exception $e) {
             return [
                 'success' => false,
@@ -98,8 +100,24 @@ class AstrologyService
         return [
             'success' => true,
             'chart' => $chart->toArray(),
+            'houseCusps' => $houseCusps,
             'cached' => false,
         ];
+    }
+
+    /**
+     * Cuspides Placidus pour un profil de naissance (pur calcul, jamais caché en BDD).
+     * Retourne null si le calcul échoue — la roue côté app retombe sur des maisons égales.
+     */
+    private function computeHouseCusps($birthProfile): ?array
+    {
+        try {
+            return $this->astrologyAnalysisService
+                ->createCalculatorFromBirthProfile($birthProfile)
+                ->getHouseCusps();
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     /**

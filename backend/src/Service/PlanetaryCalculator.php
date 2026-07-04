@@ -53,6 +53,8 @@ class PlanetaryCalculator
         'Pluto'   => '♇',
         'Ascendant' => 'ASC',
         'Midheaven' => 'MC',
+        'NorthNode' => '☊',
+        'Lilith'    => '⚸',
     ];
 
     const PLANETS_FR = [
@@ -68,6 +70,8 @@ class PlanetaryCalculator
         'Pluto'   => 'Pluton',
         'Ascendant' => 'Ascendant',
         'Midheaven' => 'Milieu du Ciel',
+        'NorthNode' => 'Nœud Nord',
+        'Lilith'    => 'Lilith',
     ];
 
     // Aspects majeurs [angle cible, orbe max, nom, symbole]
@@ -372,6 +376,41 @@ class PlanetaryCalculator
         ];
 
         return $result;
+    }
+
+    /**
+     * Positions pour la roue du thème natal : planètes + ASC + MC,
+     * enrichies du Nœud Nord (vrai) et de Lilith (Lune noire moyenne).
+     * Méthode distincte de getPlanetaryPositionsForApi() pour ne pas injecter
+     * ces points dans les pipelines horoscope/transits/synastrie.
+     */
+    public function getWheelPositionsForApi(): array
+    {
+        $result = $this->getPlanetaryPositionsForApi();
+
+        $northNode = $this->getNorthNode();
+        $result['NorthNode'] = [
+            'Position' => $northNode['longitude'],
+            'Sign' => $northNode['sign'],
+            'Retrograde' => 'No',
+        ];
+
+        $lilith = $this->getMeanLilith();
+        $result['Lilith'] = [
+            'Position' => $lilith['longitude'],
+            'Sign' => $lilith['sign'],
+            'Retrograde' => 'No',
+        ];
+
+        return $result;
+    }
+
+    /**
+     * Cuspides des 12 maisons (Placidus), index 0 = maison 1 (= ASC).
+     */
+    public function getHouseCusps(): array
+    {
+        return $this->houseCuspsCache ??= $this->calculateHouseCusps();
     }
 
     /**
@@ -927,6 +966,36 @@ PROMPT;
 
         return array_merge(
             $this->longitudeToSign($trueLon),
+            ['retrograde' => false]
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LILITH (Lune noire moyenne)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Retourne Lilith (Lune noire moyenne) = apogée lunaire moyen.
+     *
+     * Meeus donne la longitude moyenne du périgée lunaire (Eq. 47.7) ;
+     * l'apogée moyen — la Lune noire des astrologues — est à 180° du périgée.
+     * C'est la Lilith « moyenne », celle affichée par défaut sur astro.com.
+     */
+    public function getMeanLilith(): array
+    {
+        $T = $this->T;
+
+        // Longitude moyenne du périgée lunaire (Meeus)
+        $perigee = 83.3532465
+            + 4069.0137287 * $T
+            - 0.0103200    * $T * $T
+            - $T * $T * $T / 80053.0
+            + $T * $T * $T * $T / 18999000.0;
+
+        $lilith = $this->normDeg($perigee + 180.0);
+
+        return array_merge(
+            $this->longitudeToSign($lilith),
             ['retrograde' => false]
         );
     }

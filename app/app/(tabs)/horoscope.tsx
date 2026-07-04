@@ -124,6 +124,14 @@ export default function HoroscopeTab() {
                             <View style={styles.chipDot} />
                             <Text style={styles.chipText}>Portrait astral</Text>
                         </View>
+                        <Pressable
+                            style={styles.wheelBtn}
+                            onPress={() => router.push('/natal-chart-wheel')}
+                            accessibilityLabel="Carte du ciel"
+                            hitSlop={8}
+                        >
+                            <Feather name="compass" size={15} color={colors.primary} />
+                        </Pressable>
                         <Pressable onPress={() => setHelpVisible(true)} hitSlop={12}>
                             <Feather name="help-circle" size={16} color={colors.onSurfaceMuted} />
                         </Pressable>
@@ -231,6 +239,11 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surfaceContainerHigh,
     },
     chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+    wheelBtn: {
+        width: 28, height: 28, borderRadius: radius.full,
+        backgroundColor: colors.surfaceContainerHigh,
+        alignItems: 'center', justifyContent: 'center',
+    },
     chipText: {
         fontFamily: fonts.body.semiBold,
         fontSize: 10,
