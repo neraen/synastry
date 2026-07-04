@@ -17,6 +17,19 @@ const Pill = ({ children, borderColor }: { children: React.ReactNode; borderColo
     </View>
 );
 
+/** Badge planète pressable → ouvre la card de la planète. */
+const PlanetPill = ({
+    glyph, name, onPress,
+}: {
+    glyph: string;
+    name: string;
+    onPress: () => void;
+}) => (
+    <Pressable style={s.pill} onPress={onPress} hitSlop={4}>
+        <Text style={s.pillText}>{glyph} <Text style={s.pillStrong}>{name}</Text></Text>
+    </Pressable>
+);
+
 type Props = {
     model: WheelModel;
     selected: Selection;
@@ -137,7 +150,12 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                 <View style={s.pillRow}>
                     {planetsInSign.length > 0 ? (
                         planetsInSign.map((p) => (
-                            <Pill key={p.key}>{p.glyph} <Text style={s.pillStrong}>{p.name}</Text></Pill>
+                            <PlanetPill
+                                key={p.key}
+                                glyph={p.glyph}
+                                name={p.name}
+                                onPress={() => onSelect({ kind: 'planet', id: p.key })}
+                            />
                         ))
                     ) : (
                         <Pill>Aucune planète personnelle</Pill>
@@ -169,7 +187,12 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                 {planetsHere.length > 0 && (
                     <View style={s.pillRow}>
                         {planetsHere.map((p) => (
-                            <Pill key={p.key}>{p.glyph} <Text style={s.pillStrong}>{p.name}</Text></Pill>
+                            <PlanetPill
+                                key={p.key}
+                                glyph={p.glyph}
+                                name={p.name}
+                                onPress={() => onSelect({ kind: 'planet', id: p.key })}
+                            />
                         ))}
                     </View>
                 )}

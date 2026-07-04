@@ -123,7 +123,7 @@ export function houseOf(lon: number, cusps: number[]): number {
 }
 
 /** Anti-collision angulaire des glyphes planétaires (décalage glouton). */
-function spreadPlanets(entries: { key: string; lon: number }[], minSep = 7): Map<string, number> {
+function spreadPlanets(entries: { key: string; lon: number }[], minSep = 8): Map<string, number> {
     const sorted = [...entries].sort((a, b) => a.lon - b.lon);
     const adjusted = new Map<string, number>();
     sorted.forEach((e, k) => {
@@ -206,9 +206,9 @@ export function hitTest(
     const screenDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
     const lon = normDeg(180 + model.ascLon - screenDeg);
 
-    // 1. Glyphes planètes (cercles r=22 en viewBox, tolérance élargie)
+    // 1. Glyphes planètes (cercles r=25 en viewBox, tolérance élargie)
     let bestPlanet: WheelPlanet | null = null;
-    let bestDist = 34;
+    let bestDist = 42;
     for (const p of model.planets) {
         const c = polar(CHART.rPlanet, p.displayLon, model.ascLon);
         const d = Math.hypot(vx - c.x, vy - c.y);

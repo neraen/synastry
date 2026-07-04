@@ -236,7 +236,7 @@ export function NatalWheel({ model, selected }: NatalWheelProps) {
                                     stroke="rgba(229,194,102,0.35)" strokeWidth={0.8} strokeDasharray="2,2"
                                 />
                             )}
-                            <Circle cx={dispP.x} cy={dispP.y} r={22}
+                            <Circle cx={dispP.x} cy={dispP.y} r={25}
                                 fill={active ? 'rgba(229,194,102,0.95)' : 'rgba(31,23,64,0.92)'}
                                 stroke={active ? WHEEL_T.gold : 'rgba(229,194,102,0.65)'}
                                 strokeWidth={active ? 2 : 1.4}
@@ -245,7 +245,7 @@ export function NatalWheel({ model, selected }: NatalWheelProps) {
                                 x={dispP.x} y={dispP.y + 1}
                                 textAnchor="middle"
                                 alignmentBaseline="central"
-                                fontSize={22}
+                                fontSize={23}
                                 fill={active ? '#1A1233' : WHEEL_T.gold}
                             >{p.glyph}</SvgText>
                         </G>
