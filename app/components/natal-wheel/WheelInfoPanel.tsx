@@ -9,6 +9,8 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 import { fonts } from '@/theme';
 import { SIGNS, ASPECTS_DEF, ELEMENT_COLOR, WHEEL_T } from './astro-content';
+import { PLANET_IN_SIGN } from './planet-in-sign';
+import { PLANET_IN_HOUSE } from './planet-in-house';
 import { formatPos, lonToSign, type Selection, type WheelModel } from './wheel-model';
 
 const Pill = ({ children, borderColor }: { children: React.ReactNode; borderColor?: string }) => (
@@ -101,10 +103,12 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                 </View>
                 <Text style={s.body}>{p.desc}</Text>
                 <Text style={s.bodyDetail}>
-                    <Text style={s.bodyStrong}>En {p.sign.name} — </Text>{p.sign.desc}
+                    <Text style={s.bodyStrong}>En {p.sign.name} — </Text>
+                    {PLANET_IN_SIGN[p.key]?.[p.sign.id] ?? p.sign.desc}
                 </Text>
                 <Text style={s.bodyDetail}>
-                    <Text style={s.bodyStrong}>Maison {house.roman} — </Text>{house.desc}
+                    <Text style={s.bodyStrong}>Maison {house.roman} — </Text>
+                    {PLANET_IN_HOUSE[p.key]?.[p.houseNum] ?? house.desc}
                 </Text>
                 {myAspects.length > 0 && (
                     <View style={s.pillRow}>
