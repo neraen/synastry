@@ -17,6 +17,7 @@ import Svg, {
 
 import { fonts } from '@/theme';
 import { SIGNS, ELEMENT_COLOR, WHEEL_T } from './astro-content';
+import { WheelSignGlyph } from './sign-glyphs';
 import {
     CHART, polar, sectorPath, normDeg,
     type WheelModel, type Selection,
@@ -124,22 +125,21 @@ export function NatalWheel({ model, selected }: NatalWheelProps) {
             {/* Graduations */}
             <G>{ticks}</G>
 
-            {/* Glyphes des signes */}
+            {/* Glyphes des signes (tracés SVG Claude design) */}
             <G>
                 {SIGNS.map((s) => {
                     const mid = (s.range[0] + s.range[1]) / 2;
                     const p = pt((C.rOuter + C.rSignInner) / 2, mid);
                     const active = selKind === 'sign' && selId === s.id;
                     return (
-                        <SvgText
+                        <WheelSignGlyph
                             key={`${s.id}-g`}
-                            x={p.x} y={p.y}
-                            textAnchor="middle"
-                            alignmentBaseline="central"
-                            fontSize={34}
-                            fill={active ? WHEEL_T.gold : ELEMENT_COLOR[s.element]}
+                            id={s.id}
+                            cx={p.x} cy={p.y}
+                            size={36}
+                            color={active ? WHEEL_T.gold : ELEMENT_COLOR[s.element]}
                             opacity={active ? 1 : 0.92}
-                        >{s.glyph}</SvgText>
+                        />
                     );
                 })}
             </G>

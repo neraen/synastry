@@ -9,6 +9,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 import { fonts } from '@/theme';
 import { SIGNS, ASPECTS_DEF, ELEMENT_COLOR, WHEEL_T } from './astro-content';
+import { SignGlyphIcon } from './sign-glyphs';
 import { PLANET_IN_SIGN } from './planet-in-sign';
 import { PLANET_IN_HOUSE } from './planet-in-house';
 import { formatPos, lonToSign, type Selection, type WheelModel } from './wheel-model';
@@ -142,7 +143,7 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
             <View style={s.info}>
                 <View style={s.head}>
                     <View style={[s.glyphBox, s.glyphBoxNeutral]}>
-                        <Text style={[s.glyphTxt, { color: ELEMENT_COLOR[sg.element] }]}>{sg.glyph}</Text>
+                        <SignGlyphIcon id={sg.id} size={26} color={ELEMENT_COLOR[sg.element]} />
                     </View>
                     <View style={s.meta}>
                         <Text style={s.kicker}>Signe</Text>
