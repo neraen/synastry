@@ -53,9 +53,19 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                     Planètes, signes, maisons ou lignes d'aspect — touche pour voir le détail.
                 </Text>
                 <View style={s.pillRow}>
-                    {sun && <Pill>☉ Soleil — <Text style={s.pillStrong}>{sun.sign.name}</Text></Pill>}
-                    {moon && <Pill>☽ Lune — <Text style={s.pillStrong}>{moon.sign.name}</Text></Pill>}
-                    <Pill>ASC — <Text style={s.pillStrong}>{ascSign.name}</Text></Pill>
+                    {sun && (
+                        <Pressable style={s.pill} onPress={() => onSelect({ kind: 'planet', id: 'Sun' })}>
+                            <Text style={s.pillText}>☉ Soleil — <Text style={s.pillStrong}>{sun.sign.name}</Text></Text>
+                        </Pressable>
+                    )}
+                    {moon && (
+                        <Pressable style={s.pill} onPress={() => onSelect({ kind: 'planet', id: 'Moon' })}>
+                            <Text style={s.pillText}>☽ Lune — <Text style={s.pillStrong}>{moon.sign.name}</Text></Text>
+                        </Pressable>
+                    )}
+                    <Pressable style={s.pill} onPress={() => onSelect({ kind: 'planet', id: 'Ascendant' })}>
+                        <Text style={s.pillText}>AC — <Text style={s.pillStrong}>{ascSign.name}</Text></Text>
+                    </Pressable>
                 </View>
             </View>
         );
@@ -65,6 +75,7 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
     if (selected.kind === 'planet') {
         const p = model.planets.find((x) => x.key === selected.id);
         if (!p) return null;
+        const isAsc = p.key === 'Ascendant';
         const house = model.houses[p.houseNum - 1];
         const myAspects = p.isPoint
             ? []
@@ -74,12 +85,16 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
             <View style={s.info}>
                 <View style={s.head}>
                     <View style={s.glyphBox}>
-                        <Text style={[s.glyphTxt, { color: WHEEL_T.gold }]}>{p.glyph}</Text>
+                        <Text style={[s.glyphTxt, p.glyph.length > 1 && s.glyphTxtSmall, { color: WHEEL_T.gold }]}>
+                            {p.glyph}
+                        </Text>
                     </View>
                     <View style={s.meta}>
-                        <Text style={s.kicker}>{p.isPoint ? 'Point' : 'Planète'}</Text>
+                        <Text style={s.kicker}>{isAsc ? 'Angle' : p.isPoint ? 'Point' : 'Planète'}</Text>
                         <Text style={s.title}>{p.name}</Text>
-                        <Text style={s.sub}>{formatPos(p.lon)} · Maison {house.roman}</Text>
+                        <Text style={s.sub}>
+                            {formatPos(p.lon)} · {isAsc ? 'Pointe de la maison I' : `Maison ${house.roman}`}
+                        </Text>
                     </View>
                 </View>
                 <Text style={s.body}>{p.desc}</Text>
@@ -87,10 +102,12 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                     <Text style={s.bodyStrong}>En {p.sign.name} — </Text>
                     {PLANET_IN_SIGN[p.key]?.[p.sign.id] ?? p.sign.desc}
                 </Text>
-                <Text style={s.bodyDetail}>
-                    <Text style={s.bodyStrong}>Maison {house.roman} — </Text>
-                    {PLANET_IN_HOUSE[p.key]?.[p.houseNum] ?? house.desc}
-                </Text>
+                {!isAsc && (
+                    <Text style={s.bodyDetail}>
+                        <Text style={s.bodyStrong}>Maison {house.roman} — </Text>
+                        {PLANET_IN_HOUSE[p.key]?.[p.houseNum] ?? house.desc}
+                    </Text>
+                )}
                 {myAspects.length > 0 && (
                     <View style={s.pillRow}>
                         {myAspects.slice(0, 5).map((a) => {
@@ -239,6 +256,7 @@ const s = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.10)',
     },
     glyphTxt: { fontSize: 28, color: WHEEL_T.gold },
+    glyphTxtSmall: { fontSize: 19, fontFamily: fonts.body.bold },
     glyphRoman: { fontFamily: fonts.display.regular, fontSize: 24 },
     meta: { flex: 1, marginLeft: 14 },
     kicker: {

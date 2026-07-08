@@ -176,10 +176,10 @@ export function NatalWheel({ model, selected }: NatalWheelProps) {
                             x={p.x} y={p.y}
                             textAnchor="middle"
                             alignmentBaseline="central"
-                            fontSize={14}
+                            fontSize={17}
                             fontWeight="500"
                             fontFamily={fonts.display.regular}
-                            fill={active ? WHEEL_T.gold : 'rgba(189,178,212,0.65)'}
+                            fill={active ? WHEEL_T.gold : 'rgba(189,178,212,0.72)'}
                         >{h.roman}</SvgText>
                     );
                 })}
@@ -245,7 +245,9 @@ export function NatalWheel({ model, selected }: NatalWheelProps) {
                                 x={dispP.x} y={dispP.y + 1}
                                 textAnchor="middle"
                                 alignmentBaseline="central"
-                                fontSize={23}
+                                fontSize={p.glyph.length > 1 ? 15 : 23}
+                                fontWeight={p.glyph.length > 1 ? '700' : undefined}
+                                fontFamily={p.glyph.length > 1 ? fonts.body.semiBold : undefined}
                                 fill={active ? '#1A1233' : WHEEL_T.gold}
                             >{p.glyph}</SvgText>
                         </G>
