@@ -50,21 +50,21 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                 <Text style={s.kicker}>Explore</Text>
                 <Text style={s.title}>Touche un élément</Text>
                 <Text style={s.sub}>
-                    Planètes, signes, maisons ou lignes d'aspect — touche pour voir le détail.
+                    Planètes, signes, maisons ou lignes d'aspect : touche pour voir le détail.
                 </Text>
                 <View style={s.pillRow}>
                     {sun && (
                         <Pressable style={s.pill} onPress={() => onSelect({ kind: 'planet', id: 'Sun' })}>
-                            <Text style={s.pillText}>☉ Soleil — <Text style={s.pillStrong}>{sun.sign.name}</Text></Text>
+                            <Text style={s.pillText}>☉ Soleil · <Text style={s.pillStrong}>{sun.sign.name}</Text></Text>
                         </Pressable>
                     )}
                     {moon && (
                         <Pressable style={s.pill} onPress={() => onSelect({ kind: 'planet', id: 'Moon' })}>
-                            <Text style={s.pillText}>☽ Lune — <Text style={s.pillStrong}>{moon.sign.name}</Text></Text>
+                            <Text style={s.pillText}>☽ Lune · <Text style={s.pillStrong}>{moon.sign.name}</Text></Text>
                         </Pressable>
                     )}
                     <Pressable style={s.pill} onPress={() => onSelect({ kind: 'planet', id: 'Ascendant' })}>
-                        <Text style={s.pillText}>AC — <Text style={s.pillStrong}>{ascSign.name}</Text></Text>
+                        <Text style={s.pillText}>AC · <Text style={s.pillStrong}>{ascSign.name}</Text></Text>
                     </Pressable>
                 </View>
             </View>
@@ -99,12 +99,12 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                 </View>
                 <Text style={s.body}>{p.desc}</Text>
                 <Text style={s.bodyDetail}>
-                    <Text style={s.bodyStrong}>En {p.sign.name} — </Text>
+                    <Text style={s.bodyStrong}>En {p.sign.name} : </Text>
                     {PLANET_IN_SIGN[p.key]?.[p.sign.id] ?? p.sign.desc}
                 </Text>
                 {!isAsc && (
                     <Text style={s.bodyDetail}>
-                        <Text style={s.bodyStrong}>Maison {house.roman} — </Text>
+                        <Text style={s.bodyStrong}>Maison {house.roman} : </Text>
                         {PLANET_IN_HOUSE[p.key]?.[p.houseNum] ?? house.desc}
                     </Text>
                 )}
@@ -215,7 +215,7 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                     <View style={s.meta}>
                         <Text style={s.kicker}>Aspect</Text>
                         <Text style={s.title}>{def.name}</Text>
-                        <Text style={s.sub}>{a.aGlyph} {a.aName} — {a.bGlyph} {a.bName}</Text>
+                        <Text style={s.sub}>{a.aGlyph} {a.aName} · {a.bGlyph} {a.bName}</Text>
                     </View>
                 </View>
                 <Text style={s.body}>{def.desc}</Text>
