@@ -28,7 +28,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class PurchasesController extends AbstractController
 {
     private const RC_SUBSCRIBER_URL = 'https://api.revenuecat.com/v1/subscribers/%s';
-    private const ENTITLEMENT = 'premium';
 
     public function __construct(
         private PremiumService $premiumService,
@@ -73,18 +72,31 @@ class PurchasesController extends AbstractController
                 ]
             );
 
-            $status      = $response->getStatusCode();
-            $data        = $response->toArray(false);
-            $entitlement = $data['subscriber']['entitlements'][self::ENTITLEMENT] ?? null;
+            $status       = $response->getStatusCode();
+            $data         = $response->toArray(false);
+            $entitlements = $data['subscriber']['entitlements'] ?? [];
 
+            // The app sells a single premium entitlement, but its identifier in
+            // the RC dashboard is "Lunestia premium" (not "premium" as this code
+            // historically assumed) — so accept any active entitlement instead
+            // of coupling to the dashboard name.
             $expiresAt = null;
-            if ($entitlement) {
-                if (!empty($entitlement['expires_date'])) {
-                    $expiresAt = new \DateTime($entitlement['expires_date']);
-                }
+            foreach ($entitlements as $entitlement) {
+                $candidateExpiry = !empty($entitlement['expires_date'])
+                    ? new \DateTime($entitlement['expires_date'])
+                    : null;
                 // An entitlement is only *active* if it has no expiry (lifetime)
                 // or expires in the future. RC may still list a past entitlement.
-                $entitlementActive = ($expiresAt === null) || ($expiresAt > new \DateTime());
+                if ($candidateExpiry === null || $candidateExpiry > new \DateTime()) {
+                    $entitlementActive = true;
+                    // Keep the latest expiry (lifetime = null wins)
+                    if ($candidateExpiry === null || $expiresAt === null || $candidateExpiry > $expiresAt) {
+                        $expiresAt = $candidateExpiry;
+                    }
+                    if ($candidateExpiry === null) {
+                        break;
+                    }
+                }
             }
 
             if ($entitlementActive) {
@@ -99,7 +111,7 @@ class PurchasesController extends AbstractController
                 // could not validate the Apple receipt (App-Specific Shared Secret
                 // not set in the RC dashboard). Keep current DB value (webhook
                 // handles revocation) but log loudly so the cause is visible.
-                $this->logger->warning('[purchases.verify] no active "premium" entitlement at RevenueCat', [
+                $this->logger->warning('[purchases.verify] no active entitlement at RevenueCat', [
                     'appUserId'        => $appUserId,
                     'rcStatus'         => $status,
                     'entitlementKeys'  => array_keys($data['subscriber']['entitlements'] ?? []),

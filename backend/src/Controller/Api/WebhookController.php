@@ -94,15 +94,40 @@ class WebhookController extends AbstractController
             return $this->json(['error' => 'Missing app_user_id'], Response::HTTP_BAD_REQUEST);
         }
 
-        // A non-numeric app_user_id means the purchase was made while RevenueCat
-        // was still anonymous ($RCAnonymousID:…) and never aliased to the backend
-        // user — PremiumService.findUser() will fail to map it. Flag it clearly.
+        // A non-numeric app_user_id means the purchase was made while the SDK
+        // was anonymous ($RCAnonymousID:…). RC sends every known id of the
+        // subscriber in "aliases" (+ original_app_user_id) — if the anonymous
+        // profile was ever merged with a logged-in session, the backend user id
+        // is in there. Fall back to it instead of dropping the event.
         if (!is_numeric($appUserId)) {
-            $this->logger->warning('[webhook.revenuecat] non-numeric app_user_id — purchase not linked to a backend user', [
-                'type'      => $eventType,
-                'store'     => $store,
-                'appUserId' => $appUserId,
-            ]);
+            $candidates = array_merge(
+                $event['aliases'] ?? [],
+                [$event['original_app_user_id'] ?? ''],
+            );
+            $numericAlias = null;
+            foreach ($candidates as $candidate) {
+                if (is_numeric($candidate)) {
+                    $numericAlias = (string) $candidate;
+                    break;
+                }
+            }
+
+            if ($numericAlias !== null) {
+                $this->logger->info('[webhook.revenuecat] anonymous app_user_id mapped via aliases', [
+                    'type'      => $eventType,
+                    'store'     => $store,
+                    'appUserId' => $appUserId,
+                    'alias'     => $numericAlias,
+                ]);
+                $appUserId = $numericAlias;
+            } else {
+                $this->logger->warning('[webhook.revenuecat] non-numeric app_user_id — purchase not linked to a backend user', [
+                    'type'      => $eventType,
+                    'store'     => $store,
+                    'appUserId' => $appUserId,
+                    'aliases'   => $event['aliases'] ?? [],
+                ]);
+            }
         }
 
         // ── 3. Compute expiry date ─────────────────────────────────────────────

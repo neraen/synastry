@@ -261,5 +261,8 @@ export async function verifyPremiumWithBackend(): Promise<any> {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function isPremiumFromCustomerInfo(info: CustomerInfo): boolean {
-    return info.entitlements.active[PREMIUM_ENTITLEMENT] !== undefined;
+    if (info.entitlements.active[PREMIUM_ENTITLEMENT] !== undefined) return true;
+    // The RC dashboard entitlement is actually named "Lunestia premium" — the
+    // app sells a single entitlement, so any active one means premium.
+    return Object.keys(info.entitlements.active).length > 0;
 }

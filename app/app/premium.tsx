@@ -26,6 +26,7 @@ import { Starfield } from '@/components/ui/Starfield';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     getOffering,
+    identifyPurchasesUser,
     purchasePackage,
     restorePurchases,
     verifyPremiumWithBackend,
@@ -148,7 +149,7 @@ function MonthlyCard({ plan, selected, onSelect }: { plan: Plan; selected: boole
 export default function PremiumScreen() {
     const router = useRouter();
     const { t } = useTranslation();
-    const { refreshUser } = useAuth();
+    const { user, refreshUser } = useAuth();
     const [selectedPlan, setSelectedPlan] = useState<PlanId>('monthly');
     const [offering, setOffering] = useState<Offering | null>(null);
     const [purchasing, setPurchasing] = useState(false);
@@ -248,6 +249,11 @@ export default function PremiumScreen() {
 
         setPurchasing(true);
         try {
+            // Make sure the RC SDK is identified as the backend user before the
+            // purchase — an anonymous purchase can't be mapped by the webhook.
+            if (user?.id) {
+                await identifyPurchasesUser(String(user.id));
+            }
             const result = await purchasePackage(pkg);
             if (result.cancelled) return;
             if (result.success) {
@@ -295,11 +301,14 @@ export default function PremiumScreen() {
         } finally {
             setPurchasing(false);
         }
-    }, [selectedPlan, getPackageForPlan, refreshUser, router, t]);
+    }, [selectedPlan, getPackageForPlan, user?.id, refreshUser, router, t]);
 
     const handleRestore = useCallback(async () => {
         setRestoring(true);
         try {
+            if (user?.id) {
+                await identifyPurchasesUser(String(user.id));
+            }
             const result = await restorePurchases();
             if (result.isPremium) {
                 await verifyPremiumWithBackend();
@@ -330,7 +339,7 @@ export default function PremiumScreen() {
         } finally {
             setRestoring(false);
         }
-    }, [refreshUser, router, t]);
+    }, [user?.id, refreshUser, router, t]);
 
     return (
         <View style={styles.root}>

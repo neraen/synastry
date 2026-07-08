@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { ThemeProvider, Theme } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -45,10 +45,18 @@ configurePurchases();
 // ─── RevenueCat initializer ───────────────────────────────────────────────────
 function PurchasesInitializer() {
     const { user } = useAuth();
+    const wasIdentified = useRef(false);
     useEffect(() => {
         if (user?.id) {
+            wasIdentified.current = true;
             identifyPurchasesUser(String(user.id));
-        } else {
+        } else if (wasIdentified.current) {
+            // Only logOut on a real logout transition. On startup `user` is null
+            // while the session restores — calling logOut() then would switch
+            // the SDK to a fresh anonymous id and race the upcoming logIn, so a
+            // purchase could be attributed to $RCAnonymousID:… instead of the
+            // backend user id (webhook can't map it → premium never unlocked).
+            wasIdentified.current = false;
             resetPurchasesUser();
         }
     }, [user?.id]);
