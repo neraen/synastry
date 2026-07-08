@@ -15,6 +15,7 @@ import { GlassCard, GoldButton, GhostButton, TabHeader, HelpModal, NoBirthProfil
 import { FullPageLoader } from '@/components/loaders';
 import type { HelpSection } from '@/components/ui';
 import { AstralHero } from '@/components/astral/AstralHero';
+import { NatalWheelView, WHEEL_HELP } from '@/components/natal-wheel/NatalWheelView';
 import { getNatalChart, NatalChart } from '@/services/astrology';
 import { colors, spacing, radius, fonts } from '@/theme';
 
@@ -57,6 +58,10 @@ const HOROSCOPE_HELP = (fr: boolean): HelpSection[] => [{
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
+// Un seul essai de recalcul par session : un backend qui ne renvoie pas encore
+// Lilith/NorthNode redéclencherait sinon un refresh à chaque ouverture.
+let selfHealAttempted = false;
+
 export default function HoroscopeTab() {
     const router = useRouter();
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
@@ -64,7 +69,9 @@ export default function HoroscopeTab() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string>();
     const [chart, setChart] = useState<NatalChart | null>(null);
+    const [houseCusps, setHouseCusps] = useState<number[] | null>(null);
     const [helpVisible, setHelpVisible] = useState(false);
+    const [view, setView] = useState<'portrait' | 'wheel'>('portrait');
 
     useEffect(() => {
         if (isAuthLoading) return;
@@ -78,6 +85,7 @@ export default function HoroscopeTab() {
             const response = await getNatalChart(refresh);
             if (response.success && response.chart) {
                 setChart(response.chart);
+                setHouseCusps(response.houseCusps ?? null);
             } else {
                 setError(response.error || 'Erreur de chargement du thème natal');
             }
@@ -85,6 +93,24 @@ export default function HoroscopeTab() {
             setError(err instanceof Error ? err.message : 'Une erreur est survenue');
         } finally {
             setIsLoading(false);
+        }
+    }
+
+    // Bascule vers la carte du ciel + self-heal des anciens charts cachés en
+    // BDD (sans Lilith / Nœud Nord) : un seul recalcul, déclenché à la demande.
+    async function openWheel() {
+        setView('wheel');
+        if (chart && !chart.planetaryPositions?.NorthNode && !selfHealAttempted) {
+            selfHealAttempted = true;
+            try {
+                const res = await getNatalChart(true);
+                if (res.success && res.chart) {
+                    setChart(res.chart);
+                    setHouseCusps(res.houseCusps ?? null);
+                }
+            } catch {
+                // la roue s'affiche avec les points disponibles
+            }
         }
     }
 
@@ -118,32 +144,48 @@ export default function HoroscopeTab() {
                 >
                     <TabHeader />
 
-                    {/* ── Chip ────────────────────────────────────────────────── */}
+                    {/* ── Sélecteur de vue ────────────────────────────────────── */}
                     <View style={styles.chipRow}>
-                        <View style={styles.chip}>
-                            <View style={styles.chipDot} />
-                            <Text style={styles.chipText}>Portrait astral</Text>
-                        </View>
                         <Pressable
-                            style={styles.wheelBtn}
-                            onPress={() => router.push('/natal-chart-wheel')}
-                            accessibilityRole="button"
-                            accessibilityLabel="Ouvrir la carte du ciel"
-                            hitSlop={8}
+                            style={[styles.chip, view === 'portrait' ? styles.chipActive : styles.chipInactive]}
+                            onPress={() => setView('portrait')}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: view === 'portrait' }}
                         >
-                            <Feather name="compass" size={13} color={colors.primary} />
-                            <Text style={styles.wheelBtnText}>Carte du ciel</Text>
+                            <View style={[styles.chipDot, view !== 'portrait' && styles.chipDotDim]} />
+                            <Text style={[styles.chipText, view === 'portrait' && styles.chipTextActive]}>
+                                Portrait astral
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            style={[styles.chip, view === 'wheel' ? styles.chipActive : styles.chipInactive]}
+                            onPress={openWheel}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: view === 'wheel' }}
+                        >
+                            <Feather
+                                name="compass"
+                                size={13}
+                                color={view === 'wheel' ? colors.primary : colors.onSurfaceMuted}
+                            />
+                            <Text style={[styles.chipText, view === 'wheel' && styles.chipTextActive]}>
+                                Carte du ciel
+                            </Text>
                         </Pressable>
                         <Pressable onPress={() => setHelpVisible(true)} hitSlop={12}>
                             <Feather name="help-circle" size={16} color={colors.onSurfaceMuted} />
                         </Pressable>
                     </View>
 
-                    {/* ── Title ───────────────────────────────────────────────── */}
-                    <Text style={styles.title}>Votre Portrait Astral</Text>
-                    <Text style={styles.subtitle}>
-                        Vos positions planétaires au moment exact de votre naissance.
-                    </Text>
+                    {/* ── Title (portrait) ────────────────────────────────────── */}
+                    {view === 'portrait' && (
+                        <>
+                            <Text style={styles.title}>Votre Portrait Astral</Text>
+                            <Text style={styles.subtitle}>
+                                Vos positions planétaires au moment exact de votre naissance.
+                            </Text>
+                        </>
+                    )}
 
                     {/* ── Error ───────────────────────────────────────────────── */}
                     {error && (
@@ -158,12 +200,12 @@ export default function HoroscopeTab() {
                     )}
 
                     {/* ── Portrait astral ──────────────────────────────────────── */}
-                    {chart && (
+                    {view === 'portrait' && chart && (
                         <AstralHero positions={chart.planetaryPositions} outerPadding={20} gender={user?.birthProfile?.gender} />
                     )}
 
                     {/* ── Interpretation CTA ───────────────────────────────────── */}
-                    {chart && (
+                    {view === 'portrait' && chart && (
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>INTERPRÉTATION</Text>
                             <GlassCard opacity="low" radius="xl">
@@ -181,6 +223,11 @@ export default function HoroscopeTab() {
                         </View>
                     )}
 
+                    {/* ── Carte du ciel ────────────────────────────────────────── */}
+                    {view === 'wheel' && chart && (
+                        <NatalWheelView positions={chart.planetaryPositions} houseCusps={houseCusps} />
+                    )}
+
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
@@ -188,8 +235,10 @@ export default function HoroscopeTab() {
             <HelpModal
                 visible={helpVisible}
                 onClose={() => setHelpVisible(false)}
-                title={i18n.language === 'fr' ? 'Guide — Thème natal' : 'Guide — Natal Chart'}
-                sections={HOROSCOPE_HELP(i18n.language === 'fr')}
+                title={view === 'wheel'
+                    ? 'Guide — Carte du ciel'
+                    : i18n.language === 'fr' ? 'Guide — Thème natal' : 'Guide — Natal Chart'}
+                sections={view === 'wheel' ? WHEEL_HELP : HOROSCOPE_HELP(i18n.language === 'fr')}
             />
             <FullPageLoader visible={isAuthLoading || isLoading} variant="natal" />
         </View>
@@ -240,23 +289,11 @@ const styles = StyleSheet.create({
         borderRadius: radius.full,
         backgroundColor: colors.surfaceContainerHigh,
     },
+    chipActive: { backgroundColor: colors.surfaceContainerHigh },
+    chipInactive: { backgroundColor: 'transparent' },
     chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
-    wheelBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: spacing.md,
-        paddingVertical: 6,
-        borderRadius: radius.full,
-        backgroundColor: colors.surfaceContainerHigh,
-    },
-    wheelBtnText: {
-        fontFamily: fonts.body.semiBold,
-        fontSize: 10,
-        letterSpacing: 1.5,
-        color: colors.onSurface,
-        textTransform: 'uppercase',
-    },
+    chipDotDim: { backgroundColor: colors.onSurfaceMuted },
+    chipTextActive: { color: colors.onSurface },
     chipText: {
         fontFamily: fonts.body.semiBold,
         fontSize: 10,
