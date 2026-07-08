@@ -26,14 +26,47 @@ const TABS: { id: Category; label: string; color: string }[] = [
 type Props = {
     model: WheelModel;
     selected: Selection;
+    /** Sélection avec toggle (re-tap = retour à la card par défaut) — chips */
     onSelect: (s: Selection) => void;
+    /** Sélection directe, sans toggle — changement d'onglet */
+    onShow: (s: Selection) => void;
 };
 
-export function WheelExplorer({ model, selected, onSelect }: Props) {
+export function WheelExplorer({ model, selected, onSelect, onShow }: Props) {
     const [tab, setTab] = useState<Category | null>('planets');
 
     const selKind = selected?.kind;
     const selId = 'id' in selected ? selected.id : undefined;
+
+    /** Premier élément d'une catégorie → affiché dès le changement d'onglet. */
+    const firstSelection = (t: Category): Selection => {
+        switch (t) {
+            case 'planets':
+                return model.planets.length > 0
+                    ? { kind: 'planet', id: model.planets[0].key }
+                    : { kind: 'chart' };
+            case 'signs':
+                return { kind: 'sign', id: SIGNS[0].id };
+            case 'houses':
+                return { kind: 'house', id: 1 };
+            case 'aspects': {
+                const a = model.aspects[0];
+                return a
+                    ? { kind: 'aspect', id: `${a.a}-${a.b}`, aspect: a }
+                    : { kind: 'chart' };
+            }
+        }
+    };
+
+    const openTab = (t: Category) => {
+        if (tab === t) {
+            setTab(null);
+            onShow({ kind: 'chart' });
+            return;
+        }
+        setTab(t);
+        onShow(firstSelection(t));
+    };
 
     return (
         <View>
@@ -44,7 +77,7 @@ export function WheelExplorer({ model, selected, onSelect }: Props) {
                     return (
                         <Pressable
                             key={t.id}
-                            onPress={() => setTab(active ? null : t.id)}
+                            onPress={() => openTab(t.id)}
                             style={[s.leg, active && s.legActive]}
                             accessibilityRole="tab"
                             accessibilityState={{ selected: active }}

@@ -152,7 +152,7 @@ export function NatalWheelView({ positions, houseCusps }: Props) {
                 <Pressable style={StyleSheet.absoluteFill} onPress={handleWheelTap} />
             </View>
 
-            <WheelExplorer model={model} selected={selected} onSelect={handleSelect} />
+            <WheelExplorer model={model} selected={selected} onSelect={handleSelect} onShow={setSelected} />
 
             <WheelInfoPanel model={model} selected={selected} onSelect={setSelected} />
         </View>
