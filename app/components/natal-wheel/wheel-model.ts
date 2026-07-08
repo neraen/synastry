@@ -91,8 +91,7 @@ export type Selection =
     | { kind: 'sign'; id: string }
     | { kind: 'house'; id: number }
     | { kind: 'planet'; id: string }
-    | { kind: 'aspect'; id: string; aspect: WheelAspect }
-    | { kind: 'aspectType'; id: string };
+    | { kind: 'aspect'; id: string; aspect: WheelAspect };
 
 // ─── Helpers astro ─────────────────────────────────────────────────────────────
 

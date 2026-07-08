@@ -8,7 +8,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 import { fonts } from '@/theme';
-import { SIGNS, ASPECTS_DEF, ELEMENT_COLOR, WHEEL_T } from './astro-content';
+import { SIGNS, ELEMENT_COLOR, WHEEL_T } from './astro-content';
 import { SignGlyphIcon } from './sign-glyphs';
 import { PLANET_IN_SIGN } from './planet-in-sign';
 import { PLANET_IN_HOUSE } from './planet-in-house';
@@ -57,26 +57,6 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                     {moon && <Pill>☽ Lune — <Text style={s.pillStrong}>{moon.sign.name}</Text></Pill>}
                     <Pill>ASC — <Text style={s.pillStrong}>{ascSign.name}</Text></Pill>
                 </View>
-            </View>
-        );
-    }
-
-    /* Type d'aspect (tap sur la légende) */
-    if (selected.kind === 'aspectType') {
-        const def = ASPECTS_DEF.find((d) => d.id === selected.id)!;
-        return (
-            <View style={s.info}>
-                <View style={s.head}>
-                    <View style={[s.glyphBox, s.glyphBoxNeutral]}>
-                        <Text style={[s.glyphTxt, { color: def.color }]}>{def.glyph}</Text>
-                    </View>
-                    <View style={s.meta}>
-                        <Text style={s.kicker}>Type d'aspect</Text>
-                        <Text style={s.title}>{def.name}</Text>
-                        <Text style={s.sub}>Angle de {def.angle}° · Orbe ±{def.orb}°</Text>
-                    </View>
-                </View>
-                <Text style={s.body}>{def.desc}</Text>
             </View>
         );
     }

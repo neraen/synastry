@@ -15,7 +15,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { HelpSection } from '@/components/ui';
 import { NatalWheel } from './NatalWheel';
-import { WheelLegend } from './WheelLegend';
+import { WheelExplorer } from './WheelExplorer';
 import { WheelInfoPanel } from './WheelInfoPanel';
 import { WHEEL_T } from './astro-content';
 import { buildWheelModel, hitTest, type Selection } from './wheel-model';
@@ -152,7 +152,7 @@ export function NatalWheelView({ positions, houseCusps }: Props) {
                 <Pressable style={StyleSheet.absoluteFill} onPress={handleWheelTap} />
             </View>
 
-            <WheelLegend selected={selected} onSelect={handleSelect} />
+            <WheelExplorer model={model} selected={selected} onSelect={handleSelect} />
 
             <WheelInfoPanel model={model} selected={selected} onSelect={setSelected} />
         </View>
