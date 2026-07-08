@@ -6,7 +6,7 @@
  * ouvrent la même card que le tap sur la roue.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 import { fonts } from '@/theme';
@@ -37,6 +37,19 @@ export function WheelExplorer({ model, selected, onSelect, onShow }: Props) {
 
     const selKind = selected?.kind;
     const selId = 'id' in selected ? selected.id : undefined;
+
+    // Sélection venue de la roue (ou d'une card) → ouvre l'onglet correspondant
+    // pour que le chip actif soit visible. La sélection est l'état partagé ;
+    // seul l'onglet affiché doit suivre.
+    useEffect(() => {
+        switch (selKind) {
+            case 'planet': setTab('planets'); break;
+            case 'sign':   setTab('signs');   break;
+            case 'house':  setTab('houses');  break;
+            case 'aspect': setTab('aspects'); break;
+            // 'chart' (désélection) : on garde l'onglet en place
+        }
+    }, [selKind, selId]);
 
     /** Premier élément d'une catégorie → affiché dès le changement d'onglet. */
     const firstSelection = (t: Category): Selection => {
