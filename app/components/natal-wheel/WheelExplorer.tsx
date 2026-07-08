@@ -148,26 +148,34 @@ export function WheelExplorer({ model, selected, onSelect, onShow }: Props) {
             )}
 
             {tab === 'aspects' && (
-                <View style={s.chips}>
+                <View style={s.aspectList}>
                     {model.aspects.length > 0 ? (
-                        model.aspects.map((a) => {
-                            const id = `${a.a}-${a.b}`;
-                            const active = selKind === 'aspect' && selId === id;
-                            return (
-                                <Pressable
-                                    key={id}
-                                    style={[s.chip, { borderColor: a.def.color }, active && s.chipActive]}
-                                    onPress={() => onSelect({ kind: 'aspect', id, aspect: a })}
-                                >
-                                    <Text style={[s.chipGlyph, { color: a.def.color }]}>
-                                        {a.aGlyph} {a.def.glyph} {a.bGlyph}
-                                    </Text>
-                                    <Text style={[s.chipText, active && s.chipTextActive]}>
-                                        {a.aName} · {a.bName}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })
+                        [...model.aspects]
+                            .sort((x, y) => parseFloat(x.orbActual) - parseFloat(y.orbActual))
+                            .map((a) => {
+                                const id = `${a.a}-${a.b}`;
+                                const active = selKind === 'aspect' && selId === id;
+                                return (
+                                    <Pressable
+                                        key={id}
+                                        style={[s.aspectRow, active && s.aspectRowActive]}
+                                        onPress={() => onSelect({ kind: 'aspect', id, aspect: a })}
+                                    >
+                                        <View style={[s.aspectGlyphBox, { backgroundColor: `${a.def.color}1A` }]}>
+                                            <Text style={[s.aspectGlyph, { color: a.def.color }]}>{a.def.glyph}</Text>
+                                        </View>
+                                        <View style={s.aspectMeta}>
+                                            <Text style={[s.aspectTitle, active && s.aspectTitleActive]}>
+                                                {a.aGlyph} {a.aName}   {a.bGlyph} {a.bName}
+                                            </Text>
+                                            <Text style={s.aspectSub}>
+                                                {a.def.name} · orbe {a.orbActual}°
+                                            </Text>
+                                        </View>
+                                        <View style={[s.aspectBar, { backgroundColor: a.def.color }]} />
+                                    </Pressable>
+                                );
+                            })
                     ) : (
                         <View style={s.chip}>
                             <Text style={s.chipText}>Aucun aspect majeur</Text>
@@ -258,5 +266,52 @@ const s = StyleSheet.create({
     chipDot: {
         width: 5, height: 5, borderRadius: 3,
         backgroundColor: WHEEL_T.gold,
+    },
+
+    // Liste des aspects
+    aspectList: {
+        gap: 6,
+        marginBottom: 4,
+    },
+    aspectRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 9,
+        paddingHorizontal: 10,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1,
+        borderColor: WHEEL_T.border,
+    },
+    aspectRowActive: {
+        backgroundColor: 'rgba(229,194,102,0.08)',
+        borderColor: 'rgba(229,194,102,0.45)',
+    },
+    aspectGlyphBox: {
+        width: 34, height: 34, borderRadius: 10,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    aspectGlyph: {
+        fontSize: 16,
+    },
+    aspectMeta: { flex: 1 },
+    aspectTitle: {
+        fontSize: 12.5,
+        color: WHEEL_T.text2,
+        fontFamily: fonts.body.semiBold,
+    },
+    aspectTitleActive: {
+        color: WHEEL_T.text,
+    },
+    aspectSub: {
+        fontSize: 11,
+        color: WHEEL_T.text3,
+        fontFamily: fonts.body.regular,
+        marginTop: 2,
+    },
+    aspectBar: {
+        width: 3, height: 22, borderRadius: 2,
+        opacity: 0.85,
     },
 });
