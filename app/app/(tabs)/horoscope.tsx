@@ -127,10 +127,12 @@ export default function HoroscopeTab() {
                         <Pressable
                             style={styles.wheelBtn}
                             onPress={() => router.push('/natal-chart-wheel')}
-                            accessibilityLabel="Carte du ciel"
+                            accessibilityRole="button"
+                            accessibilityLabel="Ouvrir la carte du ciel"
                             hitSlop={8}
                         >
-                            <Feather name="compass" size={15} color={colors.primary} />
+                            <Feather name="compass" size={13} color={colors.primary} />
+                            <Text style={styles.wheelBtnText}>Carte du ciel</Text>
                         </Pressable>
                         <Pressable onPress={() => setHelpVisible(true)} hitSlop={12}>
                             <Feather name="help-circle" size={16} color={colors.onSurfaceMuted} />
@@ -240,9 +242,20 @@ const styles = StyleSheet.create({
     },
     chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
     wheelBtn: {
-        width: 28, height: 28, borderRadius: radius.full,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        borderRadius: radius.full,
         backgroundColor: colors.surfaceContainerHigh,
-        alignItems: 'center', justifyContent: 'center',
+    },
+    wheelBtnText: {
+        fontFamily: fonts.body.semiBold,
+        fontSize: 10,
+        letterSpacing: 1.5,
+        color: colors.onSurface,
+        textTransform: 'uppercase',
     },
     chipText: {
         fontFamily: fonts.body.semiBold,
