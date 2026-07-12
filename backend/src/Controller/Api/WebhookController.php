@@ -52,7 +52,7 @@ class WebhookController extends AbstractController
 
     public function __construct(
         private PremiumService $premiumService,
-        private LoggerInterface $logger,
+        private LoggerInterface $purchasesLogger,
         private string $webhookSecret = '',
     ) {
         $this->webhookSecret = $_ENV['REVENUECAT_WEBHOOK_SECRET'] ?? '';
@@ -84,7 +84,7 @@ class WebhookController extends AbstractController
         $expiryMs   = $event['expiration_at_ms'] ?? null;
         $store      = $event['store'] ?? null; // APP_STORE / PLAY_STORE
 
-        $this->logger->info('[webhook.revenuecat] event received', [
+        $this->purchasesLogger->info('[webhook.revenuecat] event received', [
             'type'      => $eventType,
             'store'     => $store,
             'appUserId' => $appUserId,
@@ -113,7 +113,7 @@ class WebhookController extends AbstractController
             }
 
             if ($numericAlias !== null) {
-                $this->logger->info('[webhook.revenuecat] anonymous app_user_id mapped via aliases', [
+                $this->purchasesLogger->info('[webhook.revenuecat] anonymous app_user_id mapped via aliases', [
                     'type'      => $eventType,
                     'store'     => $store,
                     'appUserId' => $appUserId,
@@ -121,7 +121,7 @@ class WebhookController extends AbstractController
                 ]);
                 $appUserId = $numericAlias;
             } else {
-                $this->logger->warning('[webhook.revenuecat] non-numeric app_user_id — purchase not linked to a backend user', [
+                $this->purchasesLogger->warning('[webhook.revenuecat] non-numeric app_user_id — purchase not linked to a backend user', [
                     'type'      => $eventType,
                     'store'     => $store,
                     'appUserId' => $appUserId,

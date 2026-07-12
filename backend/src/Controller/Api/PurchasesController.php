@@ -32,7 +32,7 @@ class PurchasesController extends AbstractController
     public function __construct(
         private PremiumService $premiumService,
         private HttpClientInterface $httpClient,
-        private LoggerInterface $logger,
+        private LoggerInterface $purchasesLogger,
     ) {}
 
     /**
@@ -101,7 +101,7 @@ class PurchasesController extends AbstractController
 
             if ($entitlementActive) {
                 $this->premiumService->activate($appUserId, $expiresAt);
-                $this->logger->info('[purchases.verify] entitlement active — premium activated', [
+                $this->purchasesLogger->info('[purchases.verify] entitlement active — premium activated', [
                     'appUserId'   => $appUserId,
                     'rcStatus'    => $status,
                     'expiresAt'   => $expiresAt?->format('c'),
@@ -111,7 +111,7 @@ class PurchasesController extends AbstractController
                 // could not validate the Apple receipt (App-Specific Shared Secret
                 // not set in the RC dashboard). Keep current DB value (webhook
                 // handles revocation) but log loudly so the cause is visible.
-                $this->logger->warning('[purchases.verify] no active entitlement at RevenueCat', [
+                $this->purchasesLogger->warning('[purchases.verify] no active entitlement at RevenueCat', [
                     'appUserId'        => $appUserId,
                     'rcStatus'         => $status,
                     'entitlementKeys'  => array_keys($data['subscriber']['entitlements'] ?? []),
@@ -121,7 +121,7 @@ class PurchasesController extends AbstractController
 
         } catch (\Throwable $e) {
             // RC call failed — do not change DB, just return current state
-            $this->logger->error('[purchases.verify] RC verification failed', [
+            $this->purchasesLogger->error('[purchases.verify] RC verification failed', [
                 'appUserId' => $appUserId,
                 'error'     => $e->getMessage(),
             ]);

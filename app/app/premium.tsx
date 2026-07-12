@@ -29,6 +29,7 @@ import {
     identifyPurchasesUser,
     purchasePackage,
     restorePurchases,
+    checkPremiumStatus,
     verifyPremiumWithBackend,
     isExpoGo,
     isConfigured,
@@ -222,6 +223,27 @@ export default function PremiumScreen() {
             : { price: '7,99 €', period: t('premium.planPeriodMonth') };
     }, [getPackageForPlan, t]);
 
+    const showSuccessAlert = useCallback((premiumUntil?: string | null) => {
+        const formattedDate = premiumUntil
+            ? new Date(premiumUntil).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+            : null;
+
+        const message = formattedDate
+            ? t('premium.successMessageWithDate', { date: formattedDate })
+            : t('premium.successMessageDefault');
+
+        Alert.alert(
+            t('premium.successTitle'),
+            message,
+            [
+                {
+                    text: t('common.done'),
+                    onPress: () => router.back()
+                }
+            ]
+        );
+    }, [router, t]);
+
     const handleStartPremium = useCallback(async () => {
         const pkg = getPackageForPlan(selectedPlan);
         if (!pkg) {
@@ -255,6 +277,21 @@ export default function PremiumScreen() {
                 await identifyPurchasesUser(String(user.id));
             }
             const result = await purchasePackage(pkg);
+
+            // The store can refuse a re-purchase ("vous êtes déjà abonné")
+            // while a valid subscription exists — typical after a reinstall or
+            // an account switch. If RevenueCat already sees an active
+            // entitlement, finish the activation instead of dead-ending on the
+            // store refusal.
+            if (!result.success && (await checkPremiumStatus())) {
+                await verifyPremiumWithBackend();
+                const freshUser = await refreshUser();
+                if (freshUser?.isPremium) {
+                    showSuccessAlert(freshUser.premiumUntil);
+                    return;
+                }
+            }
+
             if (result.cancelled) return;
             if (result.success) {
                 // Always verify with backend — on Google Play / Apple the local
@@ -276,32 +313,14 @@ export default function PremiumScreen() {
                     return;
                 }
 
-                const premiumUntil = freshUser?.premiumUntil;
-                const formattedDate = premiumUntil
-                    ? new Date(premiumUntil).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-                    : null;
-
-                const message = formattedDate
-                    ? t('premium.successMessageWithDate', { date: formattedDate })
-                    : t('premium.successMessageDefault');
-
-                Alert.alert(
-                    t('premium.successTitle'),
-                    message,
-                    [
-                        {
-                            text: t('common.done'),
-                            onPress: () => router.back()
-                        }
-                    ]
-                );
+                showSuccessAlert(freshUser.premiumUntil);
             } else if (result.error) {
                 Alert.alert(t('common.error'), result.error);
             }
         } finally {
             setPurchasing(false);
         }
-    }, [selectedPlan, getPackageForPlan, user?.id, refreshUser, router, t]);
+    }, [selectedPlan, getPackageForPlan, user?.id, refreshUser, showSuccessAlert, t]);
 
     const handleRestore = useCallback(async () => {
         setRestoring(true);
