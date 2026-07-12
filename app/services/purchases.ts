@@ -23,7 +23,7 @@
 
 import { Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { api } from './api';
+import { authenticatedRequest } from './sessionManager';
 
 // Lazy import to prevent native module crash if billing is unavailable
 let Purchases: typeof import('react-native-purchases').default | null = null;
@@ -251,7 +251,10 @@ export async function checkPremiumStatus(): Promise<boolean> {
 
 export async function verifyPremiumWithBackend(): Promise<any> {
     try {
-        return await api.post('/api/purchases/verify', {});
+        // authenticatedRequest (PAS api.post) : ce endpoint exige le JWT.
+        // L'appel partait sans Authorization → 401 silencieux → le premium
+        // n'était jamais activé côté backend malgré un achat/restore valide.
+        return await authenticatedRequest('POST', '/api/purchases/verify', {});
     } catch (e) {
         console.warn('[Purchases] verifyPremiumWithBackend failed:', e);
         return null;
