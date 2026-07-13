@@ -11,6 +11,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 import { fonts } from '@/theme';
 import { SIGNS, ELEMENT_COLOR, WHEEL_T } from './astro-content';
+import { aspectPairText } from './aspect-pairs';
 import { SignGlyphIcon } from './sign-glyphs';
 import type { Selection, WheelModel } from './wheel-model';
 
@@ -174,18 +175,25 @@ export function WheelExplorer({ model, selected, onSelect, onShow }: Props) {
                                         style={[s.aspectRow, active && s.aspectRowActive]}
                                         onPress={() => onSelect({ kind: 'aspect', id, aspect: a })}
                                     >
-                                        <View style={[s.aspectGlyphBox, { backgroundColor: `${a.def.color}1A` }]}>
-                                            <Text style={[s.aspectGlyph, { color: a.def.color }]}>{a.def.glyph}</Text>
+                                        <View style={s.aspectHead}>
+                                            <View style={[s.aspectGlyphBox, { backgroundColor: `${a.def.color}1A` }]}>
+                                                <Text style={[s.aspectGlyph, { color: a.def.color }]}>{a.def.glyph}</Text>
+                                            </View>
+                                            <View style={s.aspectMeta}>
+                                                <Text style={[s.aspectTitle, active && s.aspectTitleActive]}>
+                                                    {a.aGlyph} {a.aName}   {a.bGlyph} {a.bName}
+                                                </Text>
+                                                <Text style={s.aspectSub}>
+                                                    {a.def.name} · orbe {a.orbActual}°
+                                                </Text>
+                                            </View>
+                                            <View style={[s.aspectBar, { backgroundColor: a.def.color }]} />
                                         </View>
-                                        <View style={s.aspectMeta}>
-                                            <Text style={[s.aspectTitle, active && s.aspectTitleActive]}>
-                                                {a.aGlyph} {a.aName}   {a.bGlyph} {a.bName}
+                                        {active && (
+                                            <Text style={s.aspectDesc}>
+                                                {aspectPairText(a.a, a.b, a.def.id) ?? a.def.desc}
                                             </Text>
-                                            <Text style={s.aspectSub}>
-                                                {a.def.name} · orbe {a.orbActual}°
-                                            </Text>
-                                        </View>
-                                        <View style={[s.aspectBar, { backgroundColor: a.def.color }]} />
+                                        )}
                                     </Pressable>
                                 );
                             })
@@ -287,15 +295,17 @@ const s = StyleSheet.create({
         marginBottom: 4,
     },
     aspectRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
         paddingVertical: 9,
         paddingHorizontal: 10,
         borderRadius: 14,
         backgroundColor: 'rgba(255,255,255,0.03)',
         borderWidth: 1,
         borderColor: WHEEL_T.border,
+    },
+    aspectHead: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     aspectRowActive: {
         backgroundColor: 'rgba(229,194,102,0.08)',
@@ -326,5 +336,12 @@ const s = StyleSheet.create({
     aspectBar: {
         width: 3, height: 22, borderRadius: 2,
         opacity: 0.85,
+    },
+    aspectDesc: {
+        marginTop: 10,
+        fontSize: 13,
+        lineHeight: 20,
+        color: WHEEL_T.text2,
+        fontFamily: fonts.body.regular,
     },
 });

@@ -111,7 +111,7 @@ export function configurePurchases(): void {
     }
 
     try {
-        if (LOG_LEVEL) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        if (LOG_LEVEL) Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.WARN);
         Purchases.configure({ apiKey });
         configured = true;
         console.log('[Purchases] RevenueCat configured successfully.');

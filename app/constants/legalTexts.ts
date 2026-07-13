@@ -1,6 +1,6 @@
 /**
  * Legal Texts Constants
- * GDPR compliant legal content for AstroMatch
+ * GDPR compliant legal content for Lunestia
  */
 
 const TODAY_DATE = '13 juin 2026';
@@ -11,7 +11,7 @@ export const privacyPolicyText = {
     sections: [
         {
             title: 'Introduction',
-            content: `AstroMatch respecte la vie privée de ses utilisateurs et s'engage à protéger les données personnelles collectées via l'application.`,
+            content: `Lunestia respecte la vie privée de ses utilisateurs et s'engage à protéger les données personnelles collectées via l'application.`,
         },
         {
             title: '1. Données collectées',
@@ -48,7 +48,7 @@ Les données nécessaires à ces analyses peuvent être traitées par des presta
             title: '4. Partage des données',
             content: `Les données personnelles ne sont jamais vendues.
 
-Certaines données peuvent être traitées par des prestataires techniques nécessaires au fonctionnement de l'application (hébergement, analytics, services IA).`,
+Certaines données peuvent être traitées par des prestataires techniques nécessaires au fonctionnement de l'application (hébergement, services d'intelligence artificielle).`,
         },
         {
             title: '5. Conservation des données',

@@ -1,6 +1,7 @@
 /**
  * Carte du ciel — card explicative sous la roue.
- * Contenu statique FR composé : planète + signe + maison ; aspect = type + paire.
+ * Contenu statique FR composé : planète + signe + maison. Les aspects sont
+ * décrits directement dans leur card de la liste (WheelExplorer).
  * Les chips d'aspects de la card planète sont pressables (→ sélectionne l'aspect).
  */
 
@@ -202,31 +203,8 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
         );
     }
 
-    /* Aspect (une paire précise) */
-    if (selected.kind === 'aspect') {
-        const a = selected.aspect;
-        const def = a.def;
-        return (
-            <View style={s.info}>
-                <View style={s.head}>
-                    <View style={[s.glyphBox, s.glyphBoxNeutral]}>
-                        <Text style={[s.glyphTxt, { color: def.color }]}>{def.glyph}</Text>
-                    </View>
-                    <View style={s.meta}>
-                        <Text style={s.kicker}>Aspect</Text>
-                        <Text style={s.title}>{def.name}</Text>
-                        <Text style={s.sub}>{a.aGlyph} {a.aName} · {a.bGlyph} {a.bName}</Text>
-                    </View>
-                </View>
-                <Text style={s.body}>{def.desc}</Text>
-                <View style={s.pillRow}>
-                    <Pill>Angle <Text style={s.pillStrong}>{def.angle}°</Text></Pill>
-                    <Pill>Orbe <Text style={s.pillStrong}>{a.orbActual}°</Text></Pill>
-                </View>
-            </View>
-        );
-    }
-
+    /* Aspect : la description s'affiche dans la card dépliée de la liste
+       (WheelExplorer), pas de panneau en bas. */
     return null;
 }
 

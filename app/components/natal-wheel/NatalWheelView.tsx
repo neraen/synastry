@@ -17,7 +17,7 @@ import type { HelpSection } from '@/components/ui';
 import { NatalWheel } from './NatalWheel';
 import { WheelExplorer } from './WheelExplorer';
 import { WheelInfoPanel } from './WheelInfoPanel';
-import { WHEEL_T } from './astro-content';
+import { WHEEL_T, ASPECTS_DEF } from './astro-content';
 import { buildWheelModel, hitTest, type Selection } from './wheel-model';
 import type { PlanetPosition } from '@/services/astrology';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,6 +55,15 @@ export const WHEEL_HELP: HelpSection[] = [{
             description: "Deux points sensibles du thème : Lilith, la part d'ombre instinctive, et le Nœud Nord, la direction d'évolution de votre vie.",
         },
     ],
+}, {
+    key: 'aspect-types',
+    title: 'Les cinq aspects majeurs',
+    items: ASPECTS_DEF.map((d) => ({
+        symbol: d.glyph,
+        symbolColor: d.color,
+        name: `${d.name} · ${d.angle}°`,
+        description: d.desc,
+    })),
 }];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
