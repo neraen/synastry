@@ -17,6 +17,14 @@ export interface BirthProfileData {
     gender?: 'female' | 'male' | null;
     birthDate: string;
     birthTime?: string;
+    /**
+     * Where the birth time comes from. 'rectified' means it was inferred by the
+     * rectification engine and must always be shown with its margin; null or
+     * absent means the user declared it.
+     */
+    birthTimeSource?: 'declared' | 'rectified' | null;
+    /** Half-width of the credible interval, in minutes, for a rectified time. */
+    birthTimeUncertaintyMinutes?: number | null;
     birthCity: string;
     birthCountry?: string;
     latitude: number;

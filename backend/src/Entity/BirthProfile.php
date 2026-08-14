@@ -34,6 +34,29 @@ class BirthProfile
     #[ORM\Column(type: Types::TIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $birthTime = null;
 
+    /**
+     * Where the birth time comes from: 'declared' (the user typed it) or
+     * 'rectified' (inferred by the rectification engine).
+     *
+     * NULL means declared, so existing profiles keep their meaning without a
+     * backfill. The distinction has to survive in the data, not just in the UI:
+     * an inferred time must never be displayed as if it were read off a birth
+     * certificate.
+     */
+    #[ORM\Column(length: 20, nullable: true)]
+    #[Assert\Choice(choices: ['declared', 'rectified'], message: 'Invalid birth time source')]
+    private ?string $birthTimeSource = null;
+
+    /**
+     * Half-width of the credible interval, in minutes, for a rectified time.
+     *
+     * Stored alongside the time itself so that no consumer can obtain one
+     * without the other — the "±25 min" badge of spec §9.5 is a property of the
+     * data, not a decoration the UI may forget to add.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $birthTimeUncertaintyMinutes = null;
+
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: 'Birth city is required')]
     private ?string $birthCity = null;
@@ -123,10 +146,51 @@ class BirthProfile
         return $this->birthTime;
     }
 
+    /**
+     * Set a birth time the user knows and typed in.
+     *
+     * Always clears the rectification marker: a declared time supersedes an
+     * inferred one, and leaving a stale uncertainty behind would keep showing
+     * an "heure estimée" badge next to a time the user is certain of.
+     */
     public function setBirthTime(?\DateTimeInterface $birthTime): static
     {
-        $this->birthTime = $birthTime;
+        $this->birthTime                   = $birthTime;
+        $this->birthTimeSource             = $birthTime === null ? null : 'declared';
+        $this->birthTimeUncertaintyMinutes = null;
+
         return $this;
+    }
+
+    /**
+     * Adopt a time produced by the rectification engine (spec §9.5).
+     *
+     * Separate from {@see setBirthTime()} on purpose — the uncertainty is a
+     * required argument, so it is impossible to record a rectified time without
+     * recording how uncertain it is.
+     */
+    public function adoptRectifiedTime(\DateTimeInterface $birthTime, int $uncertaintyMinutes): static
+    {
+        $this->birthTime                   = $birthTime;
+        $this->birthTimeSource             = 'rectified';
+        $this->birthTimeUncertaintyMinutes = $uncertaintyMinutes;
+
+        return $this;
+    }
+
+    public function getBirthTimeSource(): ?string
+    {
+        return $this->birthTimeSource;
+    }
+
+    public function getBirthTimeUncertaintyMinutes(): ?int
+    {
+        return $this->birthTimeUncertaintyMinutes;
+    }
+
+    public function isBirthTimeRectified(): bool
+    {
+        return $this->birthTimeSource === 'rectified';
     }
 
     public function getBirthCity(): ?string
@@ -234,6 +298,10 @@ class BirthProfile
             'gender' => $this->gender,
             'birthDate' => $this->birthDate?->format('Y-m-d'),
             'birthTime' => $this->birthTime?->format('H:i'),
+            // Always shipped together: any screen showing the Ascendant or the
+            // houses needs the "heure estimée ±X min" badge (spec §9.5).
+            'birthTimeSource' => $this->birthTimeSource,
+            'birthTimeUncertaintyMinutes' => $this->birthTimeUncertaintyMinutes,
             'birthCity' => $this->birthCity,
             'birthCountry' => $this->birthCountry,
             'latitude' => $this->latitude ? (float) $this->latitude : null,
