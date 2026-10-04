@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     lockOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: spacing.xl,

@@ -108,7 +108,7 @@ export function LoaderSaturn({ size = 180, label = 'Lecture du ciel…' }: Loade
 
         {/* Aura */}
         <Animated.View
-          style={[StyleSheet.absoluteFillObject, styles.auraContainer, auraStyle]}
+          style={[StyleSheet.absoluteFill, styles.auraContainer, auraStyle]}
           pointerEvents="none"
         >
           <Svg width={size * 0.8} height={size * 0.8} viewBox="0 0 100 100">

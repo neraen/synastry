@@ -97,7 +97,7 @@ export function LoaderOrbitTrio({ size = 180, label = 'Calcul des transits…' }
 
         {/* Aura — radial gradient gold→violet, breathes at 4.5s */}
         <Animated.View
-          style={[StyleSheet.absoluteFillObject, styles.auraContainer, auraStyle]}
+          style={[StyleSheet.absoluteFill, styles.auraContainer, auraStyle]}
           pointerEvents="none"
         >
           <Svg width={size * 0.8} height={size * 0.8} viewBox="0 0 100 100">
@@ -114,7 +114,7 @@ export function LoaderOrbitTrio({ size = 180, label = 'Calcul des transits…' }
 
         {/* Orbit paths — three concentric faint circles */}
         <Svg
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
@@ -128,7 +128,7 @@ export function LoaderOrbitTrio({ size = 180, label = 'Calcul des transits…' }
         <MicroStars seed={11} size={size} />
 
         {/* Orbit 1 — gold planet, 9px, 3.4s, forward */}
-        <Animated.View style={[StyleSheet.absoluteFillObject, orbit1Style]}>
+        <Animated.View style={[StyleSheet.absoluteFill, orbit1Style]}>
           <View
             style={[
               styles.planet,
@@ -149,7 +149,7 @@ export function LoaderOrbitTrio({ size = 180, label = 'Calcul des transits…' }
         </Animated.View>
 
         {/* Orbit 2 — violet planet, 7px, 5.6s, reverse */}
-        <Animated.View style={[StyleSheet.absoluteFillObject, orbit2Style]}>
+        <Animated.View style={[StyleSheet.absoluteFill, orbit2Style]}>
           <View
             style={[
               styles.planet,
@@ -170,7 +170,7 @@ export function LoaderOrbitTrio({ size = 180, label = 'Calcul des transits…' }
         </Animated.View>
 
         {/* Orbit 3 — white planet, 5px, 8.2s, forward */}
-        <Animated.View style={[StyleSheet.absoluteFillObject, orbit3Style]}>
+        <Animated.View style={[StyleSheet.absoluteFill, orbit3Style]}>
           <View
             style={[
               styles.planet,

@@ -75,7 +75,7 @@ export function MicroStars({ count = 14, seed = 1, size }: MicroStarsProps) {
 
   return (
     <Svg
-      style={StyleSheet.absoluteFillObject}
+      style={StyleSheet.absoluteFill}
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}

@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
         elevation: 12,
     },
     pillOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: 'rgba(47, 36, 68, 0.75)',
     },
     tab: {

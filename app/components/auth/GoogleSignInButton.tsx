@@ -101,7 +101,7 @@ function GoogleSignInButtonImpl({
             const { id_token } = response.params;
             handleGoogleToken(id_token);
         } else if (response?.type === 'error') {
-            const errorMessage = response.error?.message || 'Google sign-in failed';
+            const errorMessage = response.error?.description || 'Google sign-in failed';
             setError(errorMessage);
             onError?.(errorMessage);
             setIsLoading(false);

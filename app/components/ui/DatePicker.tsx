@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     // ── Modal layout ──
     // Backdrop fills the full screen behind the sheet
     backdrop: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: 'rgba(0,0,0,0.6)',
     },
     // Sheet is positioned at the bottom, plain View (no Pressable/Touchable)

@@ -21,7 +21,7 @@ import {
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { cacheGet, cacheSet, cacheInvalidatePrefix } from '@/services/cache';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';

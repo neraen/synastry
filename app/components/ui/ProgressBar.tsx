@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     gradient: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
     },
     glow: {
         position: 'absolute',
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
         borderBottomColor: 'transparent',
     },
     circularCenter: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'row',

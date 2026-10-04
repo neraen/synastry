@@ -3,7 +3,7 @@
  * Keys are stored as individual JSON files in a dedicated cache directory.
  */
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const CACHE_DIR = `${FileSystem.documentDirectory}cache/`;
 
