@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
+import type * as NotificationsModule from 'expo-notifications';
 import Constants from 'expo-constants';
+import { isRunningInExpoGo } from 'expo';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -10,20 +11,25 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const PUSH_TOKEN_KEY = 'lunestia_push_token';
 
+// Depuis SDK 55, le simple import d'expo-notifications lève une erreur dans
+// Expo Go Android (push retiré). On ne charge donc le module qu'en dehors de ce cas.
+const isAndroidExpoGo =
+    Platform.OS === 'android' && isRunningInExpoGo();
+
+const Notifications: typeof NotificationsModule | null = isAndroidExpoGo
+    ? null
+    : // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('expo-notifications');
+
 // Configure how notifications behave when the app is in the foreground.
-// Wrapped in try/catch: remote notifications are unavailable in Expo Go (SDK 53+).
-try {
-    Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-            shouldShowBanner: true,
-            shouldShowList: true,
-            shouldPlaySound: false,
-            shouldSetBadge: true,
-        }),
-    });
-} catch {
-    // Expo Go: remote push notifications removed in SDK 53 — skip silently
-}
+Notifications?.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: true,
+    }),
+});
 
 /**
  * Initializes push notifications:
@@ -34,13 +40,13 @@ try {
 export function useNotifications() {
     const { isAuthenticated } = useAuth();
     const router = useRouter();
-    const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-    const responseListener    = useRef<Notifications.EventSubscription | null>(null);
+    const notificationListener = useRef<NotificationsModule.EventSubscription | null>(null);
+    const responseListener    = useRef<NotificationsModule.EventSubscription | null>(null);
 
     useEffect(() => {
-        if (!isAuthenticated) return;
+        if (!isAuthenticated || !Notifications) return;
 
-        registerForPushNotifications();
+        registerForPushNotifications(Notifications);
 
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             console.log('[Push] Notification received:', notification.request.content.title);
@@ -58,7 +64,7 @@ export function useNotifications() {
     }, [isAuthenticated]);
 }
 
-async function registerForPushNotifications(): Promise<void> {
+async function registerForPushNotifications(Notifications: typeof NotificationsModule): Promise<void> {
     if (!Device.isDevice) {
         console.log('[Push] Skipping: not a physical device');
         return;
