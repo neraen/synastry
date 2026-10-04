@@ -15,7 +15,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { TabHeader, GlassCard, GoldButton, Starfield } from '@/components/ui';
+import { TabHeader, GlassCard, GoldButton, GhostButton, Starfield } from '@/components/ui';
 import { PrecisionDial } from '@/components/rectification/PrecisionDial';
 import { OfficialSourceStep } from '@/components/rectification/OfficialSourceStep';
 import { WindowStep } from '@/components/rectification/WindowStep';
@@ -50,12 +50,24 @@ export default function RectificationScreen() {
     const [error, setError] = useState<string | null>(null);
     const [addingEvent, setAddingEvent] = useState(false);
 
+    const fetchState = useCallback(
+        () =>
+            getRectificationState()
+                .then(setState)
+                .catch((e: Error) => setError(e.message))
+                .finally(() => setLoading(false)),
+        [],
+    );
+
     useEffect(() => {
-        getRectificationState()
-            .then(setState)
-            .catch((e: Error) => setError(e.message))
-            .finally(() => setLoading(false));
-    }, []);
+        fetchState();
+    }, [fetchState]);
+
+    const retry = () => {
+        setLoading(true);
+        setError(null);
+        fetchState();
+    };
 
     /**
      * Every mutation returns the whole state, so the screen never patches its
@@ -69,16 +81,11 @@ export default function RectificationScreen() {
         try {
             setState(await action());
         } catch (e) {
-            const message = (e as Error).message;
-            if (message === 'premium_required') {
-                router.push('/premium');
-            } else {
-                setError(message);
-            }
+            setError((e as Error).message);
         } finally {
             setBusy(false);
         }
-    }, [router]);
+    }, []);
 
     const onChooseSource = (choice: SourceChoice, time?: string) =>
         mutate(() => submitOfficialSource(choice, time));
@@ -126,8 +133,17 @@ export default function RectificationScreen() {
             <SafeAreaView style={styles.screen}>
                 <Starfield />
                 <TabHeader onBack={() => router.back()} />
-                <View style={styles.centre}>
-                    <Text style={styles.error}>{error ?? 'Impossible de charger ton parcours.'}</Text>
+                <View style={styles.failure}>
+                    <GlassCard opacity="medium" radius="xl" padding="lg">
+                        <View style={styles.failureBody}>
+                            <Text style={styles.failureTitle}>Le service est momentanément indisponible</Text>
+                            <Text style={styles.failureText}>
+                                Ton parcours n’a pas pu être chargé. Rien n’est perdu : tu reprendras exactement là où tu en étais.
+                            </Text>
+                            {__DEV__ && error ? <Text style={styles.error}>{error}</Text> : null}
+                            <GhostButton label="Réessayer" onPress={retry} />
+                        </View>
+                    </GlassCard>
                 </View>
             </SafeAreaView>
         );
@@ -178,7 +194,6 @@ export default function RectificationScreen() {
                         onAdopt={onAdopt}
                         onStartLoop={onStartLoop}
                         onAnswerQuestion={onAnswerQuestion}
-                        onUpgrade={() => router.push('/premium')}
                         onDone={() => router.back()}
                     />
                 )}
@@ -200,7 +215,6 @@ interface StepBodyProps {
     onAdopt: () => void;
     onStartLoop: () => void;
     onAnswerQuestion: (answer: LoopAnswer) => void;
-    onUpgrade: () => void;
     onDone: () => void;
 }
 
@@ -215,10 +229,9 @@ function StepBody({
     onAdopt,
     onStartLoop,
     onAnswerQuestion,
-    onUpgrade,
     onDone,
 }: StepBodyProps) {
-    const { session, dial, limits } = state;
+    const { session, dial } = state;
 
     switch (session.step) {
         case 'source_officielle':
@@ -233,12 +246,9 @@ function StepBody({
                 <CollectionStep
                     events={session.events}
                     dial={dial}
-                    premium={limits.premium}
-                    freeMaxEvents={limits.free_max_events}
                     onAdd={onStartAddEvent}
                     onRemove={onRemoveEvent}
                     onCalculate={onCalculate}
-                    onUpgrade={onUpgrade}
                     busy={busy}
                 />
             );
@@ -259,7 +269,6 @@ function StepBody({
                     onAdopt={onAdopt}
                     onAddEvent={onStartAddEvent}
                     onStartLoop={onStartLoop}
-                    onUpgrade={onUpgrade}
                     busy={busy}
                 />
             ) : null;
@@ -272,19 +281,15 @@ function StepBody({
                     onAdopt={onAdopt}
                     onAddEvent={onStartAddEvent}
                     onStartLoop={onStartLoop}
-                    onUpgrade={onUpgrade}
                     busy={busy}
                 />
             ) : (
                 <CollectionStep
                     events={session.events}
                     dial={dial}
-                    premium={limits.premium}
-                    freeMaxEvents={limits.free_max_events}
                     onAdd={onStartAddEvent}
                     onRemove={onRemoveEvent}
                     onCalculate={onCalculate}
-                    onUpgrade={onUpgrade}
                     busy={busy}
                 />
             );
@@ -325,6 +330,26 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    failure: {
+        flex: 1,
+        justifyContent: 'center',
+        paddingHorizontal: spacing.screenPadding,
+        paddingBottom: spacing.xxl,
+    },
+    failureBody: {
+        gap: spacing.lg,
+        alignItems: 'center',
+    },
+    failureTitle: {
+        ...typography.headlineMd,
+        color: colors.onSurface,
+        textAlign: 'center',
+    },
+    failureText: {
+        ...typography.bodyMd,
+        color: colors.onSurfaceMuted,
+        textAlign: 'center',
     },
     error: {
         ...typography.bodySmall,

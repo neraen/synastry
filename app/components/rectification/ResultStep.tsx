@@ -21,12 +21,10 @@ interface ResultStepProps {
     onAddEvent: () => void;
     /** Enters the active loop — only meaningful on a multimodal result. */
     onStartLoop: () => void;
-    onUpgrade: () => void;
     busy?: boolean;
 }
 
-export function ResultStep({ result, onAdopt, onAddEvent, onStartLoop, onUpgrade, busy }: ResultStepProps) {
-    if (!result.premium) return <TeaserResult result={result} onUpgrade={onUpgrade} />;
+export function ResultStep({ result, onAdopt, onAddEvent, onStartLoop, busy }: ResultStepProps) {
     if (result.status === 'inconclusive') return <InconclusiveResult result={result} onAddEvent={onAddEvent} />;
     if (result.status === 'multimodal') {
         return <MultimodalResult result={result} onStartLoop={onStartLoop} busy={busy} />;
@@ -167,22 +165,6 @@ function InconclusiveResult({
     );
 }
 
-/** §12 — free tier: the shape of the answer, none of the numbers. */
-function TeaserResult({ result, onUpgrade }: { result: RectificationResult; onUpgrade: () => void }) {
-    return (
-        <View style={styles.container}>
-            <Text style={styles.label}>Premier aperçu</Text>
-            <Text style={styles.teaser}>{result.teaser?.label}</Text>
-            <Text style={styles.body}>
-                Avec tes événements on peut déjà situer ton Ascendant. Pour l’heure elle-même, sa marge et le
-                détail du raisonnement, il faut le calcul complet.
-            </Text>
-
-            <GoldButton label="Débloquer le calcul complet" onPress={onUpgrade} />
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
     container: {
         gap: spacing.xl,
@@ -213,11 +195,6 @@ const styles = StyleSheet.create({
     body: {
         ...typography.bodyMd,
         color: colors.onSurfaceMuted,
-    },
-    teaser: {
-        ...typography.headlineMd,
-        color: colors.onSurface,
-        textAlign: 'center',
     },
     expandRow: {
         flexDirection: 'row',

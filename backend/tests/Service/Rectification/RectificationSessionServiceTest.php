@@ -7,7 +7,6 @@ use App\Entity\RectificationSession;
 use App\Entity\User;
 use App\Repository\RectificationSessionRepository;
 use App\Service\Rectification\LifeEvent;
-use App\Service\Rectification\RectificationConfig;
 use App\Service\Rectification\RectificationEngine;
 use App\Service\Rectification\RectificationSessionService;
 use App\Tests\Service\Rectification\Fixtures\RectificationFixtures;
@@ -15,7 +14,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The wizard's state machine and the free/premium boundary.
+ * The wizard's state machine.
  *
  * These are the rules a user actually collides with — where the journey
  * resumes, when the calculate button is allowed to do anything, what a
@@ -133,7 +132,7 @@ class RectificationSessionServiceTest extends TestCase
     public function testDatePrecisionIsDerivedNotDeclared(array $input, string $expectedPrecision, string $expectedDate): void
     {
         $session = $this->session();
-        $this->service->addEvent($session, $input, isPremium: true);
+        $this->service->addEvent($session, $input);
 
         $event = $session->getEvents()[0];
 
@@ -172,32 +171,18 @@ class RectificationSessionServiceTest extends TestCase
     {
         $session = $this->session();
 
-        $this->service->addEvent($session, ['year' => 2011, 'category' => 'rupture'], isPremium: true);
+        $this->service->addEvent($session, ['year' => 2011, 'category' => 'rupture']);
 
         $this->assertCount(1, $session->getEvents());
         $this->assertSame(LifeEvent::PRECISION_YEAR, $session->getEvents()[0]['precision']);
     }
 
-    /** Spec §12: the free tier stops at three events. */
-    public function testFreeTierIsCappedAtThreeEvents(): void
-    {
-        $session = $this->session();
-
-        for ($i = 0; $i < RectificationConfig::FREE_TIER_MAX_EVENTS; ++$i) {
-            $this->service->addEvent($session, ['year' => 2010 + $i, 'month' => 5, 'day' => 4], isPremium: false);
-        }
-
-        $this->expectException(\DomainException::class);
-        $this->expectExceptionMessage('premium_required');
-        $this->service->addEvent($session, ['year' => 2020, 'month' => 5, 'day' => 4], isPremium: false);
-    }
-
-    public function testPremiumHasNoEventCap(): void
+    public function testEventCountIsNotCapped(): void
     {
         $session = $this->session();
 
         for ($i = 0; $i < 8; ++$i) {
-            $this->service->addEvent($session, ['year' => 2005 + $i, 'month' => 5, 'day' => 4], isPremium: true);
+            $this->service->addEvent($session, ['year' => 2005 + $i, 'month' => 5, 'day' => 4]);
         }
 
         $this->assertCount(8, $session->getEvents());
@@ -213,9 +198,9 @@ class RectificationSessionServiceTest extends TestCase
         $this->service->recordWindow($session, ['memory' => 'matinee']);
 
         // Five events, but only one dated to the day.
-        $this->service->addEvent($session, ['year' => 2010, 'month' => 5, 'day' => 4], isPremium: true);
+        $this->service->addEvent($session, ['year' => 2010, 'month' => 5, 'day' => 4]);
         for ($i = 0; $i < 4; ++$i) {
-            $this->service->addEvent($session, ['year' => 2012 + $i, 'month' => 6], isPremium: true);
+            $this->service->addEvent($session, ['year' => 2012 + $i, 'month' => 6]);
         }
 
         $dial = $this->service->dialState($session);
@@ -224,7 +209,7 @@ class RectificationSessionServiceTest extends TestCase
 
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('threshold_not_met');
-        $this->service->calculate($session, isPremium: true);
+        $this->service->calculate($session);
     }
 
     /**
@@ -235,7 +220,7 @@ class RectificationSessionServiceTest extends TestCase
     {
         $session = $this->session();
         $this->service->recordWindow($session, ['memory' => 'matinee']);
-        $this->service->addEvent($session, ['year' => 2010, 'month' => 5, 'day' => 4], isPremium: true);
+        $this->service->addEvent($session, ['year' => 2010, 'month' => 5, 'day' => 4]);
 
         $dial = $this->service->dialState($session);
 
@@ -268,42 +253,21 @@ class RectificationSessionServiceTest extends TestCase
     public function testAddingAnEventInvalidatesTheCachedResult(): void
     {
         $session = $this->sessionWithEvents($this->strongDates(5), withDay: true);
-        $this->service->calculate($session, isPremium: true);
+        $this->service->calculate($session);
 
         $this->assertNotNull($session->getLastResult());
 
-        $this->service->addEvent($session, ['year' => 2019, 'month' => 2, 'day' => 8], isPremium: true);
+        $this->service->addEvent($session, ['year' => 2019, 'month' => 2, 'day' => 8]);
 
         $this->assertNull($session->getLastResult());
         $this->assertNull($session->getLastCalculatedAt());
     }
 
-    /**
-     * Spec §12: a non-subscriber gets the shape of the answer — a likely
-     * Ascendant sign — and none of the numbers. Enforced server-side, so the
-     * time simply is not in the payload.
-     */
-    public function testFreeTierReceivesASignTeaserAndNoTime(): void
+    public function testResultCarriesEstimateAndExplanations(): void
     {
         $session = $this->sessionWithEvents($this->strongDates(6), withDay: true);
 
-        $payload = $this->service->calculate($session, isPremium: false);
-
-        $this->assertArrayNotHasKey('estimate', $payload);
-        $this->assertArrayNotHasKey('contributions', $payload);
-        $this->assertArrayHasKey('teaser', $payload);
-        $this->assertNotEmpty($payload['teaser']['signs']);
-        $this->assertStringContainsString('Ascendant', $payload['teaser']['label']);
-
-        // Nothing resembling a clock time anywhere in the free payload.
-        $this->assertDoesNotMatchRegularExpression('/\d{2}:\d{2}/', json_encode($payload['teaser']));
-    }
-
-    public function testPremiumReceivesEstimateAndExplanations(): void
-    {
-        $session = $this->sessionWithEvents($this->strongDates(6), withDay: true);
-
-        $payload = $this->service->calculate($session, isPremium: true);
+        $payload = $this->service->calculate($session);
 
         $this->assertArrayHasKey('estimate', $payload);
         $this->assertArrayHasKey('uncertainty_minutes', $payload['estimate']);
@@ -319,7 +283,7 @@ class RectificationSessionServiceTest extends TestCase
     public function testAdoptionRecordsTimeUncertaintyAndProvenance(): void
     {
         $session = $this->sessionWithEvents($this->strongDates(6), withDay: true);
-        $payload = $this->service->calculate($session, isPremium: true);
+        $payload = $this->service->calculate($session);
 
         $this->assertSame('conclusive', $payload['status'], 'Pré-requis du test : le calcul doit être concluant.');
 
@@ -357,7 +321,7 @@ class RectificationSessionServiceTest extends TestCase
     public function testRevertingToADeclaredTimeClearsTheEstimatedMarker(): void
     {
         $session = $this->sessionWithEvents($this->strongDates(6), withDay: true);
-        $this->service->calculate($session, isPremium: true);
+        $this->service->calculate($session);
         $this->service->adopt($session);
 
         $profile = $this->service->revertToDeclaredTime($session->getUser(), '05:15');
@@ -372,7 +336,7 @@ class RectificationSessionServiceTest extends TestCase
     public function testProfilePayloadCarriesProvenanceAndUncertainty(): void
     {
         $session = $this->sessionWithEvents($this->strongDates(6), withDay: true);
-        $this->service->calculate($session, isPremium: true);
+        $this->service->calculate($session);
 
         $payload = $this->service->adopt($session)->toArray();
 
@@ -420,7 +384,7 @@ class RectificationSessionServiceTest extends TestCase
                 'intensity' => LifeEvent::INTENSITY_TURNING_POINT,
                 'sudden'    => true,
                 'category'  => 'test',
-            ], isPremium: true);
+            ]);
         }
 
         return $session;

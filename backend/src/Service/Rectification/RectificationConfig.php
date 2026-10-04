@@ -289,9 +289,6 @@ final class RectificationConfig
     /** A secondary peak below this share of the main peak is not a real mode. */
     public const MODE_PROMINENCE_RATIO = 0.35;
 
-    /** Free tier stops at this many events (spec §12). */
-    public const FREE_TIER_MAX_EVENTS = 3;
-
     public static function technique(string $name): array
     {
         if (!isset(self::TECHNIQUES[$name])) {

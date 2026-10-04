@@ -25,28 +25,20 @@ const PRECISION_LABELS: Record<string, string> = {
 interface CollectionStepProps {
     events: RectificationEvent[];
     dial: DialState;
-    premium: boolean;
-    freeMaxEvents: number;
     onAdd: () => void;
     onRemove: (index: number) => void;
     onCalculate: () => void;
-    onUpgrade: () => void;
     busy?: boolean;
 }
 
 export function CollectionStep({
     events,
     dial,
-    premium,
-    freeMaxEvents,
     onAdd,
     onRemove,
     onCalculate,
-    onUpgrade,
     busy,
 }: CollectionStepProps) {
-    const atFreeLimit = !premium && events.length >= freeMaxEvents;
-
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -86,21 +78,7 @@ export function CollectionStep({
                 </GlassCard>
             )}
 
-            {atFreeLimit ? (
-                <GlassCard opacity="medium" radius="xl" padding="lg">
-                    <Text style={styles.limitTitle}>
-                        {freeMaxEvents} événements, c’est la limite de la version gratuite
-                    </Text>
-                    <Text style={styles.limitBody}>
-                        Avec {freeMaxEvents} événements on peut déjà cerner ton Ascendant. Pour une heure précise et
-                        le détail du raisonnement, il en faut plus.
-                    </Text>
-                    <View style={styles.spacer} />
-                    <GoldButton label="Débloquer le calcul complet" onPress={onUpgrade} />
-                </GlassCard>
-            ) : (
-                <GhostButton label="Ajouter un événement" onPress={onAdd} disabled={busy} />
-            )}
+            <GhostButton label="Ajouter un événement" onPress={onAdd} disabled={busy} />
 
             <View style={styles.footer}>
                 {/* Visible even when it cannot run — and it says why. */}
@@ -176,18 +154,6 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: `${colors.outline}20`,
         marginHorizontal: spacing.lg,
-    },
-    limitTitle: {
-        ...typography.titleMd,
-        color: colors.onSurface,
-    },
-    limitBody: {
-        ...typography.bodySmall,
-        color: colors.onSurfaceMuted,
-        marginTop: spacing.sm,
-    },
-    spacer: {
-        height: spacing.lg,
     },
     footer: {
         gap: spacing.md,
