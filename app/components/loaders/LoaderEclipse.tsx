@@ -81,7 +81,7 @@ export function LoaderEclipse({ size = 180, label = 'Conjonction en cours…' }:
 
         {/* Trail — decorative dashed guide line */}
         <Svg
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           viewBox="0 0 200 200"
           pointerEvents="none"
         >
@@ -96,7 +96,7 @@ export function LoaderEclipse({ size = 180, label = 'Conjonction en cours…' }:
         {/* Corona — annular ring, visible only during totality */}
         <Animated.View
           style={[
-            StyleSheet.absoluteFillObject,
+            StyleSheet.absoluteFill,
             styles.centred,
             coronaStyle,
           ]}
@@ -118,7 +118,7 @@ export function LoaderEclipse({ size = 180, label = 'Conjonction en cours…' }:
         </Animated.View>
 
         {/* Sun — fixed at centre, z-order: above corona */}
-        <View style={[StyleSheet.absoluteFillObject, styles.centred]} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, styles.centred]} pointerEvents="none">
           <Svg width={sunSize} height={sunSize} viewBox="0 0 100 100">
             <Defs>
               <RadialGradient id="llecSun" cx="30%" cy="30%" r="70%">
@@ -142,7 +142,7 @@ export function LoaderEclipse({ size = 180, label = 'Conjonction en cours…' }:
 
         {/* Moon — translates horizontally across the sun */}
         <Animated.View
-          style={[StyleSheet.absoluteFillObject, styles.centred, moonStyle]}
+          style={[StyleSheet.absoluteFill, styles.centred, moonStyle]}
           pointerEvents="none"
         >
           <Svg width={moonSize} height={moonSize} viewBox="0 0 100 100">

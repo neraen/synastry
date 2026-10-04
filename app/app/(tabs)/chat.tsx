@@ -39,7 +39,7 @@ import {
     ChatMessage,
     ChatPartner,
 } from '@/services/astrology';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { createChatSession, getChatSession, updateChatSession } from '@/services/chatSessions';
 import { reportChatMessage } from '@/services/feedback';
 import { TopicSelectorModal } from '@/components/TopicSelectorModal';

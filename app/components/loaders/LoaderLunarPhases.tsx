@@ -87,7 +87,7 @@ export function LoaderLunarPhases({ size = 180, label = 'Alignement des phasesâ€
 
         {/* Aura â€” breathing glow behind the moon */}
         <Animated.View
-          style={[StyleSheet.absoluteFillObject, styles.centred, auraStyle]}
+          style={[StyleSheet.absoluteFill, styles.centred, auraStyle]}
           pointerEvents="none"
         >
           <Svg width={size * 0.8} height={size * 0.8} viewBox="0 0 100 100">
@@ -103,7 +103,7 @@ export function LoaderLunarPhases({ size = 180, label = 'Alignement des phasesâ€
         </Animated.View>
 
         {/* Moon disc + phase shadow + craters â€” all clipped to disc bounds */}
-        <View style={[StyleSheet.absoluteFillObject, styles.centred]} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, styles.centred]} pointerEvents="none">
           <Svg width={moonSize} height={moonSize} viewBox="0 0 100 100">
             <Defs>
               <RadialGradient id="llmpMoon" cx="30%" cy="30%" r="80%">
@@ -167,7 +167,7 @@ export function LoaderLunarPhases({ size = 180, label = 'Alignement des phasesâ€
 
         {/* Progress arc â€” rotates around the moon, NOT clipped */}
         <Animated.View
-          style={[StyleSheet.absoluteFillObject, arcStyle]}
+          style={[StyleSheet.absoluteFill, arcStyle]}
           pointerEvents="none"
         >
           <Svg width={arcSize} height={arcSize} viewBox="0 0 200 200">

@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
         marginBottom: spacing.lg,
     },
     overlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: colors.overlay.backdrop,
         alignItems: 'center',
         justifyContent: 'center',

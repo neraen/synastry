@@ -96,7 +96,7 @@ export function LoaderZodiac({ size = 180, label = 'Tracé de la carte…' }: Lo
 
         {/* Aura — behind everything */}
         <Animated.View
-          style={[StyleSheet.absoluteFillObject, styles.auraContainer, auraStyle]}
+          style={[StyleSheet.absoluteFill, styles.auraContainer, auraStyle]}
           pointerEvents="none"
         >
           <Svg width={size * 0.8} height={size * 0.8} viewBox="0 0 100 100">
@@ -115,7 +115,7 @@ export function LoaderZodiac({ size = 180, label = 'Tracé de la carte…' }: Lo
         <MicroStars seed={5} count={10} size={size} />
 
         {/* Outer ring — rotates 9s forward */}
-        <Animated.View style={[StyleSheet.absoluteFillObject, outerStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, outerStyle]}>
           <Svg
             width={size}
             height={size}

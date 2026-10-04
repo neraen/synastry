@@ -29,7 +29,6 @@ export default {
     icon: './assets/images/lunestia-icon.png',
     scheme: 'astromatch',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: true,
 
     // iOS Configuration
     ios: {
@@ -66,7 +65,6 @@ export default {
         backgroundColor: '#0E0822',
         foregroundImage: './assets/images/lunestia-adaptive-foreground.png',
       },
-      edgeToEdgeEnabled: true,
       permissions: [
         'android.permission.INTERNET',
         'android.permission.ACCESS_NETWORK_STATE',
@@ -80,16 +78,14 @@ export default {
       bundler: 'metro',
     },
 
-    // Splash Screen
-    splash: {
-      image: './assets/images/lunestia-icon.png',
-      resizeMode: 'contain',
-      backgroundColor: '#0A0A1A',
-    },
-
     // Plugins
     plugins: [
       'expo-router',
+      'expo-font',
+      'expo-image',
+      'expo-sharing',
+      'expo-status-bar',
+      'expo-web-browser',
       [
         'expo-build-properties',
         {
