@@ -78,15 +78,7 @@ class RectificationController extends AbstractController
             $session = $this->service->addEvent(
                 $this->service->sessionFor($user),
                 $request->toArray(),
-                $user->isPremium(),
             );
-        } catch (\DomainException $e) {
-            // Spec §12: the free tier stops at three events.
-            return $this->json([
-                'success' => false,
-                'error'   => $e->getMessage(),
-                'limit'   => RectificationConfig::FREE_TIER_MAX_EVENTS,
-            ], Response::HTTP_PAYMENT_REQUIRED);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -116,7 +108,7 @@ class RectificationController extends AbstractController
         $session = $this->service->sessionFor($user);
 
         try {
-            $this->service->calculate($session, $user->isPremium());
+            $this->service->calculate($session);
         } catch (\DomainException $e) {
             return $this->json(
                 ['success' => false, 'error' => $e->getMessage()],
@@ -136,7 +128,7 @@ class RectificationController extends AbstractController
         $session = $this->service->sessionFor($user);
 
         try {
-            $question = $this->service->nextQuestion($session, $user->isPremium());
+            $question = $this->service->nextQuestion($session);
         } catch (\DomainException $e) {
             return $this->json(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -155,7 +147,6 @@ class RectificationController extends AbstractController
             $this->service->answerQuestion(
                 $session,
                 (string) ($request->toArray()['answer'] ?? ''),
-                $user->isPremium(),
             );
         } catch (\DomainException $e) {
             return $this->json(['success' => false, 'error' => $e->getMessage()], Response::HTTP_CONFLICT);
@@ -240,8 +231,6 @@ class RectificationController extends AbstractController
      */
     private function state(RectificationSession $session, User $user): array
     {
-        $isPremium = $user->isPremium();
-
         return [
             'success' => true,
             'session' => [
@@ -264,8 +253,6 @@ class RectificationController extends AbstractController
             // visibly tightens as events are added (spec §6).
             'dial'    => $this->service->dialState($session),
             'limits'  => [
-                'premium'          => $isPremium,
-                'free_max_events'  => RectificationConfig::FREE_TIER_MAX_EVENTS,
                 'min_events'       => RectificationConfig::MIN_EVENTS,
                 'min_day_dated'    => RectificationConfig::MIN_DAY_DATED_EVENTS,
             ],

@@ -12,7 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * Everything between the wizard's HTTP surface and the inference engine.
  *
  * The controller stays thin on purpose: this is where the state machine's
- * transitions, the free/premium boundary of spec §12, and the translation from
+ * transitions and the translation from
  * stored chip answers into engine inputs all live, so they can be tested
  * without a request.
  */
@@ -168,14 +168,8 @@ class RectificationSessionService
      *
      * @param array{year: int, month?: int|null, day?: int|null, intensity?: string, sudden?: bool, valence?: string|null, category?: string|null, title?: string|null} $input
      */
-    public function addEvent(RectificationSession $session, array $input, bool $isPremium): RectificationSession
+    public function addEvent(RectificationSession $session, array $input): RectificationSession
     {
-        $eventCount = count($session->getEvents());
-
-        if (!$isPremium && $eventCount >= RectificationConfig::FREE_TIER_MAX_EVENTS) {
-            throw new \DomainException('premium_required');
-        }
-
         $session->addEvent($this->normaliseEvent($input))->invalidateResult();
 
         // This is the moment the dial visibly tightens — the motor of the
@@ -243,9 +237,9 @@ class RectificationSessionService
      *
      * @throws \DomainException 'no_birth_profile' | 'threshold_not_met'
      */
-    public function calculate(RectificationSession $session, bool $isPremium): array
+    public function calculate(RectificationSession $session): array
     {
-        return $this->runAndStore($session, $isPremium)[1];
+        return $this->runAndStore($session)[1];
     }
 
     /**
@@ -254,7 +248,7 @@ class RectificationSessionService
      *
      * @return array{0: RectificationResult, 1: array<string, mixed>}
      */
-    private function runAndStore(RectificationSession $session, bool $isPremium): array
+    private function runAndStore(RectificationSession $session): array
     {
         $profile = $session->getUser()?->getBirthProfile();
 
@@ -271,7 +265,7 @@ class RectificationSessionService
 
         $result = $this->engine->run($this->toWindow($session, $profile), $events);
 
-        $payload = $this->serialiseResult($result, $isPremium);
+        $payload = $this->serialiseResult($result);
 
         $session
             ->setLastResult($payload)
@@ -353,21 +347,15 @@ class RectificationSessionService
      * Generate and store the next discriminating question, if one is worth
      * asking.
      *
-     * Premium only, like the rest of the loop (spec §12). Returns null when the
-     * loop should stop — enough questions asked, tight enough already, or
+     * Returns null when the loop should stop — enough questions asked, tight enough already, or
      * nothing left that would separate the surviving candidates.
      *
      * @return array<string, mixed>|null
      */
     public function nextQuestion(
         RectificationSession $session,
-        bool $isPremium,
         ?RectificationResult $result = null,
     ): ?array {
-        if (!$isPremium) {
-            return null;
-        }
-
         // A question already on screen is returned as-is: someone who
         // backgrounds the app mid-question comes back to the same one.
         if ($session->getPendingQuestion() !== null) {
@@ -398,7 +386,7 @@ class RectificationSessionService
      * asking. "Je ne sais plus" produces nothing at all, but the window is
      * still marked asked so it never comes back.
      */
-    public function answerQuestion(RectificationSession $session, string $answer, bool $isPremium): array
+    public function answerQuestion(RectificationSession $session, string $answer): array
     {
         $question = $session->getPendingQuestion();
 
@@ -419,10 +407,10 @@ class RectificationSessionService
 
         // One engine run for the whole answer: it updates the dial, produces
         // the payload, and feeds the search for the next question.
-        [$result, $payload] = $this->runAndStore($session, $isPremium);
+        [$result, $payload] = $this->runAndStore($session);
 
         // Chain straight into the next question while one is worth asking.
-        $this->nextQuestion($session, $isPremium, $result);
+        $this->nextQuestion($session, $result);
 
         return $payload;
     }
@@ -539,14 +527,9 @@ class RectificationSessionService
     /**
      * Shape the result for the client.
      *
-     * The free tier gets the shape of the answer — the likely Ascendant sign —
-     * but never the time, the interval or the per-event reasoning (spec §12).
-     * That boundary is enforced here rather than in the app, so the numbers
-     * simply are not in the response.
-     *
      * @return array<string, mixed>
      */
-    private function serialiseResult(RectificationResult $result, bool $isPremium): array
+    private function serialiseResult(RectificationResult $result): array
     {
         $posterior = $result->posterior;
 
@@ -557,15 +540,8 @@ class RectificationSessionService
             'entropy'      => round($posterior->normalisedEntropy(), 4),
             'curve'        => $this->curve($posterior),
             'what_would_help' => $result->whatWouldHelp(),
-            'premium'      => $isPremium,
             'calculated_at' => (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
         ];
-
-        if (!$isPremium) {
-            $payload['teaser'] = $this->ascendantTeaser($result);
-
-            return $payload;
-        }
 
         $payload['estimate']        = $result->estimate();
         $payload['candidate_times'] = $result->candidateTimes();
@@ -605,44 +581,6 @@ class RectificationSessionService
         }
 
         return $curve;
-    }
-
-    /**
-     * Free-tier answer: the Ascendant sign(s) the posterior favours, with no
-     * clock time attached (spec §12: « très probablement Balance ou Scorpion »).
-     *
-     * @return array{signs: list<string>, label: string}
-     */
-    private function ascendantTeaser(RectificationResult $result): array
-    {
-        $window = $result->window;
-        $mass   = [];
-
-        foreach ($result->posterior->candidates as $index => $candidate) {
-            $points = $candidate->points($window->latitude, $window->longitude);
-            $sign   = \App\Service\PlanetaryCalculator::SIGNS_FR[(int) floor($points['Ascendant'] / 30)];
-
-            $mass[$sign] = ($mass[$sign] ?? 0.0) + $result->posterior->probabilities[$index];
-        }
-
-        arsort($mass);
-
-        $signs       = [];
-        $accumulated = 0.0;
-        foreach ($mass as $sign => $share) {
-            $signs[]      = $sign;
-            $accumulated += $share;
-            if ($accumulated >= 0.8 || count($signs) >= 3) {
-                break;
-            }
-        }
-
-        return [
-            'signs' => $signs,
-            'label' => count($signs) === 1
-                ? sprintf('Très probablement Ascendant %s', $signs[0])
-                : sprintf('Très probablement Ascendant %s', implode(' ou ', $signs)),
-        ];
     }
 
     /**
