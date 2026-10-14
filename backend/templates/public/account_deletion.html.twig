@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Supprimer son compte — Lunestia</title>
+    <style>
+        :root { color-scheme: dark; }
+        body {
+            margin: 0;
+            background: #0E0822;
+            color: #ebdcff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+        }
+        main { max-width: 640px; margin: 0 auto; padding: 48px 16px; }
+        h1 { font-family: Georgia, serif; font-weight: 400; font-size: 2rem; margin: 0 0 32px; }
+        h2 { font-family: Georgia, serif; font-weight: 400; font-size: 1.25rem; margin: 32px 0 8px; }
+        section { background: rgba(235, 220, 255, 0.06); border-radius: 24px; padding: 8px 24px 24px; margin-bottom: 32px; }
+        a { color: #e9c349; }
+        li { margin-bottom: 4px; }
+        .muted { color: rgba(235, 220, 255, 0.7); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Supprimer ton compte Lunestia</h1>
+
+    <section>
+        <h2>Depuis l’application</h2>
+        <ol>
+            <li>Ouvre Lunestia et connecte-toi.</li>
+            <li>Touche ton avatar en haut à droite pour ouvrir ton profil.</li>
+            <li>En bas de l’écran, touche « Supprimer mon compte », puis confirme.</li>
+        </ol>
+        <p>La suppression est immédiate et définitive.</p>
+    </section>
+
+    <section>
+        <h2>Sans l’application</h2>
+        <p>
+            Écris à <a href="mailto:{{ contact_email }}?subject=Suppression%20de%20compte">{{ contact_email }}</a>
+            depuis l’adresse email associée à ton compte (celle de ton compte Google ou Apple), avec pour objet
+            « Suppression de compte ». Ton compte est supprimé sous 30 jours au plus tard, et tu reçois une confirmation.
+        </p>
+    </section>
+
+    <section>
+        <h2>Ce qui est supprimé</h2>
+        <ul>
+            <li>Ton compte et tes identifiants de connexion</li>
+            <li>Ton profil de naissance (date, heure, lieu) et tes thèmes calculés</li>
+            <li>Tes analyses, tes historiques de compatibilité et tes conversations avec Lyra</li>
+            <li>Tes jetons de notification</li>
+        </ul>
+        <h2>Ce qui est conservé</h2>
+        <p>
+            Seules des statistiques techniques anonymes (nombre d’appels au service d’IA, coûts) sont conservées,
+            détachées de ton compte et sans aucun contenu. Les reçus d’achat et d’abonnement sont conservés par Google Play ou l’App Store
+            selon leurs propres règles. Supprimer ton compte ne résilie pas un abonnement en cours : pense à
+            le résilier depuis Google Play ou les réglages de ton iPhone.
+        </p>
+    </section>
+
+    <p class="muted">Lunestia — <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+</main>
+</body>
+</html>

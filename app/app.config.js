@@ -14,6 +14,17 @@ const getUniqueIdentifier = () => {
   return 'com.clementsilvestre.lunestia';
 };
 
+// Firebase config, required for push notifications on Android (Expo push goes
+// through FCM there). Provided either as an EAS file environment variable
+// (GOOGLE_SERVICES_JSON) or as a local google-services.json. Production only:
+// the file is tied to a package name, and the dev/preview variants use other
+// packages — a mismatch fails the Gradle build.
+const getGoogleServicesFile = () => {
+  if (!IS_PROD) return undefined;
+  if (process.env.GOOGLE_SERVICES_JSON) return process.env.GOOGLE_SERVICES_JSON;
+  return require('fs').existsSync('./google-services.json') ? './google-services.json' : undefined;
+};
+
 const getAppName = () => {
   if (IS_DEV) return 'Lunestia (Dev)';
   if (IS_PREVIEW) return 'Lunestia (Preview)';
@@ -58,6 +69,7 @@ export default {
     android: {
       package: getUniqueIdentifier(),
       versionCode: 1,
+      googleServicesFile: getGoogleServicesFile(),
       adaptiveIcon: {
         // Android masque le foreground : seul le centre ~66% est garanti visible.
         // On utilise une variante « matelassée » (visuel réduit + marge) pour ne
