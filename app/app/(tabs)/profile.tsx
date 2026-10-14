@@ -15,7 +15,6 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import type { BirthProfileData } from '@/services/auth';
 import { GlassCard, GoldButton, GhostButton, TabHeader, Starfield } from '@/components/ui';
 import { FullPageLoader } from '@/components/loaders';
 import { getSignAvatar } from '@/utils/signAvatar';
@@ -47,26 +46,6 @@ function PrefRow({ icon, title, subtitle, onPress, danger = false, showChevron =
             )}
         </Pressable>
     );
-}
-
-/**
- * How the birth time is currently known, in one line.
- *
- * An estimated time always carries its margin here, the same way it does
- * everywhere else it is shown — the badge is a property of the data, not a
- * decoration of the result screen.
- */
-function birthTimeSubtitle(profile: BirthProfileData | null | undefined): string {
-    if (!profile?.birthTime) {
-        return 'On peut l’estimer à partir de tes événements de vie';
-    }
-
-    if (profile.birthTimeSource === 'rectified') {
-        const margin = profile.birthTimeUncertaintyMinutes;
-        return `Heure estimée ${profile.birthTime}${margin ? ` ±${margin} min` : ''}`;
-    }
-
-    return `Heure renseignée : ${profile.birthTime}`;
 }
 
 // ─── Subscription Card ─────────────────────────────────────────────────────────
@@ -273,20 +252,6 @@ export default function ProfileTab() {
                                 title={user.hasBirthProfile ? t('profile.editBirthProfile') : t('profile.completeBirthProfile')}
                                 subtitle={user.hasBirthProfile ? t('profile.birthProfileSubtitle') : t('profile.birthProfileRequired')}
                                 onPress={() => router.push('/birth-profile')}
-                            />
-                            <View style={styles.prefSep} />
-                            {/* Birth-time rectification. The subtitle states the
-                                current provenance, because an estimated time must
-                                never be mistaken for one read off a document. */}
-                            <PrefRow
-                                icon="clock"
-                                title={
-                                    user.birthProfile?.birthTime
-                                        ? 'Affiner mon heure de naissance'
-                                        : 'Je ne connais pas mon heure de naissance'
-                                }
-                                subtitle={birthTimeSubtitle(user.birthProfile)}
-                                onPress={() => router.push('/rectification')}
                             />
                         </GlassCard>
                     </View>
