@@ -2,6 +2,7 @@
 // Read-only readiness: migrations, mapped columns, JWT pair and FPM.
 require dirname(__DIR__, 2).'/vendor/autoload.php';
 try {
+    (new Symfony\Component\Dotenv\Dotenv())->usePutenv()->bootEnv(dirname(__DIR__, 2).'/.env');
     $kernel = new App\Kernel('prod', false);
     $kernel->boot();
     $em = $kernel->getContainer()->get('doctrine')->getManager();
