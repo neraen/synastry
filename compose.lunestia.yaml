@@ -1,0 +1,78 @@
+x-php: &php
+  build:
+    context: ./backend
+    dockerfile: deploy/lunestia/php.Dockerfile
+  restart: unless-stopped
+  env_file:
+    - /data/lunestia/runtime.env
+  volumes:
+    - type: bind
+      source: /data/lunestia/jwt
+      target: /var/www/config/jwt
+      read_only: true
+      bind:
+        create_host_path: false
+  networks: [app, data]
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
+services:
+  api:
+    <<: *php
+    mem_limit: 640m
+    healthcheck:
+      test: [CMD, php, /var/www/deploy/lunestia/readiness.php]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
+  web:
+    build:
+      context: ./backend
+      dockerfile: deploy/lunestia/web.Dockerfile
+    restart: unless-stopped
+    mem_limit: 64m
+    expose: ['80']
+    networks: [app]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, --spider, 'http://127.0.0.1/healthz']
+      interval: 60s
+      timeout: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+  worker:
+    <<: *php
+    mem_limit: 384m
+    stop_grace_period: 120s
+    environment:
+      LUNESTIA_WORKER_ENABLED: ${LUNESTIA_WORKER_ENABLED:-false}
+    command: [worker]
+    volumes:
+      - type: bind
+        source: /data/lunestia/jwt
+        target: /var/www/config/jwt
+        read_only: true
+        bind:
+          create_host_path: false
+      - worker_cache:/var/www/var/cache
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  app:
+  data:
+    external: true
+    name: ${LUNESTIA_DATA_NETWORK:-coolify}
+volumes:
+  worker_cache:
