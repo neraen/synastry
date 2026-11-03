@@ -12,7 +12,7 @@ Branche de migration basée sur `6809e887` (`feat/rectification`), correspondant
 
 ## Prérequis privés sur le VPS
 
-Installer `/data/lunestia/runtime.env` (mode 600, propriétaire root) avant le déploiement. Ce fichier est lu par Docker Compose et ne doit jamais être committé. Il contient les variables applicatives de production préservées et les nouvelles connexions MySQL/Redis. Utiliser l'utilisateur applicatif MySQL `lunestia`, base `astromatch`, serveur MySQL 8.0.45. Préserver APP_SECRET, JWT_PASSPHRASE et les identifiants des services externes. Garder APP_ENV=prod et APP_DEBUG=0.
+Installer `/data/lunestia/runtime.env` (mode 640, propriétaire root, groupe 82) avant le déploiement. Ce fichier est monté en lecture seule dans `/var/www/.env.local` et lu par Symfony et ne doit jamais être committé. Il contient les variables applicatives de production préservées et les nouvelles connexions MySQL/Redis. Utiliser l'utilisateur applicatif MySQL `lunestia`, base `astromatch`, serveur MySQL 8.0.45. Préserver APP_SECRET, JWT_PASSPHRASE et les identifiants des services externes. Garder APP_ENV=prod et APP_DEBUG=0.
 
 Installer les clés JWT existantes dans `/data/lunestia/jwt` (UID/GID 82, répertoire 700, fichiers 600). JWT_SECRET_KEY et JWT_PUBLIC_KEY doivent pointer vers `/var/www/config/jwt/private.pem` et `/var/www/config/jwt/public.pem` dans les conteneurs. Vérifier séparément les éventuelles clés Apple.
 

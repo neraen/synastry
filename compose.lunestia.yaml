@@ -3,9 +3,17 @@ x-php: &php
     context: ./backend
     dockerfile: deploy/lunestia/php.Dockerfile
   restart: unless-stopped
-  env_file:
-    - /data/lunestia/runtime.env
+  environment:
+    APP_ENV: prod
+    APP_DEBUG: "0"
   volumes:
+    - &runtime_env
+      type: bind
+      source: /data/lunestia/runtime.env
+      target: /var/www/.env.local
+      read_only: true
+      bind:
+        create_host_path: false
     - type: bind
       source: /data/lunestia/jwt
       target: /var/www/config/jwt
@@ -58,6 +66,7 @@ services:
       LUNESTIA_WORKER_ENABLED: ${LUNESTIA_WORKER_ENABLED:-false}
     command: [worker]
     volumes:
+      - *runtime_env
       - type: bind
         source: /data/lunestia/jwt
         target: /var/www/config/jwt
