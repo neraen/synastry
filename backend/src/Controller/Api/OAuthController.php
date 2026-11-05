@@ -85,16 +85,12 @@ class OAuthController extends AbstractController
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // Apple may provide email in the first request or via user object
-        $email = $payload['email'];
-        if ($email === null && isset($data['user']['email'])) {
-            $email = $data['user']['email'];
-        }
-
+        // Only the signed token is trusted for the email: it can link to an
+        // existing account, so a client-supplied value would allow a takeover.
         $user = $this->oAuthUserManager->findOrCreateUser(
             'apple',
             $payload['sub'],
-            $email
+            $payload['email']
         );
 
         // Store the Apple refresh token so it can be revoked when the user

@@ -5,6 +5,7 @@ namespace App\Controller\Api;
 use App\Service\PremiumService;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,9 +25,10 @@ use Symfony\Component\Routing\Annotation\Route;
  *   INITIAL_PURCHASE  → activate premium
  *   RENEWAL           → renew (update expiry date)
  *   UNCANCELLATION    → reactivate after cancellation reversal
- *   CANCELLATION      → deactivate at period end (RC sends this on expiration too)
- *   EXPIRATION        → deactivate
- *   BILLING_ISSUE     → deactivate (grace period ended)
+ *   CANCELLATION      → keep access until the period ends; refunds revoke at once
+ *   EXPIRATION        → deactivate (the only event that marks the end of access)
+ *   BILLING_ISSUE     → ignored: a failed charge doesn't mean the subscription
+ *                       expired, EXPIRATION follows if payment is never recovered
  */
 #[Route('/api/webhooks')]
 class WebhookController extends AbstractController
@@ -35,7 +37,6 @@ class WebhookController extends AbstractController
     private const ACTIVATE_EVENTS = [
         'INITIAL_PURCHASE',
         'UNCANCELLATION',
-        'SUBSCRIBER_ALIAS',
     ];
 
     // RevenueCat events that renew premium (update expiry date)
@@ -43,32 +44,33 @@ class WebhookController extends AbstractController
         'RENEWAL',
     ];
 
-    // RevenueCat events that deactivate premium
-    private const DEACTIVATE_EVENTS = [
-        'CANCELLATION',
-        'EXPIRATION',
-        'BILLING_ISSUE',
-    ];
+    // CANCELLATION reason meaning a refund: access is revoked immediately.
+    // Every other reason keeps access until the paid period ends.
+    private const REFUND_CANCEL_REASON = 'CUSTOMER_SUPPORT';
 
     public function __construct(
         private PremiumService $premiumService,
         private LoggerInterface $purchasesLogger,
-        private string $webhookSecret = '',
-    ) {
-        $this->webhookSecret = $_ENV['REVENUECAT_WEBHOOK_SECRET'] ?? '';
-    }
+        #[Autowire('%env(default::REVENUECAT_WEBHOOK_SECRET)%')]
+        private ?string $webhookSecret = null,
+    ) {}
 
     #[Route('/revenuecat', name: 'api_webhook_revenuecat', methods: ['POST'])]
     public function revenueCat(Request $request): JsonResponse
     {
         // ── 1. Verify signature ───────────────────────────────────────────────
-        if ($this->webhookSecret) {
-            $authHeader = $request->headers->get('Authorization', '');
-            $expectedHeader = 'Bearer ' . $this->webhookSecret;
+        // Fail closed: without a secret anyone could forge a purchase. RC retries
+        // non-2xx deliveries, so a misconfiguration doesn't lose events right away.
+        if (!$this->webhookSecret) {
+            $this->purchasesLogger->critical('[webhook.revenuecat] REVENUECAT_WEBHOOK_SECRET is not set — event rejected');
+            return $this->json(['error' => 'Webhook not configured'], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
 
-            if (!hash_equals($expectedHeader, $authHeader)) {
-                return $this->json(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
-            }
+        $authHeader = $request->headers->get('Authorization', '');
+        $expectedHeader = 'Bearer ' . $this->webhookSecret;
+
+        if (!hash_equals($expectedHeader, $authHeader)) {
+            return $this->json(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
         }
 
         // ── 2. Parse payload ──────────────────────────────────────────────────
@@ -141,15 +143,13 @@ class WebhookController extends AbstractController
             $this->premiumService->activate($appUserId, $expiresAt);
         } elseif (in_array($eventType, self::RENEWAL_EVENTS, true)) {
             $this->premiumService->renew($appUserId, $expiresAt ?? new \DateTime('+1 month'));
-        } elseif (in_array($eventType, self::DEACTIVATE_EVENTS, true)) {
-            // CANCELLATION events are sent when the subscription is cancelled (either auto-renew off
-            // or immediate refund). If it's a simple UNSUBSCRIBE, the entitlement remains active until expiresAt.
-            if ($eventType === 'CANCELLATION' && ($event['cancellation_reason'] ?? '') === 'UNSUBSCRIBE') {
-                if ($expiresAt) {
-                    $this->premiumService->renew($appUserId, $expiresAt);
-                }
-            } else {
+        } elseif ($eventType === 'EXPIRATION') {
+            $this->premiumService->deactivate($appUserId);
+        } elseif ($eventType === 'CANCELLATION') {
+            if (($event['cancel_reason'] ?? '') === self::REFUND_CANCEL_REASON) {
                 $this->premiumService->deactivate($appUserId);
+            } elseif ($expiresAt) {
+                $this->premiumService->renew($appUserId, $expiresAt);
             }
         }
         // Unknown events are silently accepted (RC expects a 2xx)

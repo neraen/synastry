@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\RefreshToken;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -62,6 +63,19 @@ class OAuthUserManager
             'apple' => $user->setAppleId($providerId),
             default => throw new \InvalidArgumentException("Unknown OAuth provider: $provider"),
         };
+
+        // /api/register never verifies the email, so whoever set this password may
+        // not own the address. The provider just proved ownership: drop the password
+        // and its sessions, otherwise a pre-registered account stays open to its
+        // creator. Admins are exempt, the back-office only has password login.
+        if ($user->getPassword() !== null && !in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+            $user->setPassword(null);
+            $refreshTokens = $this->entityManager->getRepository(RefreshToken::class)
+                ->findBy(['username' => $user->getEmail()]);
+            foreach ($refreshTokens as $refreshToken) {
+                $this->entityManager->remove($refreshToken);
+            }
+        }
 
         $this->entityManager->flush();
     }

@@ -16,6 +16,7 @@ parameters:
     env(APPLE_TEAM_ID): ''
     env(APPLE_KEY_ID): ''
     env(APPLE_PRIVATE_KEY_PATH): ''
+    env(EXPO_ACCESS_TOKEN): ''
     apple.team_id: '%env(APPLE_TEAM_ID)%'
     apple.key_id: '%env(APPLE_KEY_ID)%'
     apple.private_key_path: '%env(APPLE_PRIVATE_KEY_PATH)%'
@@ -62,4 +63,4 @@ services:
 
     App\Service\ExpoPushService:
         arguments:
-            $expoAccessToken: '%env(default::EXPO_ACCESS_TOKEN)%'
+            $expoAccessToken: '%env(EXPO_ACCESS_TOKEN)%'

@@ -55,9 +55,12 @@ class AppleAuthService
                 return null;
             }
 
+            // Apple sends email_verified as a bool or as the string "true".
+            $emailVerified = filter_var($payloadArray['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
             return [
                 'sub' => $payloadArray['sub'],
-                'email' => $payloadArray['email'] ?? null,
+                'email' => $emailVerified ? ($payloadArray['email'] ?? null) : null,
             ];
         } catch (\Throwable) {
             return null;

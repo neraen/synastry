@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Entity\RefreshToken;
 use App\Service\AppleTokenService;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,6 +19,7 @@ class ProfileController extends AbstractController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private AppleTokenService $appleTokenService,
+        private LoggerInterface $logger,
         #[Autowire('%kernel.environment%')]
         private string $environment,
     ) {}
@@ -120,9 +122,10 @@ class ProfileController extends AbstractController
                 'message' => 'Account deleted successfully'
             ]);
         } catch (\Exception $e) {
+            $this->logger->error('Account deletion failed', ['userId' => $user->getId(), 'exception' => $e]);
+
             return $this->json([
                 'error' => 'Failed to delete account',
-                'message' => $e->getMessage()
             ], 500);
         }
     }

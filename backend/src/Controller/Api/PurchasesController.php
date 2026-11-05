@@ -129,7 +129,7 @@ class PurchasesController extends AbstractController
                 'success' => false,
                 'isPremium' => $user->isPremium(),
                 'entitlementActive' => false,
-                'error' => 'RC verification failed: ' . $e->getMessage(),
+                'error' => 'RC verification failed',
             ], Response::HTTP_BAD_GATEWAY);
         }
 

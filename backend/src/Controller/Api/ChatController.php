@@ -26,6 +26,9 @@ use Symfony\Contracts\Cache\ItemInterface;
 class ChatController extends AbstractController
 {
     private const DAILY_FREE_LIMIT = 5;
+    // Bounds what one request can send to the LLM (the app caps input at 1000 chars).
+    private const MAX_MESSAGE_LENGTH = 4000;
+    private const MAX_MESSAGES = 50;
     // Key planets to include in the context (most astrologically significant)
     private const CONTEXT_PLANETS = ['Sun', 'Moon', 'Ascendant', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
 
@@ -107,10 +110,10 @@ class ChatController extends AbstractController
 
         // Sanitize messages
         $messages = [];
-        foreach ($data['messages'] as $msg) {
+        foreach (array_slice($data['messages'], -self::MAX_MESSAGES) as $msg) {
             if (!isset($msg['role'], $msg['content'])) continue;
             if (!in_array($msg['role'], ['user', 'assistant'], true)) continue;
-            $content = trim((string) $msg['content']);
+            $content = mb_substr(trim((string) $msg['content']), 0, self::MAX_MESSAGE_LENGTH);
             if ($content === '') continue;
             $messages[] = ['role' => $msg['role'], 'content' => $content];
         }
@@ -301,10 +304,10 @@ class ChatController extends AbstractController
 
         // Sanitize messages
         $messages = [];
-        foreach ($data['messages'] as $msg) {
+        foreach (array_slice($data['messages'], -self::MAX_MESSAGES) as $msg) {
             if (!isset($msg['role'], $msg['content'])) continue;
             if (!in_array($msg['role'], ['user', 'assistant'], true)) continue;
-            $content = trim((string) $msg['content']);
+            $content = mb_substr(trim((string) $msg['content']), 0, self::MAX_MESSAGE_LENGTH);
             if ($content === '') continue;
             $messages[] = ['role' => $msg['role'], 'content' => $content];
         }

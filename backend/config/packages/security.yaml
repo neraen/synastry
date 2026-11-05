@@ -37,6 +37,8 @@ security:
         refresh:
             pattern: ^/api/token/refresh
             stateless: true
+            refresh_jwt:
+                check_path: /api/token/refresh
 
         # Registration endpoint - no auth required
         register:

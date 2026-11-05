@@ -70,7 +70,11 @@ class AstrologyServiceTest extends TestCase
             ->with($profile)
             ->willReturn($existingChart);
 
-        $this->astrologyAnalysisService->expects($this->never())->method('createCalculatorFromBirthProfile');
+        // The cached path only recomputes the house cusps, never the positions.
+        $calculatorMock = $this->createMock(PlanetaryCalculator::class);
+        $calculatorMock->expects($this->never())->method('getWheelPositionsForApi');
+        $calculatorMock->method('getHouseCusps')->willReturn([]);
+        $this->astrologyAnalysisService->method('createCalculatorFromBirthProfile')->willReturn($calculatorMock);
         $this->entityManager->expects($this->never())->method('persist');
 
         $result = $this->service->calculateNatalChart($user);
@@ -92,7 +96,7 @@ class AstrologyServiceTest extends TestCase
 
         $calculatorMock = $this->createMock(PlanetaryCalculator::class);
         $calculatorMock->expects($this->once())
-            ->method('getPlanetaryPositionsForApi')
+            ->method('getWheelPositionsForApi')
             ->willReturn(['Moon' => ['Sign' => 'Cancer']]);
 
         $this->astrologyAnalysisService->expects($this->once())
