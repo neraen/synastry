@@ -90,14 +90,14 @@ const sizeStyles: Record<ButtonSize, { container: ViewStyle; text: TextStyle }> 
         container: {
             height: layout.heights.buttonSmall,
             paddingHorizontal: spacing.lg,
-            borderRadius: borderRadius.buttonSmall,
+            borderRadius: borderRadius.button,
         },
         text: typography.buttonSmall,
     },
     default: {
         container: {
             height: layout.heights.button,
-            paddingHorizontal: spacing.buttonPaddingHorizontal,
+            paddingHorizontal: spacing.xl,
             borderRadius: borderRadius.button,
         },
         text: typography.button,
@@ -182,7 +182,7 @@ export function IconButton({
     icon,
     onPress,
     variant = 'default',
-    size = layout.touch.comfortable,
+    size = layout.heights.button,
     disabled = false,
     style,
     accessibilityLabel,

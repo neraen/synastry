@@ -80,12 +80,13 @@ export default function Login() {
             router.replace(loggedInUser.hasBirthProfile ? '/(tabs)/horoscope' : '/onboarding');
         } catch (err) {
             if (isErrorWithCode(err)) {
-                if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+                const { code } = err as { code: string };
+                if (code === statusCodes.SIGN_IN_CANCELLED) {
                     // User cancelled — do nothing
                     setGoogleLoading(false);
                     return;
                 }
-                if (err.code === statusCodes.IN_PROGRESS) {
+                if (code === statusCodes.IN_PROGRESS) {
                     setGoogleLoading(false);
                     return;
                 }

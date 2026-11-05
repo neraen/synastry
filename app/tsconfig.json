@@ -13,5 +13,17 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "_disabled",
+    "compat-v2",
+    "dist",
+    "example",
+    "miroir-v2",
+    "node_modules",
+    "refonte-miroir",
+    "screens",
+    "theme-astral",
+    "theme-natal-native"
   ]
 }

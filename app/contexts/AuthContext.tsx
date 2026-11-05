@@ -7,16 +7,15 @@ import {
     login as authLogin,
     register as authRegister,
     logout as authLogout,
-    deleteAccount as authDeleteAccount,
     getStoredUser,
     isAuthenticated as checkAuth,
-    fetchProfile,
 } from '@/services/auth';
 import {
     loginWithGoogle as oauthLoginWithGoogle,
     loginWithApple as oauthLoginWithApple,
 } from '@/services/oauth';
-import { onSessionExpired } from '@/services/sessionManager';
+import { authApi, onSessionExpired } from '@/services/sessionManager';
+import { PUSH_TOKEN_KEY, unregisterDevicePushToken } from '@/services/pushNotifications';
 import * as SecureStore from 'expo-secure-store';
 import { cacheInvalidatePrefix } from '@/services/cache';
 
@@ -101,6 +100,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         try {
             // Capture user id before clearing state so we can flush their cache
             const currentUserId = user?.id;
+            await unregisterDevicePushToken();
             await authLogout();
             if (currentUserId) {
                 await cacheInvalidatePrefix(`u${currentUserId}_`);
@@ -115,7 +115,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(true);
         try {
             const currentUserId = user?.id;
-            await authDeleteAccount();
+            // authApi, so an expired JWT is refreshed instead of failing the deletion.
+            await authApi.delete('/api/user/account');
+            await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY);
+            await authLogout();
             if (currentUserId) {
                 await cacheInvalidatePrefix(`u${currentUserId}_`);
             }
@@ -128,7 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const refreshUser = useCallback(async (): Promise<User | null> => {
         try {
             // Fetch fresh user data from the API
-            const freshUser = await fetchProfile();
+            const freshUser = await authApi.get<User>('/api/me');
             // Update local storage
             await SecureStore.setItemAsync('astromatch_user', JSON.stringify(freshUser));
             // Update state

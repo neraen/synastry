@@ -72,7 +72,13 @@ export async function tryRefreshToken(): Promise<string | null> {
             return response.token;
         } catch (error) {
             console.error('Token refresh failed:', error);
-            return null;
+            // Only a server refusal means the session is over. A network failure
+            // or a 5xx must surface as a plain error, not log the user out.
+            const status = (error as { status?: number }).status;
+            if (status !== undefined && status >= 400 && status < 500) {
+                return null;
+            }
+            throw error;
         } finally {
             isRefreshing = false;
             refreshPromise = null;

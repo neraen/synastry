@@ -786,7 +786,7 @@ function MirrorTabContent() {
                 target_year: res.target_year!,
                 natal_positions: res.natal_positions!,
                 transit_positions: res.transit_positions!,
-                aspects: res.aspects,
+                aspects: res.aspects ?? [],
                 global_intensity: res.global_intensity!,
             };
             mirrorTransitsCache.set(targetAge, data);
@@ -1205,7 +1205,7 @@ export default function TransitsScreen() {
 
     // Types present in this day (for filter pills)
     const presentTypes = useMemo(() => {
-        const types = new Set(allSelectedAspects.map(a => a.aspect_type));
+        const types = new Set<string>(allSelectedAspects.map(a => a.aspect_type));
         return Object.keys(ASPECT_COLORS).filter(t => types.has(t));
     }, [allSelectedAspects]);
 

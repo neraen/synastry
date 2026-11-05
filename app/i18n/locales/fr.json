@@ -64,7 +64,11 @@
     "cardSubtitle": "Choisissez comment vous connecter pour commencer.",
     "signInBtn": "Se connecter",
     "createAccountBtn": "Créer un compte",
-    "divider": "OU"
+    "divider": "OU",
+    "featureNatal": "Thème natal détaillé",
+    "featureCompat": "Compatibilité amoureuse",
+    "featureAI": "Lyra, astrologue IA",
+    "privacyNote": "En continuant, vous acceptez nos conditions d'utilisation."
   },
   "home": {
     "title": "Lunestia",
@@ -456,7 +460,21 @@
     "partnerPickerSubtitle": "Ajoute le thème natal de quelqu'un comme contexte de cette conversation.",
     "removePartner": "Retirer le partenaire",
     "noPartners": "Aucun thème disponible",
-    "noPartnersHint": "Lance une analyse de compatibilité pour ajouter le thème natal d'un partenaire comme contexte."
+    "noPartnersHint": "Lance une analyse de compatibilité pour ajouter le thème natal d'un partenaire comme contexte.",
+    "deleteSessionTitle": "Supprimer le chat",
+    "deleteSessionDesc": "Voulez-vous vraiment supprimer cette conversation ?",
+    "mockSession1": "Mon avenir sentimental dans 6 mois",
+    "mockSession2": "Transit de Saturne - Opportunité pro",
+    "mockSession3": "Compatibilité amoureuse avec Sarah",
+    "historyTitle": "Historique",
+    "noHistory": "Aucun historique",
+    "noHistoryDesc": "Sauvegardez vos conversations avec Lyra pour les retrouver ici.",
+    "lockHistoryTitle": "Historique verrouillé",
+    "lockHistoryDesc": "Sauvegardez vos conversations avec Lyra et reprenez-les à tout moment grâce à Lunestia Premium.",
+    "unlockHistoryCta": "Débloquer l'historique",
+    "saveChatTitle": "Sauvegarder la discussion",
+    "saveChatDesc": "Donnez un nom à cette discussion, ou laissez vide pour que l'IA en génère un.",
+    "savePlaceholder": "Ex: Ma vie pro..."
   },
   "signs": {
     "Aries": "Bélier",
@@ -502,7 +520,8 @@
       "square": "Carré",
       "sextile": "Sextile"
     },
-    "loadError": "Impossible de charger les transits"
+    "loadError": "Impossible de charger les transits",
+    "feedbackLabel": "Cette lecture résonne-t-elle ?"
   },
   "onboarding": {
     "rgpd": {
@@ -511,9 +530,18 @@
       "description": "Lunestia a besoin de quelques données personnelles pour fonctionner. Voici exactement ce que nous collectons et ce que nous en faisons.",
       "dataTitle": "Ce que nous collectons",
       "dataItems": [
-        { "title": "Ton adresse e-mail", "desc": "Collectée via Google ou Apple pour identifier ton compte." },
-        { "title": "Ton prénom", "desc": "Optionnel — utilisé uniquement pour personnaliser les messages de Lyra." },
-        { "title": "Tes données de naissance", "desc": "Date, heure et lieu — pour calculer ton thème natal et tes transits." }
+        {
+          "title": "Ton adresse e-mail",
+          "desc": "Collectée via Google ou Apple pour identifier ton compte."
+        },
+        {
+          "title": "Ton prénom",
+          "desc": "Optionnel — utilisé uniquement pour personnaliser les messages de Lyra."
+        },
+        {
+          "title": "Tes données de naissance",
+          "desc": "Date, heure et lieu — pour calculer ton thème natal et tes transits."
+        }
       ],
       "thirdParties": "Tes données de naissance sont transmises à OpenAI pour générer tes analyses astrologiques. Elles ne sont jamais revendues, jamais utilisées à des fins publicitaires, ni partagées avec un autre tiers.",
       "checkTerms": "J'accepte les conditions d'utilisation et la",
@@ -525,7 +553,12 @@
       "badge": "GUIDE INTÉGRÉ",
       "title": "L'aide est partout",
       "description": "Sur chaque page, un bouton ? te donne des explications sur ce que tu vois — symboles, scores, aspects, tout est décrypté.",
-      "mockPages": ["Thème natal", "Compatibilité", "Transits", "Miroir temporel"],
+      "mockPages": [
+        "Thème natal",
+        "Compatibilité",
+        "Transits",
+        "Miroir temporel"
+      ],
       "cta": "Compris !"
     },
     "birth": {

@@ -71,7 +71,7 @@ export function Screen({
     const contentContainerStyle: ViewStyle = {
         flexGrow: 1,
         paddingHorizontal: noPadding ? 0 : spacing.screenPadding,
-        paddingBottom: spacing.bottomSafeSpacing,
+        paddingBottom: insets.bottom + spacing.xl,
         ...contentStyle,
     };
 

@@ -132,7 +132,7 @@ export function ScoreRow({
         ? colors.gradients.primary
         : value >= 40
             ? colors.gradients.gold
-            : colors.gradients.fire;
+            : colors.gradients.love;
 
     return (
         <View style={[styles.scoreRow, style]}>

@@ -133,7 +133,8 @@ export default function ProfileTab() {
 
     if (!isLoading && (!isAuthenticated || !user)) return null;
 
-    const displayName = user ? (user.firstName || user.email.split('@')[0]) : '';
+    // Apple can hide the email: the backend then stores a technical placeholder.
+    const displayName = user && !user.email.endsWith('@oauth.local') ? user.email.split('@')[0] : '';
     const initials = displayName ? displayName.charAt(0).toUpperCase() : '';
     const signAvatar = user ? getSignAvatar(user.birthProfile?.birthDate, user.birthProfile?.gender) : undefined;
 

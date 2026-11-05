@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     },
     overlay: {
         ...StyleSheet.absoluteFill,
-        backgroundColor: colors.overlay.backdrop,
+        backgroundColor: colors.overlay.default,
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,

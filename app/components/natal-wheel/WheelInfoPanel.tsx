@@ -51,7 +51,7 @@ export function WheelInfoPanel({ model, selected, onSelect }: Props) {
                 <Text style={s.kicker}>Explore</Text>
                 <Text style={s.title}>Touche un élément</Text>
                 <Text style={s.sub}>
-                    Planètes, signes, maisons ou lignes d'aspect : touche pour voir le détail.
+                    Planètes, signes, maisons ou lignes d’aspect : touche pour voir le détail.
                 </Text>
                 <View style={s.pillRow}>
                     {sun && (

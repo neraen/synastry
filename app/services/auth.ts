@@ -175,25 +175,6 @@ export async function isAuthenticated(): Promise<boolean> {
 }
 
 /**
- * Delete user account permanently
- */
-export async function deleteAccount(): Promise<void> {
-    const token = await getToken();
-    if (!token) {
-        throw new Error('Not authenticated');
-    }
-
-    await api.delete('/api/user/account', {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    });
-
-    // Clear local auth data after successful deletion
-    await clearAuth();
-}
-
-/**
  * Make an authenticated API request
  */
 export async function authFetch<T>(

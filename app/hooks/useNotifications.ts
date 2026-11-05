@@ -6,10 +6,9 @@ import { isRunningInExpoGo } from 'expo';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { registerPushToken } from '@/services/pushNotifications';
+import { PUSH_TOKEN_KEY, registerPushToken } from '@/services/pushNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 
-const PUSH_TOKEN_KEY = 'lunestia_push_token';
 
 // Depuis SDK 55, le simple import d'expo-notifications lève une erreur dans
 // Expo Go Android (push retiré). On ne charge donc le module qu'en dehors de ce cas.
@@ -95,10 +94,8 @@ async function registerForPushNotifications(Notifications: typeof NotificationsM
         const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
         const token = tokenData.data;
 
-        // Check if token changed since last registration
-        const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
-        if (storedToken === token) return; // No change needed
-
+        // Always sent: the backend upserts, which also moves the token to the
+        // current account when another user signs in on this device.
         const platform: 'ios' | 'android' = Platform.OS === 'ios' ? 'ios' : 'android';
         await registerPushToken(token, platform);
 

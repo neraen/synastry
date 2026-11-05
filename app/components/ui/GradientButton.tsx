@@ -165,7 +165,7 @@ export function GradientButton({
                     </View>
                 ) : (
                     <LinearGradient
-                        colors={gradientColors as [string, string, ...string[]]}
+                        colors={gradientColors as unknown as [string, string, ...string[]]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={[styles.gradient, buttonStyle]}

@@ -5,7 +5,17 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    ignores: [
+      'dist/*',
+      '_disabled/*',
+      'compat-v2/*',
+      'example/*',
+      'miroir-v2/*',
+      'refonte-miroir/*',
+      'screens/*',
+      'theme-astral/*',
+      'theme-natal-native/*',
+    ],
   },
   {
     // Règles React Compiler activées par eslint-config-expo 57 : signalées en

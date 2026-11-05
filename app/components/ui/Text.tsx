@@ -17,7 +17,7 @@ const colorMap: Record<TextColor, string> = {
     secondary: colors.onSurfaceMuted,
     muted: colors.onSurfaceMuted,
     disabled: colors.outline,
-    inverse: colors.surface,
+    inverse: colors.surface.default,
     accent: colors.primary,
     error: colors.error,
     success: colors.secondary, // Using secondary as success fallback

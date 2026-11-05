@@ -2,7 +2,10 @@
  * Push notification backend API calls
  */
 
-import { api } from './api';
+import * as SecureStore from 'expo-secure-store';
+import { authApi as api } from './sessionManager';
+
+export const PUSH_TOKEN_KEY = 'lunestia_push_token';
 
 export interface NotificationPreferences {
     enabled: boolean;
@@ -19,6 +22,22 @@ export async function registerPushToken(token: string, platform: 'ios' | 'androi
 
 export async function deregisterPushToken(token: string): Promise<void> {
     await api.delete(`/api/push/token/${encodeURIComponent(token)}`);
+}
+
+/**
+ * Detaches this device from the current account. Must run while the session is
+ * still valid, otherwise the device keeps receiving the previous user's pushes.
+ * Best-effort: a failure must never block a logout.
+ */
+export async function unregisterDevicePushToken(): Promise<void> {
+    try {
+        const token = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
+        if (!token) return;
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY);
+        await deregisterPushToken(token);
+    } catch (error) {
+        console.warn('[Push] Failed to unregister token:', error);
+    }
 }
 
 export async function getNotificationPreferences(): Promise<NotificationPreferences | null> {

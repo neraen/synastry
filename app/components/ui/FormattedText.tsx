@@ -16,7 +16,7 @@ import { colors, spacing, fonts } from '@/theme';
 const GOLD: TextStyle = { color: colors.primary, fontFamily: fonts.body.bold };
 
 const HEADING: TextStyle = {
-    fontFamily: fonts.display.semiBold,
+    fontFamily: fonts.display.medium,
     fontSize: 16,
     color: colors.primary,
     lineHeight: 24,

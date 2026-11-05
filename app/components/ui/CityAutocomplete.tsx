@@ -45,7 +45,7 @@ interface CityAutocompleteProps {
     disabled?: boolean;
     style?: ViewStyle;
     /** Ref to the ancestor ScrollView — required for auto-scroll. */
-    scrollRef?: React.RefObject<ScrollView>;
+    scrollRef?: React.RefObject<ScrollView | null>;
     /** Current scroll offset of the ancestor ScrollView (updated via onScroll). */
     scrollYRef?: React.MutableRefObject<number>;
 }

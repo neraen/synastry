@@ -85,7 +85,7 @@ export function CompatibilityShareCard({
                 {/* Summary */}
                 {summary && (
                     <Text style={styles.summary} numberOfLines={2}>
-                        "{summary.slice(0, 90)}"
+                        &quot;{summary.slice(0, 90)}&quot;
                     </Text>
                 )}
 

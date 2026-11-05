@@ -120,7 +120,7 @@ export function LoaderZodiac({ size = 180, label = 'Tracé de la carte…' }: Lo
             width={size}
             height={size}
             viewBox="-100 -100 200 200"
-            overflow="visible"
+            {...({ overflow: 'visible' } as object)}
           >
             <Defs>
               {/* Diagonal linear gradient for the outer ring stroke */}

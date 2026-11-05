@@ -96,8 +96,8 @@ function HistoryCard({
 export default function HistoryTab() {
     const router = useRouter();
     const { t } = useTranslation();
-    const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
-    const userName = user?.firstName || 'Vous';
+    const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+    const userName = 'Vous';
 
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);

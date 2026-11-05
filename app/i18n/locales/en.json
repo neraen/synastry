@@ -64,7 +64,11 @@
     "cardSubtitle": "Choose how to connect and get started.",
     "signInBtn": "Log in",
     "createAccountBtn": "Create account",
-    "divider": "OR"
+    "divider": "OR",
+    "featureNatal": "Detailed birth chart",
+    "featureCompat": "Love compatibility",
+    "featureAI": "Lyra, AI astrologer",
+    "privacyNote": "By continuing, you accept our terms of use."
   },
   "home": {
     "title": "Lunestia",
@@ -456,7 +460,21 @@
     "partnerPickerSubtitle": "Add someone's natal chart as context for this conversation.",
     "removePartner": "Remove partner context",
     "noPartners": "No charts available",
-    "noPartnersHint": "Run a compatibility analysis first to add a partner's natal chart as context."
+    "noPartnersHint": "Run a compatibility analysis first to add a partner's natal chart as context.",
+    "deleteSessionTitle": "Delete chat",
+    "deleteSessionDesc": "Do you really want to delete this conversation?",
+    "mockSession1": "My love life in 6 months",
+    "mockSession2": "Saturn transit - Career opportunity",
+    "mockSession3": "Love compatibility with Sarah",
+    "historyTitle": "History",
+    "noHistory": "No history",
+    "noHistoryDesc": "Save your conversations with Lyra to find them here.",
+    "lockHistoryTitle": "History locked",
+    "lockHistoryDesc": "Save your conversations with Lyra and pick them up anytime with Lunestia Premium.",
+    "unlockHistoryCta": "Unlock history",
+    "saveChatTitle": "Save conversation",
+    "saveChatDesc": "Name this conversation, or leave it empty and the AI will generate a name.",
+    "savePlaceholder": "E.g. My career..."
   },
   "signs": {
     "Aries": "Aries",
@@ -502,7 +520,8 @@
       "square": "Square",
       "sextile": "Sextile"
     },
-    "loadError": "Unable to load transits"
+    "loadError": "Unable to load transits",
+    "feedbackLabel": "Does this reading resonate?"
   },
   "onboarding": {
     "rgpd": {
@@ -511,9 +530,18 @@
       "description": "Lunestia needs a few pieces of personal data to work. Here's exactly what we collect and what we do with it.",
       "dataTitle": "What we collect",
       "dataItems": [
-        { "title": "Your email address", "desc": "Collected via Google or Apple sign-in to identify your account." },
-        { "title": "Your first name", "desc": "Optional — used only to personalize messages from Lyra." },
-        { "title": "Your birth data", "desc": "Date, time, and city — to calculate your natal chart and transits." }
+        {
+          "title": "Your email address",
+          "desc": "Collected via Google or Apple sign-in to identify your account."
+        },
+        {
+          "title": "Your first name",
+          "desc": "Optional — used only to personalize messages from Lyra."
+        },
+        {
+          "title": "Your birth data",
+          "desc": "Date, time, and city — to calculate your natal chart and transits."
+        }
       ],
       "thirdParties": "Your birth data is transmitted to OpenAI to generate your astrological analyses. It is never sold, never used for advertising, and never shared with any other third party.",
       "checkTerms": "I accept the terms of use and the",
@@ -525,7 +553,12 @@
       "badge": "BUILT-IN GUIDE",
       "title": "Help is everywhere",
       "description": "On every page, a ? button gives you explanations for what you're seeing — symbols, scores, aspects, all decoded.",
-      "mockPages": ["Natal chart", "Compatibility", "Transits", "Time mirror"],
+      "mockPages": [
+        "Natal chart",
+        "Compatibility",
+        "Transits",
+        "Time mirror"
+      ],
       "cta": "Got it!"
     },
     "birth": {

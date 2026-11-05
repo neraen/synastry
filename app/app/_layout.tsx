@@ -138,18 +138,15 @@ export default function RootLayout() {
     useEffect(() => {
         initApiConfig();
 
-        // Catch unhandled promise rejections so they don't silently crash the app
-        const handler = (event: { reason?: unknown }) => {
-            console.error('[UnhandledRejection]', event.reason);
-        };
+        // Log, then hand over to the default handler: replacing it would leave a
+        // frozen app after a fatal error, and hide the crash from store reports.
         // @ts-ignore
-        if (typeof global !== 'undefined') {
-            // @ts-ignore
-            global.ErrorUtils?.setGlobalHandler?.((error: Error, isFatal: boolean) => {
-                console.error('[GlobalError]', isFatal ? 'FATAL' : 'non-fatal', error?.message, error?.stack);
-            });
-        }
-        return () => {};
+        const errorUtils = global.ErrorUtils;
+        const defaultHandler = errorUtils?.getGlobalHandler?.();
+        errorUtils?.setGlobalHandler?.((error: Error, isFatal?: boolean) => {
+            console.error('[GlobalError]', isFatal ? 'FATAL' : 'non-fatal', error?.message, error?.stack);
+            defaultHandler?.(error, isFatal);
+        });
     }, []);
 
     useEffect(() => {

@@ -1097,10 +1097,10 @@ export default function OnboardingScreen() {
     // setStep() call (which would compete with the transition animation).
     const screens = useMemo(
         () => [
-            <StepRGPD onContinue={() => goTo(1)} />,
-            <StepGuide onContinue={() => goTo(2)} />,
-            <StepBirthProfile onContinue={() => goTo(3)} onSkip={skipToApp} />,
-            <StepDone onFinish={skipToApp} />,
+            <StepRGPD key="rgpd" onContinue={() => goTo(1)} />,
+            <StepGuide key="guide" onContinue={() => goTo(2)} />,
+            <StepBirthProfile key="birth" onContinue={() => goTo(3)} onSkip={skipToApp} />,
+            <StepDone key="done" onFinish={skipToApp} />,
         ],
         [goTo, skipToApp],
     );

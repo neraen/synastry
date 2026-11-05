@@ -154,7 +154,7 @@ export async function resetPurchasesUser(): Promise<void> {
 export async function getOffering(): Promise<Offering | null> {
     if (!configured) return null;
     try {
-        const offerings = await Purchases.getOfferings();
+        const offerings = await Purchases!.getOfferings();
         const current = offerings.current;
 
         if (!current) return null;
@@ -191,7 +191,7 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseRe
         } catch {
             // non-fatal
         }
-        const { customerInfo } = await Purchases.purchasePackage(pkg);
+        const { customerInfo } = await Purchases!.purchasePackage(pkg);
         return {
             success: true,
             isPremium: isPremiumFromCustomerInfo(customerInfo),
@@ -216,7 +216,7 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseRe
 export async function restorePurchases(): Promise<PurchaseResult> {
     if (!configured) return { success: false, isPremium: false, error: 'Purchases not available' };
     try {
-        const customerInfo = await Purchases.restorePurchases();
+        const customerInfo = await Purchases!.restorePurchases();
         const isPremium = isPremiumFromCustomerInfo(customerInfo);
         return {
             success: true,
@@ -240,7 +240,7 @@ export async function restorePurchases(): Promise<PurchaseResult> {
 export async function checkPremiumStatus(): Promise<boolean> {
     if (!configured) return false;
     try {
-        const customerInfo = await Purchases.getCustomerInfo();
+        const customerInfo = await Purchases!.getCustomerInfo();
         return isPremiumFromCustomerInfo(customerInfo);
     } catch {
         return false;

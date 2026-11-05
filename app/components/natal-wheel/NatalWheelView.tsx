@@ -128,7 +128,7 @@ export function NatalWheelView({ positions, houseCusps }: Props) {
             {/* ── Titre ───────────────────────────────────────────────────── */}
             <Text style={s.title}>Votre carte du ciel</Text>
             <Text style={s.subtitle}>
-                Touchez les planètes, signes, maisons ou lignes d'aspect pour explorer leur signification.
+                Touchez les planètes, signes, maisons ou lignes d’aspect pour explorer leur signification.
             </Text>
 
             {/* ── Infos de naissance ──────────────────────────────────────── */}

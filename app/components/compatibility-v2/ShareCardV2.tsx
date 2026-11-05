@@ -269,7 +269,7 @@ export function ShareCardPageV2({ data }: PageProps) {
                         </Pressable>
                     </View>
 
-                    <Text style={styles.subtitle}>Choisis un format — ta carte s'ouvre dans le menu de partage, la légende est copiée.</Text>
+                    <Text style={styles.subtitle}>Choisis un format — ta carte s’ouvre dans le menu de partage, la légende est copiée.</Text>
 
                     {/* Format tabs */}
                     <View style={styles.formatTabs}>
