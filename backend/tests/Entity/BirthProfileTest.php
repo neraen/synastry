@@ -93,4 +93,33 @@ class BirthProfileTest extends TestCase
         $this->assertEquals(0, $data['seconds']);
         $this->assertEquals(0.0, $data['timezone']); // default 0
     }
+
+    public function testSkySignatureChangesOnlyWithBirthData(): void
+    {
+        $profile = new BirthProfile();
+        $profile->setBirthDate(new \DateTime('1994-03-14'));
+        $profile->setBirthTime(new \DateTime('21:30'));
+        $profile->setLatitude('43.6047');
+        $profile->setLongitude('1.4442');
+        $profile->setTimezone('1');
+        $before = $profile->skySignature();
+
+        $profile->setFirstName('Autre prénom');
+        $this->assertSame($before, $profile->skySignature());
+
+        $profile->setBirthTime(new \DateTime('21:45'));
+        $this->assertNotSame($before, $profile->skySignature());
+    }
+
+    public function testResetSkyProgress(): void
+    {
+        $profile = new BirthProfile();
+        $profile->setSkyDiscovered(1023);
+        $profile->setConstellationName('Vega');
+
+        $profile->resetSkyProgress();
+
+        $this->assertSame(0, $profile->getSkyDiscovered());
+        $this->assertNull($profile->getConstellationName());
+    }
 }

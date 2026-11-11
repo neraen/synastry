@@ -105,6 +105,95 @@ class AstrologyService
         ];
     }
 
+    /** Heure locale retenue pour le ciel quand l'heure de naissance est inconnue. */
+    private const SKY_DEFAULT_TIME = '22:00:00';
+
+    /**
+     * Ciel de naissance (« Ton Ciel ») : position de chaque astre sur la voûte
+     * du lieu de naissance. Pur calcul, rien n'est stocké.
+     * Sans heure de naissance, on montre le ciel de 22h ce soir-là et on le signale.
+     */
+    public function getBirthSky(User $user): array
+    {
+        $birthProfile = $user->getBirthProfile();
+
+        if (!$birthProfile) {
+            return [
+                'success' => false,
+                'error' => 'No birth profile found for this user',
+            ];
+        }
+
+        try {
+            $sky = $this->astrologyAnalysisService
+                ->createCalculatorFromBirthProfile($birthProfile, self::SKY_DEFAULT_TIME)
+                ->getSkyForApi();
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Calculation error: ' . $e->getMessage(),
+            ];
+        }
+
+        $birthTime = $birthProfile->getBirthTime();
+
+        return [
+            'success' => true,
+            'sky' => $sky + [
+                'birthDate' => $birthProfile->getBirthDate()?->format('Y-m-d'),
+                'birthTime' => $birthTime?->format('H:i') ?? substr(self::SKY_DEFAULT_TIME, 0, 5),
+                'timeKnown' => $birthTime !== null,
+                'city' => $birthProfile->getBirthCity(),
+                'discovered' => $birthProfile->getSkyDiscovered(),
+                'constellationName' => $birthProfile->getConstellationName(),
+            ],
+        ];
+    }
+
+    /** Dix astres à trouver : tous les bits à 1. */
+    private const SKY_ALL_FOUND = 0b1111111111;
+    private const CONSTELLATION_NAME_MAX = 40;
+
+    /**
+     * Enregistre l'avancement de « Ton Ciel ».
+     * - $discovered : astres trouvés (masque de bits) ; on ne fait qu'en ajouter,
+     *   un appel en retard ne peut donc pas effacer une découverte.
+     * - $name : nom de la constellation, accepté une fois les dix astres trouvés.
+     */
+    public function saveSkyProgress(User $user, ?int $discovered, ?string $name): array
+    {
+        $birthProfile = $user->getBirthProfile();
+
+        if (!$birthProfile) {
+            return ['success' => false, 'error' => 'No birth profile found for this user'];
+        }
+
+        if ($discovered !== null) {
+            $birthProfile->setSkyDiscovered(
+                ($birthProfile->getSkyDiscovered() | $discovered) & self::SKY_ALL_FOUND
+            );
+        }
+
+        if ($name !== null) {
+            $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+            if ($name === '') {
+                return ['success' => false, 'error' => 'Constellation name cannot be empty'];
+            }
+            if ($birthProfile->getSkyDiscovered() !== self::SKY_ALL_FOUND) {
+                return ['success' => false, 'error' => 'Find all ten bodies before naming the constellation'];
+            }
+            $birthProfile->setConstellationName(mb_substr($name, 0, self::CONSTELLATION_NAME_MAX));
+        }
+
+        $this->entityManager->flush();
+
+        return [
+            'success' => true,
+            'discovered' => $birthProfile->getSkyDiscovered(),
+            'constellationName' => $birthProfile->getConstellationName(),
+        ];
+    }
+
     /**
      * Cuspides Placidus pour un profil de naissance (pur calcul, jamais caché en BDD).
      * Retourne null si le calcul échoue — la roue côté app retombe sur des maisons égales.
@@ -614,22 +703,12 @@ class AstrologyService
     }
 
     /**
-     * Recalculate deterministic dimension scores for a v2 history record
-     * using the stored partner birth data and the user's birth profile.
+     * Reconstruit le calculateur d'un partenaire à partir de ses données de
+     * naissance enregistrées dans l'historique (heure locale → UTC).
      */
-    private function recalculateDimensionScores(User $user, SynastryHistory $history): ?array
+    private function createPartnerCalculator(SynastryHistory $history): PlanetaryCalculator
     {
-        $userProfile = $user->getBirthProfile();
-        if (!$userProfile) {
-            return null;
-        }
-
         $partnerBirthData = $history->getPartnerBirthData();
-        if (empty($partnerBirthData)) {
-            return null;
-        }
-
-        $userCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($userProfile);
 
         $partnerDate = sprintf('%04d-%02d-%02d',
             $partnerBirthData['year'],
@@ -655,6 +734,63 @@ class AstrologyService
             (float) $partnerBirthData['longitude'],
             $history->getPartnerName()
         );
+
+        return $partnerCalc;
+    }
+
+    /**
+     * Ciel à deux : positions des astres d'un partenaire (historique de synastrie),
+     * à superposer au ciel de naissance de l'utilisateur.
+     */
+    public function getPartnerSky(User $user, int $historyId): array
+    {
+        $history = $this->synastryHistoryRepository->findOneByUserAndId($user, $historyId);
+
+        if (!$history || empty($history->getPartnerBirthData())) {
+            return [
+                'success' => false,
+                'error' => 'History entry not found',
+            ];
+        }
+
+        try {
+            $sky = $this->createPartnerCalculator($history)->getSkyForApi();
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'error' => 'Calculation error: ' . $e->getMessage(),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'partner' => [
+                'historyId' => $history->getId(),
+                'name' => $history->getPartnerName(),
+                'planets' => $sky['planets'],
+            ],
+        ];
+    }
+
+    /**
+     * Recalculate deterministic dimension scores for a v2 history record
+     * using the stored partner birth data and the user's birth profile.
+     */
+    private function recalculateDimensionScores(User $user, SynastryHistory $history): ?array
+    {
+        $userProfile = $user->getBirthProfile();
+        if (!$userProfile) {
+            return null;
+        }
+
+        $partnerBirthData = $history->getPartnerBirthData();
+        if (empty($partnerBirthData)) {
+            return null;
+        }
+
+        $userCalc = $this->astrologyAnalysisService->createCalculatorFromBirthProfile($userProfile);
+
+        $partnerCalc = $this->createPartnerCalculator($history);
 
         return $userCalc->calculateCompatibilityScore($partnerCalc);
     }

@@ -77,7 +77,7 @@ export default function Login() {
                 throw new Error(t('auth.errors.loginFailed'));
             }
             const loggedInUser = await authLoginWithGoogle(idToken);
-            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)/horoscope' : '/onboarding');
+            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)/sky' : '/onboarding');
         } catch (err) {
             if (isErrorWithCode(err)) {
                 const { code } = err as { code: string };
@@ -117,7 +117,7 @@ export default function Login() {
         setError(undefined);
         try {
             await authLogin({ email: devEmail, password: devPassword });
-            router.replace('/(tabs)/horoscope');
+            router.replace('/(tabs)/sky');
         } catch (err) {
             setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
         } finally {
@@ -149,7 +149,7 @@ export default function Login() {
                 },
                 credential.authorizationCode ?? undefined,
             );
-            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)/horoscope' : '/onboarding');
+            router.replace(loggedInUser.hasBirthProfile ? '/(tabs)/sky' : '/onboarding');
         } catch (err: any) {
             if (err?.code !== 'ERR_REQUEST_CANCELED') {
                 setError(err instanceof Error ? err.message : t('auth.errors.loginFailed'));
@@ -160,9 +160,9 @@ export default function Login() {
     }
 
     const features = [
-        { icon: 'moon' as const, label: t('login.featureNatal', { defaultValue: 'Thème natal détaillé' }) },
-        { icon: 'heart' as const, label: t('login.featureCompat', { defaultValue: 'Compatibilité amoureuse' }) },
-        { icon: 'message-circle' as const, label: t('login.featureAI', { defaultValue: 'Lyra, astrologue IA' }) },
+        { icon: 'moon' as const, label: t('login.featureSky', { defaultValue: 'Votre ciel de naissance' }) },
+        { icon: 'star' as const, label: t('login.featureConstellation', { defaultValue: 'Votre constellation' }) },
+        { icon: 'users' as const, label: t('login.featureDuo', { defaultValue: 'Ciel à deux' }) },
     ];
 
     return (

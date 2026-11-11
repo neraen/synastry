@@ -83,6 +83,9 @@ class BirthProfileController extends AbstractController
             $isNew = true;
         }
 
+        // Ton Ciel : on retient le ciel actuel pour savoir s'il change.
+        $skyBefore = $isNew ? null : $profile->skySignature();
+
         // Update profile data
         if (isset($data['firstName'])) {
             $profile->setFirstName($data['firstName']);
@@ -170,6 +173,11 @@ class BirthProfileController extends AbstractController
                 'error' => 'Validation failed',
                 'details' => $errorMessages
             ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Un autre ciel de naissance : la chasse aux astres et la constellation repartent de zéro.
+        if ($skyBefore !== null && $skyBefore !== $profile->skySignature()) {
+            $profile->resetSkyProgress();
         }
 
         // Invalidate cached natal chart when profile is updated

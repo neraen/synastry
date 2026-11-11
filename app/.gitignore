@@ -71,3 +71,6 @@ AuthKey_*.p8
 .bundle/
 vendor/bundle/
 Gemfile.lock
+
+# Moteur Skia du navigateur, copié de node_modules pour l'aperçu web local
+public/canvaskit.wasm

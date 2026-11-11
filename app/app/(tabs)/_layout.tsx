@@ -66,6 +66,14 @@ export default function TabsLayout() {
             <Tabs.Screen name="index" options={{ href: null, headerShown: false }} />
             <Tabs.Screen name="explore" options={{ href: null }} />
             <Tabs.Screen
+                name="sky"
+                options={{
+                    tabBarIcon: ({ focused }) => (
+                        <TabIcon name="moon" focused={focused} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
                 name="daily-horoscope"
                 options={{
                     tabBarIcon: ({ focused }) => (

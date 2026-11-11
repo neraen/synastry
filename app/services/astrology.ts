@@ -229,6 +229,78 @@ export interface MoodResponse {
     error?: string;
 }
 
+// ─── Ton Ciel : ciel de naissance ─────────────────────────────────────────────
+
+export interface BirthSky {
+    /** Instant de naissance en jour julien (UTC) */
+    julianDay: number;
+    latitude: number;
+    longitude: number;
+    /** Temps sidéral local en degrés */
+    siderealTime: number;
+    /** Longitude et latitude écliptiques de chaque astre, en degrés */
+    planets: Record<string, { lon: number; lat: number }>;
+    /** Élongation Lune–Soleil : 0° nouvelle lune, 180° pleine lune */
+    moonElongation: number;
+    moonIllumination: number;
+    birthDate: string;
+    birthTime: string;
+    /** false : heure de naissance inconnue, le ciel est celui de `birthTime` par défaut */
+    timeKnown: boolean;
+    city: string;
+    /** Astres déjà trouvés dans la chasse (bit i = astre i) */
+    discovered: number;
+    constellationName: string | null;
+}
+
+export interface BirthSkyResponse {
+    success: boolean;
+    sky?: BirthSky;
+    error?: string;
+}
+
+/**
+ * Ciel de naissance de l'utilisateur (positions des astres sur la voûte céleste)
+ */
+export async function getBirthSky(): Promise<BirthSkyResponse> {
+    return authApi.get<BirthSkyResponse>('/api/astrology/sky');
+}
+
+export interface SkyProgressResponse {
+    success?: boolean;
+    discovered?: number;
+    constellationName?: string | null;
+    error?: string;
+}
+
+/**
+ * Enregistre l'avancement de Ton Ciel : astres trouvés et/ou nom de la constellation.
+ * Le serveur ne fait qu'ajouter des découvertes : renvoyer le masque complet est sans risque.
+ */
+export async function saveSkyProgress(
+    progress: { discovered?: number; constellationName?: string },
+): Promise<SkyProgressResponse> {
+    return authApi.put<SkyProgressResponse>('/api/astrology/sky/progress', progress);
+}
+
+export interface PartnerSkyResponse {
+    success?: boolean;
+    partner?: {
+        historyId: number;
+        name: string;
+        /** Longitude et latitude écliptiques de chaque astre du partenaire, en degrés */
+        planets: Record<string, { lon: number; lat: number }>;
+    };
+    error?: string;
+}
+
+/**
+ * Ciel à deux : astres d'un partenaire de l'historique de compatibilité.
+ */
+export async function getPartnerSky(historyId: number): Promise<PartnerSkyResponse> {
+    return authApi.get<PartnerSkyResponse>(`/api/astrology/sky/partner/${historyId}`);
+}
+
 /**
  * Get current user's natal chart
  */

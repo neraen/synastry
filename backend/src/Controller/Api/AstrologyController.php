@@ -84,6 +84,80 @@ class AstrologyController extends AbstractController
     }
 
     /**
+     * Ciel de naissance : positions des astres sur la voûte céleste (« Ton Ciel »)
+     */
+    #[Route('/sky', name: 'api_birth_sky', methods: ['GET'])]
+    public function getBirthSky(): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        if (!$user->hasBirthProfile()) {
+            return $this->json([
+                'error' => 'Please complete your birth profile first'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $result = $this->astrologyService->getBirthSky($user);
+
+        if (!$result['success']) {
+            return $this->json([
+                'error' => $result['error']
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return $this->json($result);
+    }
+
+    /**
+     * Ton Ciel : enregistre les astres trouvés et/ou le nom de la constellation
+     */
+    #[Route('/sky/progress', name: 'api_birth_sky_progress', methods: ['PUT'])]
+    public function saveSkyProgress(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        $data = json_decode($request->getContent(), true);
+
+        if (!is_array($data)) {
+            return $this->json(['error' => 'Invalid JSON payload'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $discovered = $data['discovered'] ?? null;
+        $name = $data['constellationName'] ?? null;
+
+        if (($discovered !== null && !is_int($discovered)) || ($name !== null && !is_string($name))) {
+            return $this->json(['error' => 'Invalid payload'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $result = $this->astrologyService->saveSkyProgress($user, $discovered, $name);
+
+        if (!$result['success']) {
+            return $this->json(['error' => $result['error']], Response::HTTP_BAD_REQUEST);
+        }
+
+        return $this->json($result);
+    }
+
+    /**
+     * Ciel à deux : astres d'un partenaire de l'historique, à superposer à son propre ciel
+     */
+    #[Route('/sky/partner/{historyId}', name: 'api_partner_sky', methods: ['GET'], requirements: ['historyId' => '\\d+'])]
+    public function getPartnerSky(int $historyId): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $result = $this->astrologyService->getPartnerSky($user, $historyId);
+
+        if (!$result['success']) {
+            return $this->json(['error' => $result['error']], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json($result);
+    }
+
+    /**
      * Get short personality summary (Sun, Moon, Ascendant) — free, cached 90 days
      */
     #[Route('/natal-chart/summary', name: 'api_natal_chart_summary', methods: ['GET'])]

@@ -57,6 +57,14 @@ class BirthProfile
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $timezoneName = null;
 
+    /** Ton Ciel : astres déjà trouvés dans le ciel de naissance (bit i = astre i). */
+    #[ORM\Column(type: Types::SMALLINT, options: ['default' => 0])]
+    private int $skyDiscovered = 0;
+
+    /** Ton Ciel : nom donné par l'utilisateur à sa constellation. */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $constellationName = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $createdAt = null;
 
@@ -192,6 +200,50 @@ class BirthProfile
     public function setTimezoneName(?string $timezoneName): static
     {
         $this->timezoneName = $timezoneName;
+        return $this;
+    }
+
+    public function getSkyDiscovered(): int
+    {
+        return $this->skyDiscovered;
+    }
+
+    public function setSkyDiscovered(int $skyDiscovered): static
+    {
+        $this->skyDiscovered = $skyDiscovered;
+        return $this;
+    }
+
+    public function getConstellationName(): ?string
+    {
+        return $this->constellationName;
+    }
+
+    public function setConstellationName(?string $constellationName): static
+    {
+        $this->constellationName = $constellationName;
+        return $this;
+    }
+
+    /**
+     * Ce qui détermine le ciel de naissance. Si cette empreinte change, le ciel
+     * n'est plus le même : la chasse et la constellation repartent de zéro.
+     */
+    public function skySignature(): string
+    {
+        return implode('|', [
+            $this->birthDate?->format('Y-m-d'),
+            $this->birthTime?->format('H:i'),
+            $this->latitude !== null ? round((float) $this->latitude, 4) : '',
+            $this->longitude !== null ? round((float) $this->longitude, 4) : '',
+            $this->timezone !== null ? (float) $this->timezone : '',
+        ]);
+    }
+
+    public function resetSkyProgress(): static
+    {
+        $this->skyDiscovered = 0;
+        $this->constellationName = null;
         return $this;
     }
 

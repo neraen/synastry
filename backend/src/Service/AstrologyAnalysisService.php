@@ -88,16 +88,16 @@ class AstrologyAnalysisService
      * Public wrapper — allows other services (e.g. MirrorService) to build a
      * natal PlanetaryCalculator without duplicating the UTC-conversion logic.
      */
-    public function createCalculatorFromBirthProfile(BirthProfile $profile): PlanetaryCalculator
+    public function createCalculatorFromBirthProfile(BirthProfile $profile, string $defaultTime = '12:00:00'): PlanetaryCalculator
     {
-        return $this->createCalculatorFromProfile($profile);
+        return $this->createCalculatorFromProfile($profile, $defaultTime);
     }
 
     /**
      * Create PlanetaryCalculator from BirthProfile
      * Converts local birth time to UTC using the timezone offset
      */
-    private function createCalculatorFromProfile(BirthProfile $profile): PlanetaryCalculator
+    private function createCalculatorFromProfile(BirthProfile $profile, string $defaultTime = '12:00:00'): PlanetaryCalculator
     {
         $birthDate = $profile->getBirthDate();
         $birthTime = $profile->getBirthTime();
@@ -105,7 +105,7 @@ class AstrologyAnalysisService
 
         // Combine date and time into a DateTime object
         $dateStr = $birthDate->format('Y-m-d');
-        $timeStr = $birthTime ? $birthTime->format('H:i:s') : '12:00:00';
+        $timeStr = $birthTime ? $birthTime->format('H:i:s') : $defaultTime;
 
         // Create DateTime with local time
         $localDateTime = new \DateTime("$dateStr $timeStr");

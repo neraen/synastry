@@ -406,6 +406,48 @@ class PlanetaryCalculator
     }
 
     /**
+     * Latitude écliptique (degrés) d'un astre. Le Soleil est par définition sur
+     * l'écliptique ; les planètes s'en écartent de quelques degrés, Pluton jusqu'à 17°.
+     */
+    public function getEclipticLatitude(string $name): float
+    {
+        return match ($name) {
+            'Sun'   => 0.0,
+            'Moon'  => $this->getMoonLatitude(),
+            default => $this->geocentricEcliptic($name)['lat'],
+        };
+    }
+
+    /**
+     * Données du « ciel de naissance » : de quoi replacer chaque astre sur la
+     * voûte céleste du lieu (l'app fait la projection). Pur calcul, aucun effet
+     * sur les pipelines horoscope / transits / synastrie.
+     */
+    public function getSkyForApi(): array
+    {
+        $planets = [];
+        foreach ($this->getAllPlanets() as $name => $data) {
+            $planets[$name] = [
+                'lon' => round($data['longitude'], 4),
+                'lat' => round($this->getEclipticLatitude($name), 4),
+            ];
+        }
+
+        // Élongation Lune–Soleil : 0° nouvelle lune, 180° pleine lune.
+        $elongation = $this->normDeg($planets['Moon']['lon'] - $planets['Sun']['lon']);
+
+        return [
+            'julianDay'      => round($this->julianDay, 6),
+            'latitude'       => $this->latitude,
+            'longitude'      => $this->longitude,
+            'siderealTime'   => round($this->getLocalSiderealTime(), 4),
+            'planets'        => $planets,
+            'moonElongation' => round($elongation, 2),
+            'moonIllumination' => round((1 - cos(deg2rad($elongation))) / 2, 3),
+        ];
+    }
+
+    /**
      * Cuspides des 12 maisons (Placidus), index 0 = maison 1 (= ASC).
      */
     public function getHouseCusps(): array
@@ -730,20 +772,7 @@ PROMPT;
 
     public function getMoon(): array
     {
-        $T  = $this->T;
-
-        // Éléments lunaires fondamentaux
-        $Lp = 218.3164477 + 481267.88123421 * $T - 0.0015786 * $T * $T;
-        $D  = 297.8501921 + 445267.1114034  * $T - 0.0018819 * $T * $T;
-        $M  = 357.5291092 +  35999.0502909  * $T - 0.0001536 * $T * $T;
-        $Mp = 134.9633964 + 477198.8675055  * $T + 0.0087414 * $T * $T;
-        $F  =  93.2720950 + 483202.0175233  * $T - 0.0036539 * $T * $T;
-
-        $Lp = $this->normDeg($Lp);
-        $D  = deg2rad($this->normDeg($D));
-        $M  = deg2rad($this->normDeg($M));
-        $Mp = deg2rad($this->normDeg($Mp));
-        $F  = deg2rad($this->normDeg($F));
+        [$Lp, $D, $M, $Mp, $F] = $this->lunarArguments();
 
         // Termes de longitude (principaux, Meeus Table 47.a)
         $sumL = 6288774 * sin($Mp)
@@ -777,11 +806,63 @@ PROMPT;
         );
     }
 
+    /**
+     * Arguments lunaires fondamentaux (Meeus ch. 47) : longitude moyenne Lp en
+     * degrés, puis D, M, Mp, F en radians.
+     *
+     * @return array{0: float, 1: float, 2: float, 3: float, 4: float}
+     */
+    private function lunarArguments(): array
+    {
+        $T  = $this->T;
+
+        $Lp = 218.3164477 + 481267.88123421 * $T - 0.0015786 * $T * $T;
+        $D  = 297.8501921 + 445267.1114034  * $T - 0.0018819 * $T * $T;
+        $M  = 357.5291092 +  35999.0502909  * $T - 0.0001536 * $T * $T;
+        $Mp = 134.9633964 + 477198.8675055  * $T + 0.0087414 * $T * $T;
+        $F  =  93.2720950 + 483202.0175233  * $T - 0.0036539 * $T * $T;
+
+        return [
+            $this->normDeg($Lp),
+            deg2rad($this->normDeg($D)),
+            deg2rad($this->normDeg($M)),
+            deg2rad($this->normDeg($Mp)),
+            deg2rad($this->normDeg($F)),
+        ];
+    }
+
+    /**
+     * Latitude écliptique de la Lune en degrés (termes principaux, Meeus Table 47.b).
+     * Précision ~0,05°, largement suffisante pour placer la Lune dans le ciel.
+     */
+    public function getMoonLatitude(): float
+    {
+        [, $D, , $Mp, $F] = $this->lunarArguments();
+
+        $sumB = 5128122 * sin($F)
+            +  280602 * sin($Mp + $F)
+            +  277693 * sin($Mp - $F)
+            +  173237 * sin(2*$D - $F)
+            +   55413 * sin(2*$D - $Mp + $F)
+            +   46271 * sin(2*$D - $Mp - $F)
+            +   32573 * sin(2*$D + $F)
+            +   17198 * sin(2*$Mp + $F)
+            +    9266 * sin(2*$D + $Mp - $F)
+            +    8822 * sin(2*$Mp - $F);
+
+        return $sumB / 1000000.0;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // PLANÈTES (Mercure → Neptune) — méthode générique VSOP87 simplifiée
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function getPlanet(string $name): array
+    /**
+     * Longitude et latitude écliptiques géocentriques d'une planète, en degrés.
+     *
+     * @return array{lon: float, lat: float}
+     */
+    private function geocentricEcliptic(string $name): array
     {
         $el = self::ORBITAL_ELEMENTS[$name];
         $T  = $this->T;
@@ -822,8 +903,15 @@ PROMPT;
         $yg = $yh + $ys;
         $zg = $zh;
 
-        // Longitude écliptique géocentrique
-        $lon = $this->normDeg(rad2deg(atan2($yg, $xg)));
+        return [
+            'lon' => $this->normDeg(rad2deg(atan2($yg, $xg))),
+            'lat' => rad2deg(atan2($zg, sqrt($xg * $xg + $yg * $yg))),
+        ];
+    }
+
+    public function getPlanet(string $name): array
+    {
+        $lon = $this->geocentricEcliptic($name)['lon'];
 
         // Rétrograde : compare avec position J+1
         $retrograde = $this->isRetrograde($name);

@@ -56,6 +56,31 @@ const colors = {
         aspect: '#d2b45a',     // géométrie / or
     },
 
+    // Ciel de naissance (planétarium) : teintes d'étoiles par température + astres
+    sky: {
+        zenith: '#0b0420',
+        starBlue: '#b9ccff',
+        starWhite: '#f4f0ff',
+        starWarm: '#ffe2b0',
+        starRed: '#ffb89a',
+        horizon: '#c8bfff',
+        constellation: '#e9c349',
+        hidden: '#e9c349',
+        companion: '#8fd3ff',
+        planets: {
+            Sun: '#ffd76a',
+            Moon: '#e6e9ff',
+            Mercury: '#9fd8e8',
+            Venus: '#f6b6d0',
+            Mars: '#ff8a70',
+            Jupiter: '#f1c58c',
+            Saturn: '#d9c98a',
+            Uranus: '#8fe3dc',
+            Neptune: '#8aa8ff',
+            Pluto: '#c79bf2',
+        },
+    },
+
     // ==========================================================================
     // LEGACY COMPATIBILITY (maps old nested structure to new flat tokens)
     // TODO: Migrate components to use flat tokens, then remove this section

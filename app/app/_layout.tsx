@@ -177,6 +177,7 @@ export default function RootLayout() {
                         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
                         <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="share-card-v2" options={{ headerShown: false, presentation: 'modal' }} />
+                        <Stack.Screen name="sky-prototype" options={{ headerShown: false, gestureEnabled: false }} />
                         {/* Legal Screens */}
                         <Stack.Screen name="privacy-policy" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="terms-of-service" options={{ headerShown: false, presentation: 'modal' }} />
